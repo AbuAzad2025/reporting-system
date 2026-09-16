@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{% if tpl %}تعديل قالب{% else %}قالب جديد{% endif %}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto bg-white rounded-3xl shadow p-6">
+  <h1 class="font-extrabold text-lg text-navy">{% if tpl %}✏️ تعديل «{{ tpl.name_ar }}»{% else %}➕ قالب جديد{% endif %}</h1>
+  <form method="POST" class="space-y-4 mt-4">
+    {% if not tpl %}
+    <div>
+      <label class="font-bold text-sm">المفتاح اللاتيني * (بدون مسافات: daily / safety ...)</label>
+      <input name="key" required dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-left" placeholder="variation">
+    </div>
+    {% endif %}
+    <div>
+      <label class="font-bold text-sm">الاسم العربي *</label>
+      <input name="name_ar" required value="{{ tpl.name_ar if tpl }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+    </div>
+    <div>
+      <label class="font-bold text-sm">الاسم الإنجليزي</label>
+      <input name="name_en" dir="ltr" value="{{ tpl.name_en if tpl }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-left">
+    </div>
+    <div>
+      <label class="font-bold text-sm">الوصف</label>
+      <textarea name="description" rows="2" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">{{ tpl.description if tpl }}</textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="font-bold text-sm">الأيقونة</label>
+        <input name="icon" value="{{ tpl.icon if tpl else '📋' }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+      <div>
+        <label class="font-bold text-sm">التدرج اللوني</label>
+        <select name="gradient" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 bg-white text-sm">
+          {% for g in ['from-sky-500 to-blue-700','from-violet-500 to-purple-700','from-amber-500 to-orange-600','from-emerald-500 to-teal-700','from-rose-500 to-red-600','from-slate-500 to-slate-700'] %}
+          <option value="{{ g }}" {% if tpl and tpl.gradient==g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <label class="flex items-center gap-2 text-sm font-bold"><input type="checkbox" name="is_active" value="1" {% if not tpl or tpl.is_active %}checked{% endif %} class="w-5 h-5"> قالب مفعّل</label>
+    <button class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl">💾 حفظ القالب</button>
+  </form>
+</div>
+{% endblock %}

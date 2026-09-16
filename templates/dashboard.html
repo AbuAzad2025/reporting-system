@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}لوحة التحكم{% endblock %}
+{% block content %}
+<div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between flex-wrap gap-3">
+  <div>
+    <h1 class="text-lg md:text-2xl font-extrabold text-navy">مرحباً، {{ current_user.full_name }} 👋</h1>
+    <p class="text-sm text-slate-500">{{ current_user.role_ar }} — اختر القالب وعبّئه من الجوال</p>
+  </div>
+  <div class="flex gap-2 text-center items-center">
+    <div class="bg-slate-100 rounded-2xl px-4 py-2"><div class="text-xl font-extrabold text-navy">{{ total }}</div><div class="text-[11px] text-slate-500">تقارير ديناميكية</div></div>
+    {% if legacy_total is defined and legacy_total %}
+    <div class="bg-slate-100 rounded-2xl px-4 py-2"><div class="text-xl font-extrabold text-navy">{{ legacy_total }}</div><div class="text-[11px] text-slate-500">تقارير كلاسيكية</div></div>
+    {% endif %}
+    <a href="{{ url_for('main.archive') }}" class="bg-navy text-white rounded-2xl px-4 py-2 font-bold text-sm flex items-center">📁 الأرشيف</a>
+  </div>
+</div>
+
+<h2 class="font-extrabold text-navy mt-6 mb-3">📋 اختر قالب التقرير <span class="text-xs font-normal text-slate-400">(ديناميكي — يحددها مدير المنصة)</span></h2>
+{% if templates %}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  {% for t in templates %}
+  <a href="{{ url_for('reports.dyn_new', template_key=t.key) }}" class="bg-gradient-to-br {{ t.gradient }} text-white rounded-3xl p-5 shadow-lg hover:scale-[1.01] transition">
+    <div class="flex items-start justify-between">
+      <div class="text-4xl">{{ t.icon }}</div>
+      <span class="bg-white/20 text-xs font-bold px-3 py-1 rounded-full">{{ counts.get(t.key, 0) }} تقرير</span>
+    </div>
+    <div class="font-extrabold text-lg mt-2">{{ t.name_ar }}</div>
+    <div class="text-white/85 text-xs mt-1 leading-5">{{ t.description or t.name_en }}</div>
+    <div class="mt-3 bg-white text-navy font-extrabold text-center py-3 rounded-2xl">➕ إنشاء {{ t.name_ar }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl shadow p-6 text-center text-sm text-slate-500">لا توجد قوالب مفعّلة — تواصل مع مدير المنصة.</div>
+{% endif %}
+
+{% if current_user.can_manage_templates() %}
+<div class="mt-4 bg-navy text-white rounded-2xl p-4 flex items-center justify-between flex-wrap gap-2 text-sm">
+  <span>⚙️ أنت مدير — يمكنك إضافة قوالب وحقول جديدة من لوحة الإدارة.</span>
+  <a href="{{ url_for('admin.templates') }}" class="bg-gold text-navy font-extrabold px-4 py-2 rounded-xl">منشئ النماذج ←</a>
+</div>
+{% endif %}
+
+<div class="mt-6 bg-white rounded-2xl shadow p-4">
+  <h2 class="font-extrabold text-navy text-sm mb-3">🗂️ تصفح الأرشيف مصنفاً</h2>
+  <div class="flex gap-2 flex-wrap text-xs font-bold">
+    <a href="{{ url_for('main.archive', src='dyn', sort='date', order='desc') }}" class="px-4 py-2.5 rounded-xl bg-navy text-white hover:brightness-110">🕘 الأحدث أولاً</a>
+    <a href="{{ url_for('main.archive', src='dyn', sort='date', order='asc') }}" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200">📜 الأقدم أولاً</a>
+    <a href="{{ url_for('main.archive', src='dyn', sort='project', order='asc') }}" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200">🏗️ حسب المشروع</a>
+    <a href="{{ url_for('main.archive', src='dyn', sort='type', order='asc') }}" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200">📋 حسب النوع</a>
+    <a href="{{ url_for('main.archive', src='legacy') }}" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200">📦 الكلاسيكية</a>
+  </div>
+</div>
+
+<h2 class="font-extrabold text-navy mt-6 mb-3">🕘 أحدث التقارير الديناميكية</h2>
+{% if recent_dyn %}
+<div class="space-y-2">
+  {% for s in recent_dyn %}
+  <a href="{{ url_for('reports.dyn_view', sub_id=s.id) }}" class="bg-white rounded-2xl shadow p-4 flex items-center justify-between gap-2 hover:bg-slate-50">
+    <div class="min-w-0">
+      <div class="font-bold text-sm truncate">{{ s.project_name }} <span class="text-[11px] font-bold bg-slate-100 px-2 py-0.5 rounded-full">{{ s.template.name_ar }}</span> <span class="text-[10px] font-bold text-slate-400"><bdi dir="ltr">DS-{{ '%05d'|format(s.id) }}</bdi></span></div>
+      <div class="text-xs text-slate-500">{{ s.report_date }}{% if s.location %} • {{ s.location }}{% endif %} • {{ s.signatory_name }}</div>
+    </div>
+    <span class="text-xs font-bold bg-slate-100 px-3 py-2 rounded-xl shrink-0">عرض ←</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl shadow p-6 text-center text-sm text-slate-500">لا توجد تقارير ديناميكية بعد — ابدأ من الأعلى ☝️</div>
+{% endif %}
+<div class="mt-2 text-center">
+  <a href="{{ url_for('main.archive', src='dyn') }}" class="inline-block text-xs font-bold text-navy bg-white px-4 py-2 rounded-xl shadow hover:bg-slate-50">عرض كل التقارير في الأرشيف ←</a>
+</div>
+
+{% if recent_legacy %}
+<h2 class="font-extrabold text-navy mt-6 mb-3">📦 أحدث التقارير الكلاسيكية</h2>
+<div class="space-y-2">
+  {% for r in recent_legacy %}
+  <a href="{{ url_for('reports.view', report_id=r.id) }}" class="bg-white rounded-2xl shadow p-4 flex items-center justify-between gap-2 hover:bg-slate-50">
+    <div class="min-w-0">
+      <div class="font-bold text-sm truncate">{{ r.project_name }}</div>
+      <div class="text-xs text-slate-500">{{ r.type_ar }} • {{ r.report_date }} • {{ r.signatory_name }}</div>
+    </div>
+    <span class="text-xs font-bold bg-slate-100 px-3 py-2 rounded-xl shrink-0">عرض ←</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

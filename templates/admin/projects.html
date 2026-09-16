@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}إدارة المشاريع{% endblock %}
+{% block content %}
+<div class="bg-white rounded-3xl shadow p-5">
+  <h1 class="font-extrabold text-lg text-navy">🏗️ إدارة المشاريع</h1>
+  <form method="POST" class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3">
+    <input name="name" required placeholder="اسم المشروع *" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <input name="location" placeholder="الموقع" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <input name="contractor" placeholder="المقاول" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <div class="flex gap-2">
+      <input name="client" placeholder="المالك" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+      <button class="bg-teal2 text-white font-extrabold px-5 rounded-xl">➕</button>
+    </div>
+  </form>
+</div>
+<div class="space-y-2 mt-3">
+  {% for p in projects %}
+  <div class="bg-white rounded-2xl shadow p-4 flex items-center justify-between gap-2 flex-wrap">
+    <div>
+      <div class="font-extrabold text-sm">{{ p.name }} {% if not p.is_active %}<span class="text-[10px] bg-slate-200 px-2 py-0.5 rounded-full">مؤرشف</span>{% endif %}</div>
+      <div class="text-xs text-slate-500">📍 {{ p.location or '—' }} • 🏢 {{ p.contractor or '—' }} • 🤝 {{ p.client or '—' }} • {{ p.submissions.count() }} تقرير</div>
+    </div>
+    <form method="POST" action="{{ url_for('admin.project_toggle', project_id=p.id) }}">
+      <button class="text-xs font-bold bg-slate-100 px-4 py-2 rounded-xl">{% if p.is_active %}أرشفة{% else %}تفعيل{% endif %}</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl shadow p-8 text-center text-sm text-slate-400">لا توجد مشاريع — أضف أول مشروع من الأعلى.</div>
+  {% endfor %}
+</div>
+{% endblock %}

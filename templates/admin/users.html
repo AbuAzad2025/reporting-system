@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}إدارة المستخدمين{% endblock %}
+{% block content %}
+<div class="bg-white rounded-3xl shadow p-5">
+  <h1 class="font-extrabold text-lg text-navy">👥 إدارة المستخدمين والأدوار</h1>
+  <p class="text-xs text-slate-500 mb-3">مالك المنصة: كل الصلاحيات (بما فيها الحذف ومنح Superadmin) • مدير المشروع: إدارة القوالب والإيقاف • المهندسون: تعبئة التقارير من الميدان</p>
+  <div class="space-y-2">
+    {% for u in users %}
+    <div class="border rounded-2xl p-3 flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex items-center gap-3">
+        {% if u.avatar %}
+          <img src="{{ url_for('static', filename='uploads/' ~ u.avatar) }}" alt="Avatar" class="w-10 h-10 rounded-xl object-cover border">
+        {% else %}
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-navy to-teal2 flex items-center justify-center text-white font-bold text-lg">
+            {{ u.full_name[:1] }}
+          </div>
+        {% endif %}
+        <div>
+          <div class="font-bold text-sm">{{ u.full_name }} {% if not u.is_active %}<span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full">موقوف</span>{% endif %}</div>
+          <div class="text-xs text-slate-500"><bdi dir="ltr">{{ u.username }}</bdi> • {{ u.role_ar }} • {{ u.job_title or '—' }} • {{ u.department or '—' }} • ديناميكية: {{ u.submissions.count() }} • كلاسيكية: {{ u.legacy_reports.count() }}</div>
+        </div>
+      </div>
+      {% if u.id != current_user.id %}
+      <div class="flex gap-1 items-center flex-wrap">
+        <form method="POST" action="{{ url_for('admin.user_role', user_id=u.id) }}" class="flex gap-1">
+          <select name="role" class="text-xs border-2 border-slate-200 rounded-xl px-2 py-2 bg-white min-w-[180px]">
+            {% for k, v in ROLES.items() if k != 'user' %}
+            <option value="{{ k }}" {% if u.role==k %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+          </select>
+          <button class="text-xs font-bold bg-navy text-white px-3 py-2 rounded-xl">تعيين</button>
+        </form>
+        <form method="POST" action="{{ url_for('admin.user_suspend', user_id=u.id) }}">
+          <button class="text-xs font-bold px-3 py-2 rounded-xl {% if u.is_active %}bg-amber-100 text-amber-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">{% if u.is_active %}إيقاف{% else %}تفعيل{% endif %}</button>
+        </form>
+        {% if current_user.is_superadmin %}
+        <form method="POST" action="{{ url_for('admin.user_delete', user_id=u.id) }}" onsubmit="return confirm('حذف الحساب نهائياً؟')">
+          <button class="text-xs font-bold bg-red-50 text-red-600 px-3 py-2 rounded-xl">حذف</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <span class="text-xs text-slate-400 font-bold">(حسابك)</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

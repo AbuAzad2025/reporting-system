@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}الملف الشخصي{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white rounded-3xl shadow p-6 space-y-6">
+  <div class="flex items-center gap-4">
+    {% if current_user.avatar %}
+      <img src="{{ url_for('static', filename='uploads/' ~ current_user.avatar) }}" alt="Avatar" class="w-24 h-24 rounded-2xl object-cover border-2 border-teal2">
+    {% else %}
+      <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-navy to-teal2 flex items-center justify-center text-white font-bold text-4xl">
+        {{ current_user.full_name[:1] }}
+      </div>
+    {% endif %}
+    <div>
+      <h1 class="font-extrabold text-xl text-navy">الملف الشخصي</h1>
+      <p class="text-sm text-slate-500">الدور: <span class="font-semibold">{{ current_user.role_ar }}</span> • اسم المستخدم: <bdi dir="ltr">{{ current_user.username }}</bdi></p>
+    </div>
+  </div>
+
+  <form method="POST" enctype="multipart/form-data" class="space-y-5" id="profileForm">
+    <!-- Avatar -->
+    <div>
+      <label class="font-bold text-sm">الصورة الشخصية</label>
+      <div class="mt-2 flex items-center gap-4">
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="border-2 border-slate-200 rounded-xl px-4 py-3 w-full max-w-xs" onchange="previewAvatar(this)">
+        {% if current_user.avatar %}
+        <a href="{{ url_for('main.remove_avatar') }}" class="text-sm text-red-600 hover:underline">حذف الصورة الحالية</a>
+        {% endif %}
+      </div>
+      <img id="avatarPreview" class="mt-3 hidden w-20 h-20 rounded-xl object-cover border">
+    </div>
+
+    <hr class="border-slate-200">
+
+    <!-- Basic Info -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="font-bold text-sm">الاسم الرباعي * <span class="text-red-500">(يُختم على التقارير)</span></label>
+        <input name="full_name" required value="{{ current_user.full_name }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+      </div>
+      <div>
+        <label class="font-bold text-sm">المسمى الوظيفي</label>
+        <input name="job_title" value="{{ current_user.job_title or '' }}" placeholder="مثال: مهندس مدني أول" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+      <div>
+        <label class="font-bold text-sm">القسم / الإدارة</label>
+        <input name="department" value="{{ current_user.department or '' }}" placeholder="مثال: إدارة المشاريع" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+      <div>
+        <label class="font-bold text-sm">الشهادات / التراخيص المهنية</label>
+        <input name="certification" value="{{ current_user.certification or '' }}" placeholder="مثال: PMP, LEED GA, رخصة مزاولة" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+      <div>
+        <label class="font-bold text-sm">الجوال</label>
+        <input name="phone" dir="ltr" value="{{ current_user.phone or '' }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-left">
+      </div>
+      <div>
+        <label class="font-bold text-sm">الشركة</label>
+        <input name="company" value="{{ current_user.company or '' }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+    </div>
+
+    <hr class="border-slate-200">
+
+    <!-- Notification Preferences -->
+    <div>
+      <h3 class="font-bold text-base text-navy mb-3 flex items-center gap-2">🔔 تفضيلات الإشعارات</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-teal2 transition">
+          <input type="checkbox" name="notify_email" {% if (current_user.notification_prefs or {}).get('email', true) %}checked{% endif %} class="w-5 h-5 text-teal2 rounded">
+          <span class="text-sm font-medium">📧 البريد الإلكتروني</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-teal2 transition">
+          <input type="checkbox" name="notify_sms" {% if (current_user.notification_prefs or {}).get('sms') %}checked{% endif %} class="w-5 h-5 text-teal2 rounded">
+          <span class="text-sm font-medium">📱 الرسائل النصية</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-teal2 transition">
+          <input type="checkbox" name="notify_push" {% if (current_user.notification_prefs or {}).get('push', true) %}checked{% endif %} class="w-5 h-5 text-teal2 rounded">
+          <span class="text-sm font-medium">🔔 إشعارات فورية</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-teal2 transition">
+          <input type="checkbox" name="notify_in_app" {% if (current_user.notification_prefs or {}).get('in_app', true) %}checked{% endif %} class="w-5 h-5 text-teal2 rounded">
+          <span class="text-sm font-medium">📥 داخل التطبيق</span>
+        </label>
+      </div>
+    </div>
+
+    <hr class="border-slate-200">
+
+    <!-- Password Change -->
+    <div>
+      <h3 class="font-bold text-base text-navy mb-3">🔒 تغيير كلمة المرور</h3>
+      <input name="new_password" type="password" placeholder="اتركها فارغة للإبقاء على الحالية" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      <p class="text-xs text-slate-500 mt-1">كلمة المرور يجب أن تكون 6 أحرف على الأقل.</p>
+    </div>
+
+    <button type="submit" class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl hover:bg-navy/90 transition">💾 حفظ التعديلات</button>
+  </form>
+</div>
+
+<script>
+function previewAvatar(input) {
+  const preview = document.getElementById('avatarPreview');
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      preview.src = e.target.result;
+      preview.classList.remove('hidden');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+</script>
+{% endblock %}

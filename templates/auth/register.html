@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}إنشاء حساب{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto bg-white rounded-3xl shadow-xl p-6 md:p-8 mt-6">
+  <div class="text-center mb-5">
+    <div class="text-4xl">📝</div>
+    <h1 class="text-xl font-extrabold text-navy mt-2">إنشاء حساب جديد</h1>
+    <p class="text-sm text-slate-500">الاسم الرباعي سيظهر كموقّع رسمي على كل تقاريرك</p>
+  </div>
+  <form method="POST" class="space-y-4">
+    <div>
+      <label class="font-bold text-sm">الاسم الرباعي (الاسم الكامل أربعة مقاطع) *</label>
+      <input name="full_name" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="مثال: محمد أحمد علي حسن">
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="font-bold text-sm">اسم المستخدم *</label>
+        <input name="username" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+      </div>
+      <div>
+        <label class="font-bold text-sm">البريد الإلكتروني *</label>
+        <input name="email" type="email" required dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none text-left">
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="font-bold text-sm">كلمة المرور (6+ أحرف) *</label>
+        <input name="password" type="password" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+      </div>
+      <div>
+        <label class="font-bold text-sm">تأكيد كلمة المرور *</label>
+        <input name="confirm" type="password" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="font-bold text-sm">الجوال (اختياري)</label>
+        <input name="phone" dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none text-left">
+      </div>
+      <div>
+        <label class="font-bold text-sm">الشركة / الجهة (اختياري)</label>
+        <input name="company" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+      </div>
+    </div>
+    <div>
+      <label class="font-bold text-sm">الدور</label>
+      <select name="role" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none bg-white">
+        {% if role_choices %}
+          {% for val, label in role_choices %}
+          <option value="{{ val }}">{{ label }}</option>
+          {% endfor %}
+        {% else %}
+        <option value="user">مهندس موقع / مستخدم</option>
+        <option value="admin">مدير مشروع / مشرف</option>
+        {% endif %}
+      </select>
+      <p class="text-[11px] text-slate-400 mt-1">أول حساب في المنصة يصبح مالك المنصة (Superadmin) تلقائياً.</p>
+    </div>
+    <button class="w-full bg-teal2 text-white font-extrabold py-4 rounded-2xl text-lg hover:brightness-110">إنشاء الحساب ✅</button>
+  </form>
+  <p class="text-center text-sm mt-4">لديك حساب؟ <a href="{{ url_for('auth.login') }}" class="text-teal2 font-bold">سجل الدخول</a></p>
+</div>
+{% endblock %}

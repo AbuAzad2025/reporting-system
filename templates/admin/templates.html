@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}منشئ النماذج — القوالب{% endblock %}
+{% block content %}
+<div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between flex-wrap gap-2">
+  <div>
+    <h1 class="font-extrabold text-lg text-navy">🧩 منشئ النماذج — قوالب التقارير</h1>
+    <p class="text-xs text-slate-500">عرّف الأنواع (يومي/أسبوعي/شهري/سلامة/أوامر تغيير...) ثم أضف الحقول لكل قالب</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="{{ url_for('admin.template_new') }}" class="bg-teal2 text-white text-sm font-extrabold px-4 py-3 rounded-xl">➕ قالب جديد</a>
+    <a href="{{ url_for('admin.dashboard') }}" class="bg-slate-100 text-sm font-bold px-4 py-3 rounded-xl">→ اللوحة</a>
+  </div>
+</div>
+
+<div class="space-y-2 mt-3">
+  {% for t in templates %}
+  <div class="bg-white rounded-2xl shadow p-4">
+    <div class="flex items-start justify-between gap-2 flex-wrap">
+      <div>
+        <span class="text-2xl">{{ t.icon }}</span>
+        <span class="font-extrabold">{{ t.name_ar }}</span>
+        <span class="text-[11px] text-slate-400"><bdi dir="ltr">{{ t.key }}</bdi></span>
+        {% if t.is_system %}<span class="text-[10px] font-bold bg-slate-200 px-2 py-0.5 rounded-full">نظام</span>{% endif %}
+        {% if not t.is_active %}<span class="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">معطّل</span>{% endif %}
+        <div class="text-xs text-slate-500 mt-1">{{ t.description }} — {{ t.fields.count() }} حقل — {{ t.submissions.count() }} تقرير مرسل</div>
+      </div>
+      <div class="flex gap-1 text-xs font-bold">
+        <a href="{{ url_for('reports.dyn_new', template_key=t.key) }}" class="bg-blue-50 text-blue-700 px-3 py-2 rounded-xl">👁️ معاينة</a>
+        <a href="{{ url_for('admin.fields', template_id=t.id) }}" class="bg-teal2 text-white px-3 py-2 rounded-xl">🧱 الحقول</a>
+        <a href="{{ url_for('admin.template_edit', template_id=t.id) }}" class="bg-amber-100 text-amber-800 px-3 py-2 rounded-xl">✏️</a>
+      </div>
+    </div>
+    {% if not t.is_system %}
+    <form method="POST" action="{{ url_for('admin.template_delete', template_id=t.id) }}" onsubmit="return confirm('حذف القالب نهائياً؟')" class="mt-2">
+      <button class="text-xs text-red-500 font-bold">🗑️ حذف القالب</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<form method="POST" action="{{ url_for('admin.reset_defaults') }}" class="mt-3 bg-white rounded-2xl shadow p-4 text-sm flex items-center justify-between flex-wrap gap-2">
+  <span class="text-slate-500 text-xs">استعادة القوالب الافتراضية الخمسة (يومي/أسبوعي/شهري/سلامة/أمر تغيير) دون مسح بياناتك.</span>
+  <button class="bg-navy text-white text-xs font-bold px-4 py-2 rounded-xl">♻️ استعادة الافتراضيات</button>
+</form>
+{% endblock %}

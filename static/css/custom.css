@@ -1,0 +1,18 @@
+/* Field-site extras: bigger touch targets, prevent zoom on inputs (iOS). */
+input, select, textarea { font-size: 16px; }
+.field-auto { min-height: 88px; }
+
+/* RTL safeguards: long serials / latin strings must wrap, never overlap. */
+bdi { overflow-wrap: anywhere; word-break: break-word; }
+.truncate { overflow-wrap: anywhere; }
+
+/* Print: official A4 output — hide all chrome, keep clean report card. */
+@media print {
+  header, nav, .no-print { display: none !important; }
+  body { background: #fff !important; padding-bottom: 0 !important; }
+  main { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  .shadow, .shadow-lg { box-shadow: none !important; }
+  .bg-navy, .bg-slate-100 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  a { text-decoration: none !important; color: inherit !important; }
+  @page { size: A4; margin: 12mm; }
+}

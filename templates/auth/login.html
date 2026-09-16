@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}تسجيل الدخول{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white rounded-3xl shadow-xl p-6 md:p-8 mt-6">
+  <div class="text-center mb-5">
+    <img src="{{ url_for('static', filename='img/brand/azad-logo.png') }}" alt="{{ COMPANY_NAME_AR }}" class="w-24 h-24 rounded-3xl object-cover mx-auto shadow">
+    <h1 class="text-xl font-extrabold text-navy mt-2">تسجيل الدخول</h1>
+    <p class="text-sm text-slate-500">{{ APP_NAME_AR }}</p>
+  </div>
+  <form method="POST" class="space-y-4">
+    <div>
+      <label class="font-bold text-sm">اسم المستخدم أو البريد الإلكتروني</label>
+      <input name="username" required autocomplete="username" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="مثال: engineer">
+    </div>
+    <div>
+      <label class="font-bold text-sm">كلمة المرور</label>
+      <input name="password" type="password" required autocomplete="current-password" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="••••••">
+    </div>
+    <button class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl text-lg hover:bg-[#254a78]">دخول ➜</button>
+  </form>
+  <p class="text-center text-sm mt-4">ليس لديك حساب؟ <a href="{{ url_for('auth.register') }}" class="text-teal2 font-bold">سجل الآن</a></p>
+  <p class="text-center text-[11px] text-slate-400 mt-2">تجريبي: <bdi dir="ltr">admin / admin123</bdi> أو <bdi dir="ltr">engineer / site123</bdi></p>
+</div>
+{% endblock %}

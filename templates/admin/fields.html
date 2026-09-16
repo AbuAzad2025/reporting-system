@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}حقول {{ tpl.name_ar }}{% endblock %}
+{% block content %}
+<div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between flex-wrap gap-2">
+  <div>
+    <h1 class="font-extrabold text-lg text-navy">🧱 حقول «{{ tpl.icon }} {{ tpl.name_ar }}»</h1>
+    <p class="text-xs text-slate-500">أضف / احذف / رتّب الحقول — تنعكس فوراً على نموذج الميدان والـ PDF</p>
+  </div>
+  <a href="{{ url_for('admin.templates') }}" class="bg-slate-100 text-sm font-bold px-4 py-2 rounded-xl">→ القوالب</a>
+</div>
+
+<div class="bg-white rounded-3xl shadow p-5 mt-3">
+  <h2 class="font-extrabold text-sm text-navy mb-3">➕ إضافة حقل جديد</h2>
+  <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <label class="font-bold text-xs">مفتاح الحقل (لاتيني، بدون مسافات) *</label>
+      <input name="field_key" required dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-left text-sm" placeholder="manpower">
+    </div>
+    <div>
+      <label class="font-bold text-xs">التسمية العربية *</label>
+      <input name="label_ar" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm" placeholder="القوى العاملة">
+    </div>
+    <div>
+      <label class="font-bold text-xs">النوع</label>
+      <select name="field_type" id="field_type" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 bg-white text-sm">
+        {% for k, v in FIELD_TYPES.items() %}
+        <option value="{{ k }}">{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="font-bold text-xs">خيارات القائمة (افصل بفاصلة) — للنوع dropdown فقط</label>
+      <input name="options" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm" placeholder="ممتاز, جيد, ضعيف">
+    </div>
+    <div id="columns_box" class="sm:col-span-2 hidden">
+      <label class="font-bold text-xs">أعمدة جدول البنود — سطر لكل عمود: <bdi dir="ltr">key | التسمية | type | required | خيارات</bdi></label>
+      <textarea name="columns" rows="3" dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left" placeholder="name | الاسم | text | required&#10;role | المهنة | dropdown | required | مهندس, فني, عامل&#10;count | العدد | number | required"></textarea>
+      <p class="text-[11px] text-slate-400 mt-1">الأنواع: text / number / dropdown / date — يمكن إضافة أعمدة لاحقاً من الأسفل.</p>
+    </div>
+    <script>
+    (function(){var s=document.getElementById('field_type'),b=document.getElementById('columns_box');
+    function t(){b.classList.toggle('hidden',s.value!=='table');}s.addEventListener('change',t);t();})();
+    </script>
+    <div class="sm:col-span-2">
+      <label class="font-bold text-xs">نص مساعد (placeholder)</label>
+      <input name="placeholder" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="font-bold text-xs">قواعد التحقق (JSON-schema خفيف — اختياري)</label>
+      <div class="grid grid-cols-2 gap-2 mt-1">
+        <input name="rule_min" dir="ltr" placeholder="min (للأرقام)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
+        <input name="rule_max" dir="ltr" placeholder="max (للأرقام)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
+        <input name="rule_min_length" dir="ltr" placeholder="min_length (للنص)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
+        <input name="rule_max_length" dir="ltr" placeholder="max_length (للنص)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
+      </div>
+      <input name="rule_pattern" dir="ltr" placeholder="pattern (regex اختياري)" class="mt-2 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
+    </div>
+    <label class="flex items-center gap-2 text-sm font-bold"><input type="checkbox" name="required" value="1" class="w-5 h-5"> حقل مطلوب</label>
+    <button class="sm:col-span-2 bg-teal2 text-white font-extrabold py-3 rounded-2xl">➕ إضافة الحقل</button>
+  </form>
+</div>
+
+<div class="space-y-2 mt-3">
+  {% for f in fields %}
+  <div class="bg-white rounded-2xl shadow p-3 flex items-center justify-between gap-2 flex-wrap text-sm">
+    <div>
+      <span class="font-extrabold">{{ loop.index }}. {{ f.label_ar }}</span>
+      <span class="text-[11px] text-slate-400"><bdi dir="ltr">{{ f.field_key }}</bdi> • {{ FIELD_TYPES.get(f.field_type, f.field_type) }}</span>
+      {% if f.required %}<span class="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">مطلوب</span>{% endif %}
+      {% if f.field_type=='dropdown' %}<div class="text-[11px] text-slate-500">خيارات: {{ f.options_list()|join('، ') }}</div>{% endif %}
+      {% if f.rules %}<div class="text-[11px] text-slate-400">قواعد: <bdi dir="ltr">{{ f.rules }}</bdi></div>{% endif %}
+      {% if f.field_type=='table' %}
+      <div class="mt-2 bg-slate-50 border rounded-xl p-2">
+        <div class="text-[11px] font-extrabold text-navy mb-1">📊 أعمدة الجدول ({{ f.sub_columns()|length }})</div>
+        {% for c in f.sub_columns() %}
+        <div class="flex items-center justify-between gap-1 text-[11px] py-1 border-b border-slate-100 last:border-0">
+          <span><b>{{ c.label_ar }}</b> <bdi dir="ltr" class="text-slate-400">{{ c.key }} • {{ c.type }}</bdi>{% if c.required %} <span class="text-red-600 font-bold">*</span>{% endif %}{% if c.options %} <span class="text-slate-400">{{ c.options|join('، ') }}</span>{% endif %}</span>
+          <form method="POST" action="{{ url_for('admin.field_column_delete', field_id=f.id, col_key=c.key) }}" onsubmit="return confirm('حذف العمود؟')"><button class="text-red-500 font-bold px-2">✕</button></form>
+        </div>
+        {% else %}
+        <div class="text-[11px] text-amber-600 font-bold">⚠️ بلا أعمدة — لن يظهر الجدول حتى تضيف عموداً.</div>
+        {% endfor %}
+        <form method="POST" action="{{ url_for('admin.field_column_add', field_id=f.id) }}" class="grid grid-cols-2 sm:grid-cols-6 gap-1 mt-2">
+          <input name="col_key" required dir="ltr" placeholder="key" class="border rounded-lg px-2 py-2 text-[11px] text-left">
+          <input name="col_label" required placeholder="التسمية" class="border rounded-lg px-2 py-2 text-[11px]">
+          <select name="col_type" class="border rounded-lg px-1 py-2 text-[11px] bg-white"><option value="text">نص</option><option value="number">رقم</option><option value="dropdown">قائمة</option><option value="date">تاريخ</option></select>
+          <input name="col_options" placeholder="خيارات، ..." class="border rounded-lg px-2 py-2 text-[11px]">
+          <label class="flex items-center gap-1 text-[11px] font-bold"><input type="checkbox" name="col_required" value="1" class="w-4 h-4"> مطلوب</label>
+          <button class="bg-teal2 text-white text-[11px] font-extrabold px-2 py-2 rounded-lg">➕ عمود</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    <div class="flex gap-1">
+      <form method="POST" action="{{ url_for('admin.field_move', field_id=f.id, direction='up') }}"><button class="bg-slate-100 px-3 py-2 rounded-xl font-bold">↑</button></form>
+      <form method="POST" action="{{ url_for('admin.field_move', field_id=f.id, direction='down') }}"><button class="bg-slate-100 px-3 py-2 rounded-xl font-bold">↓</button></form>
+      <form method="POST" action="{{ url_for('admin.field_delete', field_id=f.id) }}" onsubmit="return confirm('حذف الحقل؟')"><button class="bg-red-50 text-red-600 px-3 py-2 rounded-xl font-bold">🗑️</button></form>
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl shadow p-6 text-center text-sm text-slate-400">لا توجد حقول — أضف أول حقل من الأعلى.</div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% if mode == 'new' %}
+  {% set pagetitle = 'إنشاء ' + type_ar %}
+{% else %}
+  {% set pagetitle = 'تعديل التقرير #' + report.id|string %}
+{% endif %}
+{% block title %}{{ pagetitle }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="bg-navy text-white rounded-3xl p-5 shadow flex items-center justify-between">
+    <div>
+      <h1 class="font-extrabold text-lg">{{ pagetitle }}</h1>
+      <p class="text-xs text-slate-300">املأ الحقول من جوالك — الحقول بعلامة * مطلوبة</p>
+    </div>
+    <a href="{{ url_for('main.dashboard') }}" class="text-xs bg-white/15 px-3 py-2 rounded-xl font-bold">→ رجوع</a>
+  </div>
+
+  <form method="POST" class="bg-white rounded-3xl shadow p-5 mt-3 space-y-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="sm:col-span-2">
+        <label class="font-bold text-sm">اسم المشروع *</label>
+        <input name="project_name" required value="{{ form_data.get('project_name','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="مثال: مشروع برج النخيل السكني">
+      </div>
+      <div>
+        <label class="font-bold text-sm">تاريخ التقرير *</label>
+        <input name="report_date" type="date" required value="{{ form_data.get('report_date', today) }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+      </div>
+      <div>
+        <label class="font-bold text-sm">الموقع</label>
+        <input name="location" value="{{ form_data.get('location','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="المدينة / الحي">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="font-bold text-sm">المقاول</label>
+        <input name="contractor" value="{{ form_data.get('contractor','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="اسم المقاول الرئيسي">
+      </div>
+    </div>
+
+    <hr class="border-slate-100">
+
+    {% for key, label, kind in specs %}
+    <div>
+      <label class="font-bold text-sm">{{ label }}{% if key in ['manpower','works_completed'] and report_type=='daily' %} *{% endif %}</label>
+      {% if kind == 'textarea' %}
+      <textarea name="{{ key }}" rows="3" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none field-auto" placeholder="اكتب {{ label }}...">{{ form_data.get(key,'') }}</textarea>
+      {% elif kind == 'number' %}
+      <input name="{{ key }}" type="number" min="0" max="100" step="0.1" dir="ltr" value="{{ form_data.get(key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none text-left" placeholder="0 - 100">
+      {% else %}
+      <input name="{{ key }}" value="{{ form_data.get(key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="{{ label }}">
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs leading-6 text-amber-800">
+      ⚠️ <b>قيد منع التكرار:</b> لا يمكن حفظ نفس نوع التقرير لنفس المشروع في نفس التاريخ مرتين.<br>
+      ✍️ سيُختم التقرير تلقائياً باسمك الرباعي: <b>{{ current_user.full_name }}</b>
+    </div>
+
+    <button class="w-full bg-teal2 text-white font-extrabold py-4 rounded-2xl text-lg hover:brightness-110 sticky bottom-20 md:bottom-4 z-30 shadow-xl min-h-[56px]">
+      {% if mode == 'new' %}💾 حفظ التقرير{% else %}💾 حفظ التعديلات{% endif %}
+    </button>
+  </form>
+</div>
+{% endblock %}

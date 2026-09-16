@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}تصدير مجمع PDF{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto bg-white rounded-3xl shadow p-6">
+  <h1 class="font-extrabold text-lg text-navy">📚 تصدير مجمع — وثيقة PDF واحدة</h1>
+  <p class="text-xs text-slate-500 mb-4">غلاف + ملخص مالي + فهرس مرقّم + قسم لكل تقرير ضمن الفترة</p>
+  <form method="POST" action="{{ url_for('ops.batch_export') }}" class="space-y-4">
+    <div>
+      <label class="font-bold text-sm">المشروع (اتركه فارغاً لكل مشاريعك)</label>
+      <select name="project_id" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 bg-white">
+        <option value="">— كل المشاريع —</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="font-bold text-sm">من تاريخ</label>
+        <input name="from" type="date" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+      <div>
+        <label class="font-bold text-sm">إلى تاريخ</label>
+        <input name="to" type="date" value="{{ today }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+    </div>
+    <div>
+      <label class="font-bold text-sm">الوحدات (اختياري — فارغ = الكل)</label>
+      <div class="grid grid-cols-1 gap-1 mt-1 text-sm">
+        {% for key, mod in modules.items() %}
+        <label class="flex items-center gap-2 bg-slate-50 border rounded-xl px-3 py-2">
+          <input type="checkbox" name="types" value="{{ key }}" class="w-4 h-4"> {{ mod[2] }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <button class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl">📥 تنزيل الوثيقة المجمعة</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}الأرشيف المركزي{% endblock %}
+{% block content %}
+<div class="bg-white rounded-3xl shadow p-5">
+  <h1 class="font-extrabold text-lg text-navy">📁 الأرشيف المركزي للتقارير</h1>
+  <div class="flex gap-2 mt-2 text-sm font-bold">
+    <a href="{{ url_for('main.archive', src='dyn') }}" class="px-4 py-2 rounded-xl {% if src=='dyn' %}bg-navy text-white{% else %}bg-slate-100{% endif %}">⚡ الديناميكية</a>
+    <a href="{{ url_for('main.archive', src='legacy') }}" class="px-4 py-2 rounded-xl {% if src=='legacy' %}bg-navy text-white{% else %}bg-slate-100{% endif %}">📦 الكلاسيكية</a>
+  </div>
+  <form method="GET" class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-3">
+    <input type="hidden" name="src" value="{{ src }}">
+    {% if src == 'dyn' %}
+    <select name="tpl" aria-label="القالب" class="col-span-2 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+      <option value="">كل القوالب</option>
+      {% for t in templates %}
+      <option value="{{ t.key }}" {% if f_tpl==t.key %}selected{% endif %}>{{ t.name_ar }}</option>
+      {% endfor %}
+    </select>
+    {% else %}
+    <select name="type" aria-label="نوع التقرير" class="col-span-2 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+      <option value="">كل الأنواع</option>
+      {% for k, v in types.items() %}
+      <option value="{{ k }}" {% if f_type==k %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    {% if projects %}
+    <select name="project" aria-label="المشروع" class="col-span-2 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+      <option value="">كل المشاريع</option>
+      {% for p in projects %}
+      <option value="{{ p.id }}" {% if f_project==p.id|string %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    <select name="sort" aria-label="ترتيب حسب" class="col-span-1 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+      <option value="date" {% if f_sort=='date' %}selected{% endif %}>📅 التاريخ</option>
+      <option value="project" {% if f_sort=='project' %}selected{% endif %}>🏗️ المشروع</option>
+      <option value="type" {% if f_sort=='type' %}selected{% endif %}>📋 النوع</option>
+    </select>
+    <select name="order" aria-label="اتجاه الترتيب" class="col-span-1 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+      <option value="desc" {% if f_order=='desc' %}selected{% endif %}>⬇️ تنازلي</option>
+      <option value="asc" {% if f_order=='asc' %}selected{% endif %}>⬆️ تصاعدي</option>
+    </select>
+    <input name="q" value="{{ f_q }}" placeholder="🔍 اسم المشروع / الموقع..." class="col-span-2 md:col-span-2 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <input name="from" type="date" value="{{ f_from }}" aria-label="من تاريخ" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <input name="to" type="date" value="{{ f_to }}" aria-label="إلى تاريخ" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <button class="col-span-1 bg-navy text-white font-bold py-3 rounded-xl text-sm">🔍 بحث</button>
+    <a href="{{ url_for('main.archive', src=src) }}" class="col-span-1 inline-flex items-center justify-center bg-slate-100 text-slate-600 font-bold py-3 rounded-xl text-sm hover:bg-slate-200">↺ إعادة ضبط</a>
+  </form>
+</div>
+
+{# Result summary bar #}
+<div class="mt-3 bg-white rounded-2xl shadow px-4 py-3 flex items-center justify-between flex-wrap gap-2 text-xs font-bold text-slate-600">
+  <span>📊 الإجمالي: <span class="text-navy text-sm">{{ total }}</span> تقرير
+    {% if total_pages > 1 %} • صفحة {{ page }} من {{ total_pages }}{% endif %}</span>
+  <span class="text-slate-400">مرتب حسب:
+    {% if f_sort == 'project' %}المشروع{% elif f_sort == 'type' %}النوع{% else %}التاريخ{% endif %}
+    ({{ 'تنازلي' if f_order == 'desc' else 'تصاعدي' }})</span>
+</div>
+
+{% macro pager() %}
+{% if total_pages > 1 %}
+<div class="mt-3 bg-white rounded-2xl shadow px-4 py-3 flex items-center justify-center gap-1 text-xs font-bold flex-wrap no-print">
+  {% set base = {'src': src, 'q': f_q, 'from': f_from, 'to': f_to, 'tpl': f_tpl, 'type': f_type, 'project': f_project, 'sort': f_sort, 'order': f_order, 'per_page': per_page} %}
+  {% if page > 1 %}
+  <a href="{{ url_for('main.archive', page=page-1, **base) }}" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200">→ السابق</a>
+  {% endif %}
+  {% for p in range(1, total_pages + 1) %}
+    {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+    <a href="{{ url_for('main.archive', page=p, **base) }}" class="px-3 py-2 rounded-xl {% if p == page %}bg-navy text-white{% else %}bg-slate-100 hover:bg-slate-200{% endif %}">{{ p }}</a>
+    {% elif p == page - 3 or p == page + 3 %}
+    <span class="px-1 text-slate-400">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if page < total_pages %}
+  <a href="{{ url_for('main.archive', page=page+1, **base) }}" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200">التالي ←</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+<div class="mt-3 space-y-2">
+  {% if src == 'dyn' %}
+    {% if submissions %}
+    {% for s in submissions %}
+    <div class="bg-white rounded-2xl shadow p-4 hover:shadow-md transition">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-800">{{ s.template.name_ar }}</span>
+        <span class="text-[11px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600"><bdi dir="ltr">DS-{{ '%05d'|format(s.id) }}</bdi></span>
+      </div>
+      <div class="font-bold text-sm mt-1">{{ s.project_name }}</div>
+      <div class="text-[11px] text-slate-500">📅 {{ s.report_date }} • 📍 {{ s.location or '—' }} • ✍️ {{ s.signatory_name }}</div>
+      <div class="grid grid-cols-4 gap-2 mt-3 text-center text-xs font-bold">
+        <a href="{{ url_for('reports.dyn_view', sub_id=s.id) }}" class="bg-slate-100 py-3 rounded-xl hover:bg-slate-200">👁️ عرض</a>
+        <a href="{{ url_for('reports.dyn_pdf', sub_id=s.id) }}" target="_blank" class="bg-red-50 text-red-700 py-3 rounded-xl hover:bg-red-100">📄 PDF</a>
+        <a href="{{ url_for('reports.dyn_edit', sub_id=s.id) }}" class="bg-amber-50 text-amber-800 py-3 rounded-xl hover:bg-amber-100">✏️ تعديل</a>
+        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" onclick="shareArchive('dynamic', {{ s.id }}, 'DS-{{ '%05d'|format(s.id) }}', '{{ s.project_name|tojson }}', '{{ s.template.name_ar|tojson }}')">
+          📤 مشاركة
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+    {{ pager() }}
+    {% else %}
+    <div class="bg-white rounded-2xl shadow p-8 text-center text-sm text-slate-500">🔍 لا توجد نتائج مطابقة — جرّب توسيع البحث أو <a href="{{ url_for('main.archive', src=src) }}" class="text-navy font-bold underline">إعادة ضبط الفلاتر</a>.</div>
+    {% endif %}
+  {% else %}
+    {% if reports %}
+    {% for r in reports %}
+    <div class="bg-white rounded-2xl shadow p-4 hover:shadow-md transition">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] font-bold px-2 py-1 rounded-full bg-slate-200 text-slate-700">{{ r.type_ar }}</span>
+        <span class="text-[11px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600"><bdi dir="ltr">RPT-{{ '%05d'|format(r.id) }}</bdi></span>
+      </div>
+      <div class="font-bold text-sm mt-1">{{ r.project_name }}</div>
+      <div class="text-[11px] text-slate-500">📅 {{ r.report_date }} • 📍 {{ r.location or '—' }} • ✍️ {{ r.signatory_name }}</div>
+      <div class="grid grid-cols-4 gap-2 mt-3 text-center text-xs font-bold">
+        <a href="{{ url_for('reports.view', report_id=r.id) }}" class="bg-slate-100 py-3 rounded-xl hover:bg-slate-200">👁️ عرض</a>
+        <a href="{{ url_for('reports.pdf', report_id=r.id) }}" target="_blank" class="bg-red-50 text-red-700 py-3 rounded-xl hover:bg-red-100">📄 PDF</a>
+        <a href="{{ url_for('reports.edit', report_id=r.id) }}" class="bg-amber-50 text-amber-800 py-3 rounded-xl hover:bg-amber-100">✏️ تعديل</a>
+        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" onclick="shareArchive('legacy', {{ r.id }}, 'RPT-{{ '%05d'|format(r.id) }}', '{{ r.project_name|tojson }}', '{{ r.type_ar|tojson }}')">
+          📤 مشاركة
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+    {{ pager() }}
+    {% else %}
+    <div class="bg-white rounded-2xl shadow p-8 text-center text-sm text-slate-500">🔍 لا توجد نتائج مطابقة — جرّب توسيع البحث أو <a href="{{ url_for('main.archive', src=src) }}" class="text-navy font-bold underline">إعادة ضبط الفلاتر</a>.</div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function shareArchive(reportType, reportId, serial, project, title) {
+  // Use a toast to show immediate feedback
+  const toast = document.createElement('div');
+  toast.textContent = 'جاري تحضير خيارات المشاركة...';
+  toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg z-50';
+  document.body.appendChild(toast);
+
+  fetch(`/reports/share/${reportType}/${reportId}`)
+    .then(res => {
+      document.body.removeChild(toast);
+      if (!res.ok) throw new Error('فشل في جلب بيانات المشاركة');
+      return res.json();
+    })
+    .then(data => {
+      showShareMenu(data, reportType, reportId, serial, project, title);
+    })
+    .catch(e => {
+      console.error(e);
+      showToast('فشل في تحميل خيارات المشاركة');
+    });
+}
+
+function showShareMenu(data, reportType, reportId, serial, project, title) {
+  // Remove any existing menu
+  const existing = document.getElementById('archiveShareMenu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'archiveShareMenu';
+  menu.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/30';
+  menu.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-4 m-4 animate-fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-lg text-navy">مشاركة: ${serial}</h3>
+        <button onclick="this.closest('#archiveShareMenu').remove()" class="text-slate-400 hover:text-red-600 text-xl">×</button>
+      </div>
+      <div class="text-sm text-slate-600 mb-4">${title} — ${project}</div>
+      <div class="space-y-2">
+        <button onclick="shareNative('${data.url}', '${serial}', '${title}', '${project}')" class="w-full text-right px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center gap-3 text-slate-700">
+          <span class="text-xl">📱</span> مشاركة النظام (Native)
+        </button>
+        <button onclick="window.open('${data.whatsapp_url}', '_blank'); this.closest('#archiveShareMenu').remove()" class="w-full text-right px-4 py-3 rounded-xl bg-green-50 hover:bg-green-100 flex items-center gap-3 text-green-700">
+          <span class="text-xl">💬</span> واتساب (WhatsApp)
+        </button>
+        <button onclick="copyLink('${data.url}'); this.closest('#archiveShareMenu').remove()" class="w-full text-right px-4 py-3 rounded-xl bg-blue-50 hover:bg-blue-100 flex items-center gap-3 text-blue-700">
+          <span class="text-xl">🔗</span> نسخ الرابط
+        </button>
+        <button onclick="window.location.href='${data.email_url}'; this.closest('#archiveShareMenu').remove()" class="w-full text-right px-4 py-3 rounded-xl bg-amber-50 hover:bg-amber-100 flex items-center gap-3 text-amber-700">
+          <span class="text-xl">✉️</span> البريد الإلكتروني
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(menu);
+
+  // Close on backdrop click
+  menu.addEventListener('click', (e) => {
+    if (e.target === menu) menu.remove();
+  });
+}
+
+function shareNative(url, serial, title, project) {
+  const existing = document.getElementById('archiveShareMenu');
+  if (existing) existing.remove();
+
+  if (navigator.share) {
+    navigator.share({
+      title: title + ' - ' + serial,
+      text: `تقرير: ${title}\nالرقم: ${serial}\nالمشروع: ${project}`,
+      url: url
+    }).catch(e => {
+      if (e.name !== 'AbortError') fallbackShare(url);
+    });
+  } else {
+    fallbackShare(url);
+  }
+}
+
+async function copyLink(url) {
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('تم نسخ الرابط إلى الحافظة');
+  } catch (e) {
+    fallbackShare(url);
+  }
+}
+
+function fallbackShare(url) {
+  const temp = document.createElement('input');
+  temp.value = url;
+  document.body.appendChild(temp);
+  temp.select();
+  document.execCommand('copy');
+  document.body.removeChild(temp);
+  showToast('تم نسخ الرابط');
+}
+
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.textContent = msg;
+  toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg z-50';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}
