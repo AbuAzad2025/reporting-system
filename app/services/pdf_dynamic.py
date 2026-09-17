@@ -6,8 +6,8 @@ body table from DynamicField rows instead of hardcoded FIELD_SPECS.
 """
 from datetime import datetime
 
-from utils.pdf_generator import (_styles, _header_table, _info_table,
-                                  _section_title, _kv_table, ar, NAVY)
+from utils.pdf_generator import (_styles, _info_table, _section_title,
+                                 _kv_table, ar, NAVY)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
@@ -68,7 +68,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
          Paragraph(ar(contractor), st["cell"])],
     ]
     header_tbl = Table(header_data,
-                        colWidths=[32 * mm, 30 * mm, 32 * mm, 30 * mm, 32 * mm, 34 * mm])
+                       colWidths=[32 * mm, 30 * mm, 32 * mm, 30 * mm, 32 * mm, 34 * mm])
     header_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), NAVY),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -158,6 +158,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         st["cell_small"]))
     serial = f"{submission.id:06d}" if submission.id else "000000"
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
+
     def _foot(c, d):
         _footer(c, d, serial=serial, timestamp=stamp)
     doc.build(story, onFirstPage=_foot, onLaterPages=_foot)

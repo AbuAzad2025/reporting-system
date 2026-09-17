@@ -59,9 +59,19 @@ def spawn_amendment(model, record, author, updates: dict):
     The new row copies every data column, bumps version, chains
     root/supersedes, snapshots the amending author's quad-name, and applies
     `updates` (already validated + tenant-checked by the caller).
+
+    `author` may be a User object or a raw user id (int); ints are resolved
+    to the corresponding user for the signatory snapshot.
     """
     from app.extensions import db
     from app.ops.models import next_serial, OPS_MODULES
+
+    if isinstance(author, int):
+        from app.models import User
+        _u = db.session.get(User, author)
+        if _u is None:
+            raise ValueError(f"unknown author user_id={author}")
+        author = _u
 
     prefix = next((p for (_m, p, _a, _e) in OPS_MODULES.values()
                    if _m == model.__name__), "OPS")
@@ -89,7 +99,11 @@ def spawn_amendment(model, record, author, updates: dict):
 
 
 def apply_decision(record, decision: str, reviewer, notes: str = ""):
-    """Manager approve/reject with reviewer stamp. Returns error str|None."""
+    """Manager approve/reject with reviewer stamp. Returns error str|None.
+
+    Atomic: both the decision and the prior-version retirement happen in
+    a single transaction — either both succeed or both fail.
+    """
     from app.extensions import db
     if normalize(record.status) not in (SUBMITTED, PENDING_LEGACY):
         return (f"requires status 'submitted', current is "
@@ -108,5 +122,9 @@ def apply_decision(record, decision: str, reviewer, notes: str = ""):
         prior = db.session.get(type(record), record.supersedes_id)
         if prior is not None and normalize(prior.status) == APPROVED:
             prior.status = AMENDED
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return "database error during decision — transaction rolled back"
     return None

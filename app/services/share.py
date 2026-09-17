@@ -7,8 +7,7 @@ Provides secure share URL generation for:
 - Email (mailto fallback)
 """
 from urllib.parse import quote, urlencode
-from flask import url_for, request
-from app.models import Report, ReportSubmission
+from flask import url_for
 
 
 def build_report_share_url(report_id: int, report_type: str = "dynamic") -> str:
@@ -64,18 +63,18 @@ def whatsapp_share_url(payload: dict) -> str:
     """Generate WhatsApp share URL (wa.me) with pre-formatted Arabic message."""
     text_lines = [
         "📋 *مشاركة تقرير أزادكسا*",
-        f"━━━━━━━━━━━━━━━",
+        "━━━━━━━━━━━━━━━",
         f"📌 *النوع:* {payload['title']}",
         f"🔢 *الرقم التسلسلي:* {payload['serial']}",
         f"🏗 *المشروع:* {payload['project']}",
         f"📅 *التاريخ:* {payload['date']}",
         f"✍️ *المعد:* {payload['signatory']}",
         f"📊 *الحالة:* {payload['status']}",
-        f"━━━━━━━━━━━━━━━",
+        "━━━━━━━━━━━━━━━",
         f"🔗 *الرابط:* {payload['url']}",
-        f"",
-        f"منصة أزادكسا لتقارير المشاريع الإنشائية",
-        f"AZAD Intelligent Systems",
+        "",
+        "منصة أزادكسا لتقارير المشاريع الإنشائية",
+        "AZAD Intelligent Systems",
     ]
     text = "\n".join(text_lines)
     encoded = quote(text)
@@ -86,22 +85,22 @@ def email_share_url(payload: dict) -> str:
     """Generate mailto URL with pre-filled subject and body."""
     subject = f"مشاركة تقرير: {payload['title']} - {payload['serial']}"
     body = "\n".join([
-        f"مرحباً،",
-        f"",
-        f"أشارك معك التقرير التالي من منصة أزادكسا:",
-        f"",
+        "مرحباً،",
+        "",
+        "أشارك معك التقرير التالي من منصة أزادكسا:",
+        "",
         f"📌 النوع: {payload['title']}",
         f"🔢 الرقم التسلسلي: {payload['serial']}",
         f"🏗 المشروع: {payload['project']}",
         f"📅 التاريخ: {payload['date']}",
         f"✍️ المعد: {payload['signatory']}",
         f"📊 الحالة: {payload['status']}",
-        f"",
+        "",
         f"رابط التقرير: {payload['url']}",
-        f"",
-        f"—",
-        f"منصة أزادكسا لتقارير المشاريع الإنشائية",
-        f"AZAD Intelligent Systems",
+        "",
+        "—",
+        "منصة أزادكسا لتقارير المشاريع الإنشائية",
+        "AZAD Intelligent Systems",
     ])
     params = urlencode({"subject": subject, "body": body})
     return f"mailto:?{params}"

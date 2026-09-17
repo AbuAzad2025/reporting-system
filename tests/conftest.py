@@ -42,6 +42,9 @@ def app(tmp_path):
                                 VariationOrder, SafetyReport)
 
     app = create_app(TestConfig)
+    # Isolate file storage per test: uploads (attachments/avatars) land in
+    # tmp, never in the repo working tree.
+    app.config["UPLOAD_FOLDER"] = str(tmp_path / "uploads")
     with app.app_context():
         db.create_all()
 
@@ -52,7 +55,7 @@ def app(tmp_path):
             db.session.add(u)
             return u
 
-        owner = user("t_owner", "superadmin", "مالك اختبار تجريبي عام")
+        user("t_owner", "superadmin", "مالك اختبار تجريبي عام")
         admin = user("t_admin", "admin", "مدير اختبار تجريبي عام")
         eng = user("t_eng", "site_engineer", "مهندس اختبار تجريبي عام")
         eng2 = user("t_eng2", "site_engineer", "مهندس ثان اختبار تجريبي")

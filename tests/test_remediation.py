@@ -1,7 +1,5 @@
 """Remediation tests: PDF governance, attachments, validation hardening."""
 import io
-import os
-import tempfile
 
 import pytest
 
@@ -75,7 +73,7 @@ def test_pdf_dynamic_header_governance(client):
         if sub is None:
             pytest.skip("no dynamic submissions")
         pid = sub.project_id
-        proj = Project.query.get(pid)
+        Project.query.get(pid)
     r = client.get(f"/reports/dyn/{sub.id}/pdf")
     assert r.status_code == 200
     assert r.data[:5] == b"%PDF-"
@@ -90,8 +88,8 @@ def _upload(client, kind, oid, filename="test.jpg",
             content=b"fake-image-data", mime="image/jpeg"):
     data = {"file": (io.BytesIO(content), filename)}
     return client.post(f"/ops/{kind}/{oid}/attachments",
-                         data=data, content_type="multipart/form-data",
-                         headers={"X-Requested-With": "XMLHttpRequest"})
+                       data=data, content_type="multipart/form-data",
+                       headers={"X-Requested-With": "XMLHttpRequest"})
 
 
 def test_attachment_upload_list_delete(client, app):
@@ -177,13 +175,11 @@ def test_regex_pattern_malformed_fails_closed(client, eng_client):
         db.session.commit()
 
     login_as(eng_client, "t_eng")
-    pa = eng_client.application.config.get(
-        "TEST_ALPHA_ID") or 1
     r = eng_client.post("/reports/dyn/new/daily",
-                          data={"project_name": "TestProj",
-                                "report_date": "2026-09-15",
-                                "f_manpower_table": "x"},
-                          follow_redirects=False)
+                        data={"project_name": "TestProj",
+                              "report_date": "2026-09-15",
+                              "f_manpower_table": "x"},
+                        follow_redirects=False)
     # The malformed pattern should cause a validation failure, not pass silently
     assert r.status_code in (422, 200)
     if r.status_code == 200:

@@ -105,6 +105,8 @@ ROLE_PERMISSIONS = {
 MANAGER_ROLES = {"superadmin", "admin", "project_manager", "project_director"}
 
 # ---------------------------------------------------------------- user
+
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
@@ -130,7 +132,7 @@ class User(UserMixin, db.Model):
     })
 
     submissions = db.relationship("ReportSubmission", backref="author",
-                                   lazy="dynamic", cascade="all, delete-orphan")
+                                  lazy="dynamic", cascade="all, delete-orphan")
     legacy_reports = db.relationship("Report", backref="author", lazy="dynamic",
                                      cascade="all, delete-orphan")
 
@@ -188,6 +190,8 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # ---------------------------------------------------------------- project
+
+
 class Project(db.Model):
     __tablename__ = "projects"
     id = db.Column(db.Integer, primary_key=True)
@@ -200,12 +204,14 @@ class Project(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     submissions = db.relationship("ReportSubmission", backref="project",
-                                   lazy="dynamic")
+                                  lazy="dynamic")
 
     def __repr__(self):
         return f"<Project {self.name}>"
 
 # ---------------------------------------------------------------- templates
+
+
 class ReportTemplate(db.Model):
     __tablename__ = "report_templates"
     id = db.Column(db.Integer, primary_key=True)
@@ -225,7 +231,7 @@ class ReportTemplate(db.Model):
                              cascade="all, delete-orphan",
                              order_by="DynamicField.position")
     submissions = db.relationship("ReportSubmission", backref="template",
-                                   lazy="dynamic", cascade="all, delete-orphan")
+                                  lazy="dynamic", cascade="all, delete-orphan")
 
     @property
     def ordered_fields(self):
@@ -235,6 +241,8 @@ class ReportTemplate(db.Model):
         return f"<ReportTemplate {self.key}: {self.name_ar}>"
 
 # ---------------------------------------------------------------- fields
+
+
 class DynamicField(db.Model):
     __tablename__ = "dynamic_fields"
     __table_args__ = (
@@ -289,6 +297,8 @@ class DynamicField(db.Model):
         return f"<DynamicField {self.field_key} ({self.field_type})>"
 
 # ---------------------------------------------------------------- submission
+
+
 class ReportSubmission(db.Model):
     """One filled dynamic report. Anti-duplicate: a project gets at most one
     submission per (template, project_name, report_date)."""
@@ -324,6 +334,8 @@ class ReportSubmission(db.Model):
                 f"{self.report_date}>")
 
 # ---------------------------------------------------------------- legacy
+
+
 class Report(db.Model):
     """LEGACY static table (v1: daily/weekly/monthly/safety with hardcoded
     FIELD_SPECS). Kept fully working; new work should use ReportSubmission."""

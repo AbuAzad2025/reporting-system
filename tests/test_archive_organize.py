@@ -10,7 +10,6 @@ Covers the /archive enhancements:
 """
 from datetime import date
 
-import pytest
 
 from tests.conftest import login_as
 from app.models import Report, ReportSubmission, ReportTemplate, Project, User

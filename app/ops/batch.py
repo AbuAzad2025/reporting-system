@@ -14,8 +14,8 @@ from reportlab.lib.units import mm
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
                                 TableStyle, HRFlowable, PageBreak)
 
-from utils.pdf_generator import (_styles, _section_title, _kv_table, _footer,
-                                 _brand_logo, BRAND_AR, ar)
+from utils.pdf_generator import (_styles, _section_title, _kv_table, _brand_logo,
+                                 ar)
 from app.ops.models import OPS_MODULES
 
 NAVY = colors.HexColor("#1e3a5f")
@@ -63,7 +63,6 @@ def collect_batch(model_map, user, project_id=None, date_from=None,
     """Tenant-scoped collection across modules, oldest first. Pure query
     helper shared by the endpoint and tests."""
     from app.ops.isolation import scope_to_tenant
-    from app.extensions import db
     kinds = kinds or list(model_map)
     out = []
     for kind in kinds:
@@ -206,9 +205,9 @@ def build_batch_pdf(records, project_name: str, date_from: str, date_to: str,
                                  "شركة المقاولات العامة  —  منصة تقارير المشاريع الإنشائية")
         canvas.setFont("Helvetica", 7)
         canvas.drawString(10 * mm, 5,
-                           "منصة أزادكسا | AZAD Intelligent Systems  •  م. أحمد غنيم")
+                          "منصة أزادكسا | AZAD Intelligent Systems  •  م. أحمد غنيم")
         canvas.drawRightString(A4[0] - 10 * mm, 5,
-                                f"صفحة {doc.page}")
+                               f"صفحة {doc.page}")
         canvas.restoreState()
         # shared footer (page number + branding)
         _footer(canvas, doc)

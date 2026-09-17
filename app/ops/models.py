@@ -87,6 +87,17 @@ SAFETY_RESPONSIBLE = ("مقاول", "مقاول باطن", "استشاري", "م
 CONSULTANT_ACTIONS = ("A", "B", "C", "D")
 #: subcontractor overall recommendation
 SUB_RECOMMENDATIONS = ("استمرار", "إنذار", "استبعاد")
+#: equipment row status taxonomy for the DSR plant log
+EQUIPMENT_STATUS = ("operating", "idle", "down", "maintenance")
+#: dual-party feedback: supervision side (consultant/management) vs
+#: execution side (contractor/site team). Derived from the author's role.
+SUPERVISION_ROLES = {"senior_consultant", "project_manager",
+                     "project_director", "admin", "superadmin"}
+COMMENT_PARTIES = ("contractor", "consultant")
+#: feedback body length guard (mirrors review_notes discipline)
+MAX_COMMENT_LEN = 2000
+#: structured-table guard: max rows per DSR workflow table
+MAX_TABLE_ROWS = 30
 
 
 def next_serial(prefix: str, model, offset: int = 0) -> str:
@@ -401,12 +412,55 @@ class DailySiteReport(OpsRecordMixin, db.Model):
     safety_notes = db.Column(db.Text, default="")  # ملاحظات السلامة
     day_progress_pct = db.Column(db.Float, nullable=False, default=0)  # إنجاز اليوم %
     next_plan = db.Column(db.Text, default="")  # خطة الغد
+    #: structured daily workflows (advanced staging): labor breakdown by
+    #: trade, plant/equipment log, and work-front staging across site areas.
+    #: Each is a JSON list of row dicts, validated in routes.TABLE_SPECS.
+    labor_table = db.Column(db.JSON, default=list)      # [{trade, count}]
+    equipment_table = db.Column(db.JSON, default=list)  # [{eq_type, qty, hours, status}]
+    work_fronts = db.Column(db.JSON, default=list)      # [{area, activity, progress_pct}]
 
     @property
     def manpower_total(self):
         from app.ops.finance import manpower_total
         return manpower_total(self.engineers_count, self.technicians_count,
                               self.labor_count)
+
+    @staticmethod
+    def _rows(value):
+        return [r for r in (value or []) if isinstance(r, dict)]
+
+    @property
+    def labor_table_total(self) -> int:
+        """Headcount summed across trades (structured breakdown)."""
+        total = 0
+        for r in self._rows(self.labor_table):
+            try:
+                total += int(float(r.get("count", 0) or 0))
+            except (TypeError, ValueError):
+                continue
+        return total
+
+    @property
+    def equipment_hours_total(self) -> float:
+        """Plant-hours of the day: Σ qty × hours per equipment row."""
+        total = 0.0
+        for r in self._rows(self.equipment_table):
+            try:
+                total += float(r.get("qty", 0) or 0) * float(r.get("hours", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+        return round(total, 2)
+
+    @property
+    def fronts_avg_pct(self):
+        """Mean progress across staged work fronts (None when unstaged)."""
+        pcts = []
+        for r in self._rows(self.work_fronts):
+            try:
+                pcts.append(float(r.get("progress_pct", 0) or 0))
+            except (TypeError, ValueError):
+                continue
+        return round(sum(pcts) / len(pcts), 2) if pcts else None
 
 
 # ---------------------------------------------------------------- 8. VO
@@ -488,15 +542,65 @@ class Attachment(db.Model):
     record_kind = db.Column(db.String(40), nullable=False, index=True)
     record_id = db.Column(db.Integer, nullable=False)
     project_id = db.Column(db.Integer, db.ForeignKey("projects.id"),
-                              nullable=False, index=True)
+                           nullable=False, index=True)
     filename = db.Column(db.String(260), nullable=False)
     storage_key = db.Column(db.String(120), nullable=False, unique=True,
-                               index=True)
+                            index=True)
     mime_type = db.Column(db.String(80), nullable=False)
     byte_size = db.Column(db.Integer, nullable=False, default=0)
     uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"),
-                               nullable=False)
+                            nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
         return f"<Attachment {self.storage_key} ({self.record_kind}/{self.record_id})>"
+
+
+# ---------------------------------------------------------------- feedback
+def comment_party(role: str) -> str:
+    """Map an author role onto the dual-party feedback side."""
+    role = {"user": "site_engineer"}.get(role or "", role or "")
+    return "consultant" if role in SUPERVISION_ROLES else "contractor"
+
+
+class OpsRecordComment(db.Model):
+    """Dual-party feedback thread on any ops record.
+
+    Contractor/site team and consultant/supervision exchange review notes
+    without touching the immutable record itself. Tenant-scoped via
+    project_id (same fail-closed rule as attachments); author identity +
+    role are snapshotted for the audit trail.
+    """
+    __tablename__ = "ops_record_comments"
+    __table_args__ = (
+        db.Index("ix_cmt_kind_record", "record_kind", "record_id"),
+        db.Index("ix_cmt_project", "project_id"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    record_kind = db.Column(db.String(40), nullable=False, index=True)
+    record_id = db.Column(db.Integer, nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"),
+                           nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"),
+                          nullable=False)
+    author_name = db.Column(db.String(200), nullable=False, default="")
+    author_role = db.Column(db.String(30), nullable=False, default="")
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def party(self) -> str:
+        return comment_party(self.author_role)
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "record_kind": self.record_kind,
+                "record_id": self.record_id, "project_id": self.project_id,
+                "author_id": self.author_id, "author_name": self.author_name,
+                "author_role": self.author_role, "party": self.party,
+                "body": self.body,
+                "created_at": self.created_at.isoformat()
+                if self.created_at else ""}
+
+    def __repr__(self):
+        return (f"<OpsRecordComment {self.id} "
+                f"({self.record_kind}/{self.record_id} by {self.author_name})>")

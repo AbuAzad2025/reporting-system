@@ -306,7 +306,7 @@ def dyn_new(template_key):
                 report_date=report_date).first()
             if dup:
                 errors.insert(0, f"يوجد بالفعل «{tpl.name_ar}» لنفس المشروع "
-                                 f"({project_name}) بتاريخ {report_date}.")
+                              f"({project_name}) بتاريخ {report_date}.")
         if errors:
             for e in errors:
                 flash(e, "danger")

@@ -1,15 +1,13 @@
 """Tests for enterprise enhancements: profiles, RBAC, sharing."""
 import io
-import json
-from unittest.mock import patch, MagicMock
 
 import pytest
 
 from tests.conftest import login_as
-from app.models import User, ReportSubmission, Report, Project
-from app.services.share import (build_report_share_url, build_share_payload,
-                                 whatsapp_share_url, email_share_url, get_share_data)
-from app.utils.decorators import norm_role, has_role
+from app.models import User, ReportSubmission, Report
+from app.services.share import (build_share_payload, whatsapp_share_url,
+                                email_share_url, get_share_data)
+from app.utils.decorators import norm_role
 
 
 # ================================================================= Profile Tests
@@ -97,18 +95,18 @@ def test_avatar_rejects_oversized(eng_client):
 # ================================================================= RBAC Tests
 
 @pytest.mark.parametrize("role,expected_norm", [
-        ("superadmin", "superadmin"),
-        ("admin", "admin"),
-        ("project_manager", "project_manager"),
-        ("project_director", "project_director"),
-        ("qa_qc_inspector", "qa_qc_inspector"),
-        ("senior_consultant", "senior_consultant"),
-        ("procurement_officer", "procurement_officer"),
-        ("safety_officer", "safety_officer"),
-        ("site_engineer", "site_engineer"),
-        ("user", "site_engineer"),  # legacy alias maps to site_engineer
-        ("unknown", "site_engineer"),
-    ])
+    ("superadmin", "superadmin"),
+    ("admin", "admin"),
+    ("project_manager", "project_manager"),
+    ("project_director", "project_director"),
+    ("qa_qc_inspector", "qa_qc_inspector"),
+    ("senior_consultant", "senior_consultant"),
+    ("procurement_officer", "procurement_officer"),
+    ("safety_officer", "safety_officer"),
+    ("site_engineer", "site_engineer"),
+    ("user", "site_engineer"),  # legacy alias maps to site_engineer
+    ("unknown", "site_engineer"),
+])
 def test_norm_role(role, expected_norm):
     """norm_role handles all new roles and legacy aliases."""
     assert norm_role(role) == expected_norm
@@ -172,7 +170,7 @@ def test_permission_required_decorator(eng_client, app):
     from flask import Flask
     test_app = Flask(__name__)
     test_app.config.from_object(app.config)
-    with test_app.test_client() as c:
+    with test_app.test_client():
         # We can't easily test decorator without adding route
         # Instead verify the permission logic directly
         from app.utils.decorators import permission_required
@@ -184,7 +182,7 @@ def test_role_toggle_cycles_through_all_roles(client, app):
     login_as(client, "t_admin")
     with app.app_context():
         u = User.query.filter_by(username="t_eng").first()
-        original = u.role
+        u.role
         role_order = ["site_engineer", "safety_officer", "procurement_officer",
                       "qa_qc_inspector", "senior_consultant", "project_manager",
                       "project_director", "admin", "superadmin"]

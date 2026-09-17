@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}تحليلات العمليات الشاملة{% endblock %}
+{% block content %}
+<div class="bg-navy text-white rounded-3xl p-5 shadow">
+  <h1 class="font-extrabold text-lg">🌐 تحليلات العمليات — كل المشاريع</h1>
+  <p class="text-xs text-slate-300">مالك المنصة فقط · آخر تحديث {{ data.generated_at }}</p>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-center">
+    <div class="bg-white/10 rounded-2xl py-3"><div class="text-xl font-extrabold">{{ data.by_project|sum(attribute='total') }}</div><div class="text-[11px] text-slate-300">إجمالي تقارير العمليات</div></div>
+    <div class="bg-white/10 rounded-2xl py-3"><div class="text-xl font-extrabold">{{ data.open_rfis.total }}</div><div class="text-[11px] text-slate-300">استفسارات مفتوحة (RFI)</div></div>
+    <div class="bg-white/10 rounded-2xl py-3"><div class="text-xl font-extrabold">{{ data.dsr_manpower_30d.labor + data.dsr_manpower_30d.engineers + data.dsr_manpower_30d.technicians }}</div><div class="text-[11px] text-slate-300">قوى عاملة 30 يوم</div></div>
+    <div class="bg-white/10 rounded-2xl py-3"><div class="text-xl font-extrabold">{{ data.comments_30d }}</div><div class="text-[11px] text-slate-300">تعليقات 30 يوم</div></div>
+  </div>
+</div>
+
+<div class="bg-white rounded-3xl shadow p-5 mt-3">
+  <h2 class="font-extrabold text-navy mb-2">🏗️ المشاريع</h2>
+  {% for p in data.by_project %}
+  <div class="flex items-center gap-2 mb-2 text-sm">
+    <div class="w-40 shrink-0 font-bold truncate">{{ p.name }}</div>
+    <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-gold h-4 rounded-full" style="width: {{ p.approval_rate }}%"></div></div>
+    <div class="w-24 text-left text-xs">✅ {{ p.approved }} · ⏳ {{ p.attention }} · {{ p.approval_rate }}%</div>
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-400">لا توجد بيانات بعد.</p>
+  {% endfor %}
+</div>
+
+<div class="bg-white rounded-3xl shadow p-5 mt-3">
+  <h2 class="font-extrabold text-navy mb-2">🧩 الوحدات التسع</h2>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+    {% for kind, k in data.by_kind.items() %}
+    <div class="border rounded-2xl p-3">
+      <div class="font-extrabold">{{ k.prefix }} · {{ k.name_ar }}</div>
+      <div class="text-xs text-slate-500 mt-1">الإجمالي {{ k.total }} · معتمد {{ k.by_status.get('approved', 0) }} · قيد المراجعة {{ k.by_status.get('pending', 0) + k.by_status.get('submitted', 0) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="bg-white rounded-3xl shadow p-5 mt-3 text-sm">
+  <h2 class="font-extrabold text-navy mb-2">👷 القوى العاملة (دفتر الورشة — 30 يوم)</h2>
+  <p>مهندسون {{ data.dsr_manpower_30d.engineers }} · فنّيون {{ data.dsr_manpower_30d.technicians }} · عمّال {{ data.dsr_manpower_30d.labor }} · مفصّل حسب المهنة {{ data.dsr_manpower_30d.structured_labor }} · ساعات معدات {{ data.dsr_manpower_30d.plant_hours }}</p>
+  <h2 class="font-extrabold text-navy mt-3 mb-2">📨 الاستفسارات المفتوحة حسب الجهة</h2>
+  <p>{% for court, cnt in data.open_rfis.by_court.items() %}{{ court }}: {{ cnt }}{% if not loop.last %} · {% endif %}{% else %}لا توجد استفسارات مفتوحة.{% endfor %}</p>
+</div>
+{% endblock %}

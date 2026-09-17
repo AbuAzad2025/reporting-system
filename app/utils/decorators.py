@@ -1,6 +1,11 @@
-"""Role helpers + access decorators for the multi-tier RBAC model."""
+"""Role helpers + access decorators for the multi-tier RBAC model.
+
+Fail-closed by design: every decorator returns an explicit denial response
+(403 for authenticated users, 401 for unauthenticated JSON/API requests) and
+never silently falls through to the protected view.
+"""
 from functools import wraps
-from flask import flash, redirect, url_for
+from flask import flash, jsonify, redirect, request, url_for
 from flask_login import current_user
 
 # Role hierarchy (low -> high privilege)
@@ -27,6 +32,25 @@ def norm_role(role: str) -> str:
     return role if role in valid_roles else "site_engineer"
 
 
+#: URL prefixes served as machine-readable JSON APIs (denials are 401/403,
+#: never login redirects) — page routes outside these get flash+redirect.
+JSON_API_PREFIXES = ("/ops/", "/reports/", "/admin/api/")
+
+
+def _is_json_request() -> bool:
+    """True for API/JSON callers so denials are machine-readable (403/401)."""
+    return (request.is_json
+            or request.path.startswith(JSON_API_PREFIXES))
+
+
+def _deny(message: str, code: int):
+    """Unified denial response: JSON for API, flash+redirect for pages."""
+    if _is_json_request():
+        return jsonify({"error": message}), code
+    flash(message, "danger")
+    return redirect(url_for("main.dashboard"))
+
+
 def has_role(*roles) -> bool:
     if not current_user.is_authenticated:
         return False
@@ -42,10 +66,10 @@ def roles_required(*roles):
             # legacy compat: 'admin' gate also admits superadmin/project_manager
             if "admin" in allowed:
                 allowed |= {"superadmin", "project_manager"}
-            if not current_user.is_authenticated or \
-                    norm_role(getattr(current_user, "role", "")) not in allowed:
-                flash("صلاحيات غير كافية للوصول إلى هذه الصفحة.", "danger")
-                return redirect(url_for("main.dashboard"))
+            if not current_user.is_authenticated:
+                return _deny("authentication required", 401)
+            if norm_role(getattr(current_user, "role", "")) not in allowed:
+                return _deny("insufficient permissions", 403)
             return view(*args, **kwargs)
         return wrapper
     return deco
@@ -57,11 +81,9 @@ def permission_required(*perms):
         @wraps(view)
         def wrapper(*args, **kwargs):
             if not current_user.is_authenticated:
-                flash("يرجى تسجيل الدخول أولاً.", "warning")
-                return redirect(url_for("auth.login"))
+                return _deny("authentication required", 401)
             if not current_user.has_all_perms(*perms):
-                flash("صلاحيات غير كافية لتنفيذ هذا الإجراء.", "danger")
-                return redirect(url_for("main.dashboard"))
+                return _deny("insufficient permissions", 403)
             return view(*args, **kwargs)
         return wrapper
     return deco
@@ -73,11 +95,9 @@ def any_permission_required(*perms):
         @wraps(view)
         def wrapper(*args, **kwargs):
             if not current_user.is_authenticated:
-                flash("يرجى تسجيل الدخول أولاً.", "warning")
-                return redirect(url_for("auth.login"))
+                return _deny("authentication required", 401)
             if not current_user.has_any_perm(*perms):
-                flash("صلاحيات غير كافية لتنفيذ هذا الإجراء.", "danger")
-                return redirect(url_for("main.dashboard"))
+                return _deny("insufficient permissions", 403)
             return view(*args, **kwargs)
         return wrapper
     return deco

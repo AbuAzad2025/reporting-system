@@ -13,10 +13,10 @@ from app.admin import bp
 from app.extensions import db
 from app.models import (User, Project, ReportTemplate, DynamicField,
                         ReportSubmission, Report, ROLES, FIELD_TYPES)
-from app.utils.decorators import template_manager_required, roles_required
-from app.services.default_templates import (DEFAULT_TEMPLATES,
-                                            default_fields_for,
-                                            ensure_default_templates)
+from app.utils.decorators import (template_manager_required, roles_required,
+                                  permission_required)
+from app.ops.isolation import roles_required_json
+from app.services.default_templates import ensure_default_templates
 
 
 # ---------------------------------------------------------------- dashboard
@@ -363,3 +363,97 @@ def user_delete(user_id):
         db.session.commit()
         flash(f"تم حذف حساب {u.full_name}.", "info")
     return redirect(url_for("admin.users"))
+
+
+# ---------------------------------------------------------------- ops analytics
+def _ops_analytics() -> dict:
+    """Cross-tenant rollup over all nine ops modules (superadmin only).
+
+    One grouped query per module (project × status) feeds both the
+    per-module and per-project views; DSR manpower and open-RFI queues
+    are aggregated in Python over the 30-day window.
+    """
+    from datetime import datetime
+    from app.ops.routes import KIND_MODEL
+    from app.ops.models import OPS_MODULES, OpsRecordComment
+
+    by_kind, per_project = {}, {}
+    for kind, (_m, prefix, name_ar, _e) in OPS_MODULES.items():
+        model = KIND_MODEL[kind]
+        rows = (db.session.query(model.project_id, model.status,
+                                 func.count(model.id))
+                .group_by(model.project_id, model.status).all())
+        by_status: dict = {}
+        for _pid, status, count in rows:
+            by_status[status] = by_status.get(status, 0) + count
+            cell = per_project.setdefault(_pid, {"total": 0, "approved": 0,
+                                                 "attention": 0})
+            cell["total"] += count
+            if status == "approved":
+                cell["approved"] += count
+            if status in ("pending", "submitted"):
+                cell["attention"] += count
+        by_kind[kind] = {"name_ar": name_ar, "prefix": prefix,
+                         "total": sum(by_status.values()),
+                         "by_status": by_status}
+
+    projects = []
+    for p in Project.query.order_by(Project.name).all():
+        cell = per_project.get(p.id, {"total": 0, "approved": 0,
+                                      "attention": 0})
+        total = cell["total"]
+        projects.append({"id": p.id, "name": p.name, "total": total,
+                         "approved": cell["approved"],
+                         "attention": cell["attention"],
+                         "approval_rate": round(cell["approved"] / total * 100, 1)
+                         if total else 0.0})
+
+    # DSR manpower, last 30 days (scalar tiers in SQL, tables in Python)
+    from app.ops.models import DailySiteReport
+    since = datetime.utcnow() - timedelta(days=30)
+    dsrs = DailySiteReport.query.filter(
+        DailySiteReport.report_date >= since.date()).all()
+    manpower = {"reports": len(dsrs), "engineers": 0, "technicians": 0,
+                "labor": 0, "structured_labor": 0, "plant_hours": 0.0}
+    for d in dsrs:
+        manpower["engineers"] += d.engineers_count or 0
+        manpower["technicians"] += d.technicians_count or 0
+        manpower["labor"] += d.labor_count or 0
+        manpower["structured_labor"] += d.labor_table_total
+        manpower["plant_hours"] += d.equipment_hours_total
+    manpower["plant_hours"] = round(manpower["plant_hours"], 2)
+
+    # open RFI queue by ball-in-court
+    from app.ops.models import RFI
+    rfi_rows = (db.session.query(RFI.ball_in_court, func.count(RFI.id))
+                .filter(RFI.status.in_(("pending", "submitted")))
+                .group_by(RFI.ball_in_court).all())
+    open_rfis = {"total": sum(c for _, c in rfi_rows),
+                 "by_court": {k or "—": c for k, c in rfi_rows}}
+
+    comments_30d = OpsRecordComment.query.filter(
+        OpsRecordComment.created_at >= since).count()
+
+    return {"by_kind": by_kind, "by_project": projects,
+            "dsr_manpower_30d": manpower, "open_rfis": open_rfis,
+            "comments_30d": comments_30d,
+            "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M")}
+
+
+@bp.route("/api/analytics")
+@login_required
+@permission_required("view_analytics")
+@roles_required_json("superadmin")
+def api_analytics():
+    """Machine-readable cross-tenant ops rollup (superadmin only)."""
+    from flask import jsonify
+    return jsonify(_ops_analytics())
+
+
+@bp.route("/analytics")
+@login_required
+@permission_required("view_analytics")
+@roles_required("superadmin")
+def analytics():
+    """Superadmin cross-tenant ops analytics dashboard."""
+    return render_template("admin/analytics.html", data=_ops_analytics())

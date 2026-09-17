@@ -6,6 +6,7 @@ Initializes: SQLAlchemy, Login, Migrate. Seeds default dynamic templates.
 """
 import os
 from datetime import date
+import click
 from flask import Flask
 
 from config import Config, BASE_DIR
@@ -22,6 +23,21 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     migrate.init_app(app, db)
 
+    # Fail-closed API posture: unauthenticated /ops/* (and other JSON
+    # callers) get a machine-readable 401 instead of a 302 login redirect,
+    # so @permission_required / @roles_required_json semantics hold even
+    # when @login_required fires first in the decorator stack.
+    from flask import jsonify, request
+    from app.utils.decorators import JSON_API_PREFIXES
+
+    @login_manager.unauthorized_handler
+    def _unauthorized():
+        if request.path.startswith(JSON_API_PREFIXES) or request.is_json:
+            return jsonify({"error": "authentication required"}), 401
+        from flask import flash, redirect, url_for
+        flash(login_manager.login_message, login_manager.login_message_category)
+        return redirect(url_for(login_manager.login_view))
+
     # ---- blueprints (spec layout: auth / admin / reports + main)
     from app.auth import bp as auth_bp
     from app.main import bp as main_bp
@@ -36,6 +52,7 @@ def create_app(config_class=Config):
 
     # ---- template globals
     from app.models import REPORT_TYPES, ROLES
+
     @app.context_processor
     def inject_globals():
         cfg = app.config
@@ -127,5 +144,18 @@ def create_app(config_class=Config):
                         user_id=eng.id))
             db.session.commit()
             print("Demo submissions seeded.")
+
+    @app.cli.command("cleanup-orphaned-attachments")
+    @click.option("--dry-run", is_flag=True, default=False,
+                  help="Report only; delete nothing.")
+    def cleanup_orphaned_attachments_cmd(dry_run):
+        """Delete attachment rows/files orphaned by record removal."""
+        from app.ops.routes import cleanup_orphaned_attachments
+        with app.app_context():
+            stats = cleanup_orphaned_attachments(dry_run=dry_run)
+        mode = "DRY-RUN " if dry_run else ""
+        print(f"{mode}orphan rows: {stats['orphan_rows']}, "
+              f"orphan files: {stats['orphan_files']}, "
+              f"rows missing files: {stats['missing_files']}")
 
     return app

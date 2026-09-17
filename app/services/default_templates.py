@@ -120,8 +120,8 @@ EXTRA_SPECS = {
 }
 
 _KIND_MAP = {"text": "text", "textarea": "textarea", "number": "number",
-              "dropdown": "dropdown", "date": "date", "checkbox": "checkbox",
-              "table": "table"}
+             "dropdown": "dropdown", "date": "date", "checkbox": "checkbox",
+             "table": "table"}
 
 
 def _spec_to_field(key, label, kind, required=False, options=None,

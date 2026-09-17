@@ -10,10 +10,12 @@ Security posture on EVERY route:
   * Serials unique per module with DB constraint + insert retry.
 """
 from datetime import datetime
-from flask import Response, jsonify, request
+from flask import Response, current_app, jsonify, request, send_file
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 import os
+import re
+import uuid
 
 from app.ops import bp
 from app.extensions import db
@@ -21,8 +23,9 @@ from app.models import Project
 from app.ops import models as M
 from app.ops.models import Attachment
 from app.ops.isolation import (is_platform_manager, scope_to_tenant,
-                                    get_object_or_404_tenant, tenant_create_guard,
-                                    roles_required_json)
+                               get_object_or_404_tenant, tenant_create_guard,
+                               roles_required_json)
+from app.utils.decorators import permission_required, any_permission_required
 
 KIND_MODEL = {
     "site-inspections": M.SiteInspection,
@@ -127,6 +130,69 @@ SCHEMAS = {
 PROTECTED = {"id", "serial", "status", "signatory_name", "user_id",
              "reviewed_by_id", "reviewed_at", "created_at", "updated_at"}
 
+#: structured workflow tables: kind -> table -> [(key, type, required, rule)]
+#: type ∈ text/number/enum; rule = allowed tuple (enum) or (lo, hi) (number).
+TABLE_SPECS = {
+    "daily-reports": {
+        "labor_table": [("trade", "text", True, None),
+                        ("count", "number", True, (0, None))],
+        "equipment_table": [("eq_type", "text", True, None),
+                            ("qty", "number", True, (0, None)),
+                            ("hours", "number", False, (0, 24)),
+                            ("status", "enum", False,
+                             list(M.EQUIPMENT_STATUS))],
+        "work_fronts": [("area", "text", True, None),
+                        ("activity", "text", False, None),
+                        ("progress_pct", "number", False, (0, 100))],
+    },
+}
+
+
+def _validate_table(table: str, spec: list, raw, errors: list):
+    """Validate one list-of-dicts workflow table. Returns cleaned list."""
+    if not isinstance(raw, list):
+        errors.append(f"الحقل {table} يجب أن يكون قائمة.")
+        return None
+    if len(raw) > M.MAX_TABLE_ROWS:
+        errors.append(f"الحقل {table} يتجاوز الحد ({M.MAX_TABLE_ROWS} صفاً).")
+        return None
+    cleaned_rows = []
+    for i, row in enumerate(raw):
+        if not isinstance(row, dict):
+            errors.append(f"الصف {i + 1} في {table} غير صالح.")
+            return None
+        cleaned_row = {}
+        for key, typ, required, rule in spec:
+            val = row.get(key)
+            if val in ("", None):
+                if required:
+                    errors.append(f"الصف {i + 1} في {table}: {key} مطلوب.")
+                    return None
+                continue
+            if typ == "text":
+                if not isinstance(val, str):
+                    errors.append(f"الصف {i + 1} في {table}: {key} نصي.")
+                    return None
+                cleaned_row[key] = val.strip()[:200]
+            elif typ == "number":
+                try:
+                    v = float(val)
+                except (TypeError, ValueError):
+                    errors.append(f"الصف {i + 1} في {table}: {key} رقمي.")
+                    return None
+                lo, hi = rule
+                if (lo is not None and v < lo) or (hi is not None and v > hi):
+                    errors.append(f"الصف {i + 1} في {table}: {key} خارج النطاق.")
+                    return None
+                cleaned_row[key] = v
+            elif typ == "enum":
+                if str(val).strip() not in rule:
+                    errors.append(f"الصف {i + 1} في {table}: {key} غير صالح.")
+                    return None
+                cleaned_row[key] = str(val).strip()
+        cleaned_rows.append(cleaned_row)
+    return cleaned_rows
+
 
 def _payload():
     if request.is_json:
@@ -178,10 +244,18 @@ def validate_input(kind: str, data: dict, partial: bool = False):
             v = _parse_date(data[f], f, errors)
             if v is not None:
                 cleaned[f] = v
+    # structured workflow tables (DSR labor/equipment/staging)
+    for table, spec in TABLE_SPECS.get(kind, {}).items():
+        if table in data and data[table] not in ("", None):
+            rows = _validate_table(table, spec, data[table], errors)
+            if rows is not None:
+                cleaned[table] = rows
     # free text passthrough (mass-assignment guarded)
     model_cols = {c.key for c in KIND_MODEL[kind].__table__.columns}
+    table_keys = set(TABLE_SPECS.get(kind, {}))
     for k, v in data.items():
-        if k in PROTECTED or k in cleaned or k in schema["enums"] \
+        if k in PROTECTED or k in cleaned or k in table_keys \
+                or k in schema["enums"] \
                 or k in schema["numbers"] or k in schema["dates"]:
             continue
         if k == "project_id":
@@ -229,7 +303,11 @@ def _serialize(kind, record):
     elif kind == "rfis":
         d["computed"] = {"days_open": record.days_open}
     elif kind == "daily-reports":
-        d["computed"] = {"manpower_total": record.manpower_total}
+        d["computed"] = {"manpower_total": record.manpower_total,
+                         "labor_table_total": record.labor_table_total,
+                         "equipment_hours_total":
+                             record.equipment_hours_total,
+                         "fronts_avg_pct": record.fronts_avg_pct}
     elif kind == "variation-orders":
         d["computed"] = {"impact_signed": record.impact_signed}
     elif kind == "safety-reports":
@@ -246,6 +324,7 @@ def _resolve_kind(kind):
 # ---------------------------------------------------------------- registry
 @bp.route("/", methods=["GET"])
 @login_required
+@permission_required("view_reports")
 def registry():
     return jsonify({"modules": [
         {"kind": k, "prefix": p, "name_ar": a, "name_en": e}
@@ -254,6 +333,7 @@ def registry():
 
 @bp.route("/<kind>/meta", methods=["GET"])
 @login_required
+@permission_required("view_reports")
 def meta(kind):
     model, err = _resolve_kind(kind)
     if err:
@@ -267,6 +347,7 @@ def meta(kind):
 # ---------------------------------------------------------------- CRUD
 @bp.route("/<kind>", methods=["GET"])
 @login_required
+@permission_required("view_reports")
 def listing(kind):
     model, err = _resolve_kind(kind)
     if err:
@@ -291,6 +372,7 @@ def listing(kind):
 
 @bp.route("/<kind>", methods=["POST"])
 @login_required
+@permission_required("create_reports")
 def create(kind):
     model, err = _resolve_kind(kind)
     if err:
@@ -321,6 +403,7 @@ def create(kind):
 
 @bp.route("/<kind>/<int:obj_id>", methods=["GET"])
 @login_required
+@permission_required("view_reports")
 def detail(kind, obj_id):
     model, err = _resolve_kind(kind)
     if err:
@@ -331,9 +414,9 @@ def detail(kind, obj_id):
 
 @bp.route("/<kind>/<int:obj_id>", methods=["PUT", "PATCH"])
 @login_required
+@any_permission_required("edit_own_reports", "edit_all_reports")
 def update(kind, obj_id):
-    from app.ops.versioning import (is_locked, is_historical, normalize,
-                                    spawn_amendment)
+    from app.ops.versioning import (is_locked, is_historical, spawn_amendment)
     model, err = _resolve_kind(kind)
     if err:
         return err
@@ -362,6 +445,7 @@ def update(kind, obj_id):
 
 @bp.route("/<kind>/<int:obj_id>", methods=["DELETE"])
 @login_required
+@any_permission_required("delete_own_reports", "delete_all_reports")
 def remove(kind, obj_id):
     from app.ops.versioning import is_locked, is_historical
     model, err = _resolve_kind(kind)
@@ -373,14 +457,18 @@ def remove(kind, obj_id):
     if is_locked(record) or is_historical(record):
         return jsonify({"error": "locked/historical versions cannot be "
                                  "deleted (legal audit trail)"}), 423
+    serial = record.serial
+    delete_record_attachments(kind, record.id)  # rows + bytes, same txn
+    delete_record_comments(kind, record.id)  # feedback threads go with it
     db.session.delete(record)
     db.session.commit()
-    return jsonify({"deleted": record.serial})
+    return jsonify({"deleted": serial})
 
 
 # ---------------------------------------------------------------- workflow
 @bp.route("/<kind>/<int:obj_id>/submit", methods=["POST"])
 @login_required
+@any_permission_required("create_reports", "edit_own_reports")
 def submit(kind, obj_id):
     """Draft/rejected -> submitted (pending review). Author or manager."""
     from app.ops.versioning import normalize, can_transition
@@ -400,6 +488,7 @@ def submit(kind, obj_id):
 
 @bp.route("/<kind>/<int:obj_id>/history", methods=["GET"])
 @login_required
+@permission_required("view_reports")
 def history(kind, obj_id):
     """Full amendment chain for one report, oldest version first."""
     model, err = _resolve_kind(kind)
@@ -417,6 +506,7 @@ def history(kind, obj_id):
 
 @bp.route("/<kind>/<int:obj_id>/approve", methods=["POST"])
 @login_required
+@permission_required("approve_reports")
 @roles_required_json("admin", "superadmin", "project_manager")
 def approve(kind, obj_id):
     from app.ops.versioning import apply_decision
@@ -437,6 +527,7 @@ def approve(kind, obj_id):
 # ---------------------------------------------------------------- PDF
 @bp.route("/<kind>/<int:obj_id>/pdf", methods=["GET"])
 @login_required
+@permission_required("export_pdf")
 def pdf(kind, obj_id):
     model, err = _resolve_kind(kind)
     if err:
@@ -460,6 +551,7 @@ def pdf(kind, obj_id):
 # ---------------------------------------------------------------- batch export
 @bp.route("/batch", methods=["GET"])
 @login_required
+@permission_required("view_analytics")
 @roles_required_json("admin", "superadmin", "project_manager")
 def batch_form():
     """Minimal UI: pick project + date range (+modules) → PDF download."""
@@ -475,6 +567,7 @@ def batch_form():
 
 @bp.route("/batch-export", methods=["POST"])
 @login_required
+@permission_required("view_analytics")
 @roles_required_json("admin", "superadmin", "project_manager")
 def batch_export():
     """Aggregate a date range into one indexed multi-report PDF."""
@@ -511,11 +604,141 @@ def batch_export():
 
 
 # ---------------------------------------------------------------- attachments
-from flask import current_app
-
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif",
                 "image/webp", "application/pdf"}
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+
+#: sub-directory of UPLOAD_FOLDER holding ops evidence files
+ATTACH_DIR = "ops"
+
+
+def _safe_filename(name: str) -> str:
+    """Strip directories / control chars; keep unicode word chars (Arabic OK).
+
+    Returns "" when nothing usable remains (caller must reject with 400).
+    """
+    base = os.path.basename(name or "").strip()
+    base = re.sub(r"[^\w.\-]+", "_", base, flags=re.UNICODE).strip("._")
+    if not base:
+        return ""
+    if "." in base:
+        stem, _dot, ext = base.rpartition(".")
+        ext = re.sub(r"[^\w]+", "", ext, flags=re.UNICODE)[:10]
+        stem = (stem or "file")[:40]
+        return f"{stem}.{ext}" if ext else stem
+    return base[:40]
+
+
+def _abs_path(storage_key: str) -> str:
+    """Absolute path for a storage key; raises ValueError on traversal."""
+    base = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+    abs_path = os.path.abspath(os.path.join(base, storage_key))
+    if abs_path != base and not abs_path.startswith(base + os.sep):
+        raise ValueError("storage key escapes upload folder")
+    return abs_path
+
+
+def _store_file(kind: str, record_id: int, filename: str, buf: bytes) -> str:
+    """Persist bytes under UPLOAD_FOLDER/ops/<kind>/<id>/; return key.
+
+    Key layout keeps the DB column (String 120) safe: short prefix +
+    12-hex unique token + truncated sanitized filename.
+    """
+    rel = os.path.join(ATTACH_DIR, kind, str(record_id),
+                       f"{uuid.uuid4().hex[:12]}_{filename}")
+    storage_key = rel.replace(os.sep, "/")
+    abs_path = _abs_path(storage_key)
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    with open(abs_path, "wb") as f:
+        f.write(buf)
+    return storage_key
+
+
+def _delete_file(storage_key: str) -> bool:
+    """Best-effort unlink; never raises (missing file is not an error)."""
+    try:
+        os.remove(_abs_path(storage_key))
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def delete_record_attachments(kind: str, record_id: int) -> int:
+    """Delete every attachment row + bytes for one record. Returns count."""
+    atts = Attachment.query.filter_by(
+        record_kind=kind, record_id=record_id).all()
+    for a in atts:
+        _delete_file(a.storage_key)
+        db.session.delete(a)
+    return len(atts)
+
+
+def delete_record_comments(kind: str, record_id: int) -> int:
+    """Delete every feedback comment for one record. Returns count."""
+    rows = M.OpsRecordComment.query.filter_by(
+        record_kind=kind, record_id=record_id).all()
+    for c in rows:
+        db.session.delete(c)
+    return len(rows)
+
+
+def cleanup_orphaned_attachments(dry_run: bool = False) -> dict:
+    """Remove attachment rows whose record is gone + stray files on disk.
+
+    * orphan_rows: DB rows pointing at a missing (kind, record_id), or an
+      unknown kind — rows (and their files) are deleted unless dry_run.
+    * missing_files: rows whose bytes are absent from disk (reported only).
+    * orphan_files: files under UPLOAD_FOLDER/ops with no DB row — deleted
+      unless dry_run. Files outside the ops prefix (e.g. avatars) untouched.
+    """
+    stats = {"orphan_rows": 0, "missing_files": 0, "orphan_files": 0}
+    known_keys = set()
+    for att in Attachment.query.all():
+        known_keys.add(att.storage_key)
+        model = KIND_MODEL.get(att.record_kind)
+        target = db.session.get(model, att.record_id) \
+            if model is not None else None
+        if target is None:
+            stats["orphan_rows"] += 1
+            if not dry_run:
+                _delete_file(att.storage_key)
+                db.session.delete(att)
+            continue
+        try:
+            present = os.path.isfile(_abs_path(att.storage_key))
+        except ValueError:
+            present = False
+        if not present:
+            stats["missing_files"] += 1
+    if not dry_run:
+        db.session.commit()
+
+    ops_root = os.path.join(
+        os.path.abspath(current_app.config["UPLOAD_FOLDER"]), ATTACH_DIR)
+    if os.path.isdir(ops_root):
+        for root, _dirs, files in os.walk(ops_root):
+            for name in files:
+                abs_path = os.path.join(root, name)
+                rel = os.path.relpath(
+                    abs_path,
+                    os.path.abspath(current_app.config["UPLOAD_FOLDER"]))
+                key = rel.replace(os.sep, "/")
+                if key not in known_keys:
+                    stats["orphan_files"] += 1
+                    if not dry_run:
+                        try:
+                            os.remove(abs_path)
+                        except OSError:
+                            pass
+    # prune now-empty record directories (tidy only, best-effort)
+    if not dry_run and os.path.isdir(ops_root):
+        for root, dirs, files in os.walk(ops_root, topdown=False):
+            if not dirs and not files:
+                try:
+                    os.rmdir(root)
+                except OSError:
+                    pass
+    return stats
 
 
 @bp.route("/<kind>/<int:obj_id>/attachments", methods=["GET"])
@@ -548,29 +771,40 @@ def attachment_upload(kind, obj_id):
     file = request.files["file"]
     if file.filename == "":
         return jsonify({"error": "empty filename"}), 400
-    filename = os.path.basename(file.filename)
+    filename = _safe_filename(file.filename)
+    if not filename:
+        return jsonify({"error": "invalid filename"}), 400
     mime = (file.mimetype or "application/octet-stream").lower()
     if mime not in ALLOWED_MIME:
         return jsonify({"error": f"unsupported type: {mime}"}), 415
     buf = file.read()
     if len(buf) > MAX_UPLOAD_BYTES:
         return jsonify({"error": "file exceeds 4 MB limit"}), 413
-    storage_key = f"{kind}/{record.id}/{datetime.utcnow().timestamp():.0f}_{filename}"
+    try:
+        storage_key = _store_file(kind, record.id, filename, buf)
+    except (OSError, ValueError):
+        current_app.logger.exception("attachment write failed")
+        return jsonify({"error": "storage failure"}), 500
     att = Attachment(record_kind=kind, record_id=record.id,
-                      project_id=record.project_id,
-                      filename=filename, storage_key=storage_key,
-                      mime_type=mime, byte_size=len(buf),
-                      uploaded_by=current_user.id)
+                     project_id=record.project_id,
+                     filename=filename, storage_key=storage_key,
+                     mime_type=mime, byte_size=len(buf),
+                     uploaded_by=current_user.id)
     db.session.add(att)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        _delete_file(storage_key)  # no orphan bytes on DB failure
+        return jsonify({"error": "could not save attachment"}), 500
     return jsonify({"id": att.id, "filename": att.filename,
-                     "storage_key": att.storage_key,
-                     "mime_type": att.mime_type,
-                     "byte_size": att.byte_size}), 201
+                    "storage_key": att.storage_key,
+                    "mime_type": att.mime_type,
+                    "byte_size": att.byte_size}), 201
 
 
 @bp.route("/<kind>/<int:obj_id>/attachments/<int:att_id>",
-            methods=["DELETE"])
+          methods=["DELETE"])
 @login_required
 def attachment_delete(kind, obj_id, att_id):
     model, err = _resolve_kind(kind)
@@ -583,9 +817,96 @@ def attachment_delete(kind, obj_id, att_id):
     if att.uploaded_by != current_user.id and not is_platform_manager(
             current_user):
         return jsonify({"error": "only author or manager may delete"}), 403
+    filename = att.filename
+    storage_key = att.storage_key
     db.session.delete(att)
     db.session.commit()
-    return jsonify({"deleted": att.filename})
+    _delete_file(storage_key)  # best-effort; missing bytes are fine
+    return jsonify({"deleted": filename})
+
+
+@bp.route("/<kind>/<int:obj_id>/attachments/<int:att_id>/download",
+          methods=["GET"])
+@login_required
+def attachment_download(kind, obj_id, att_id):
+    """Stream the stored bytes (tenant-scoped, correct MIME)."""
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    get_object_or_404_tenant(model, obj_id, current_user)
+    att = db.session.get(Attachment, att_id)
+    if att is None or att.record_kind != kind or att.record_id != obj_id:
+        return jsonify({"error": "not found"}), 404
+    try:
+        abs_path = _abs_path(att.storage_key)
+    except ValueError:
+        return jsonify({"error": "invalid storage key"}), 500
+    if not os.path.isfile(abs_path):
+        return jsonify({"error": "file missing from storage"}), 404
+    return send_file(abs_path, mimetype=att.mime_type,
+                     as_attachment=True, download_name=att.filename)
+
+
+# ---------------------------------------------------------------- feedback
+@bp.route("/<kind>/<int:obj_id>/comments", methods=["GET"])
+@login_required
+@permission_required("view_reports")
+def comment_list(kind, obj_id):
+    """Dual-party thread (contractor ↔ consultant), oldest first."""
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    get_object_or_404_tenant(model, obj_id, current_user)
+    rows = M.OpsRecordComment.query.filter_by(
+        record_kind=kind, record_id=obj_id).order_by(
+            M.OpsRecordComment.created_at.asc(),
+            M.OpsRecordComment.id.asc()).limit(200).all()
+    return jsonify({"comments": [c.to_dict() for c in rows]})
+
+
+@bp.route("/<kind>/<int:obj_id>/comments", methods=["POST"])
+@login_required
+@any_permission_required("create_reports", "edit_own_reports",
+                         "approve_reports")
+def comment_create(kind, obj_id):
+    """Post feedback on any status (incl. approved — review notes live here)."""
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    record = get_object_or_404_tenant(model, obj_id, current_user)
+    body = str((_payload().get("body") or "")).strip()
+    if not body:
+        return jsonify({"error": "validation failed",
+                        "details": ["نص التعليق مطلوب."]}), 422
+    if len(body) > M.MAX_COMMENT_LEN:
+        return jsonify({"error": "validation failed",
+                        "details": [f"التعليق يتجاوز {M.MAX_COMMENT_LEN} حرف."]}), 422
+    cmt = M.OpsRecordComment(
+        record_kind=kind, record_id=record.id,
+        project_id=record.project_id, author_id=current_user.id,
+        author_name=current_user.full_name,
+        author_role=getattr(current_user, "role", ""), body=body)
+    db.session.add(cmt)
+    db.session.commit()
+    return jsonify(cmt.to_dict()), 201
+
+
+@bp.route("/<kind>/<int:obj_id>/comments/<int:cmt_id>", methods=["DELETE"])
+@login_required
+def comment_delete(kind, obj_id, cmt_id):
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    get_object_or_404_tenant(model, obj_id, current_user)
+    cmt = db.session.get(M.OpsRecordComment, cmt_id)
+    if cmt is None or cmt.record_kind != kind or cmt.record_id != obj_id:
+        return jsonify({"error": "not found"}), 404
+    if cmt.author_id != current_user.id and not is_platform_manager(
+            current_user):
+        return jsonify({"error": "only author or manager may delete"}), 403
+    db.session.delete(cmt)
+    db.session.commit()
+    return jsonify({"deleted": cmt_id})
 
 
 # ---------------------------------------------------------------- archive API

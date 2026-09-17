@@ -6,7 +6,6 @@ computed financial summaries, quad-name authentication + approval trail.
 Retrieval is mapped 1:1 to serials via protected /ops/.../pdf endpoints.
 """
 import io
-import os
 from datetime import datetime
 
 from reportlab.lib import colors
@@ -16,7 +15,7 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
                                 TableStyle, HRFlowable)
 
 from utils.pdf_generator import (_styles, _section_title, _kv_table, _footer,
-                                 _brand_logo, BRAND_AR, ar)
+                                 ar)
 from app.ops.models import OPS_MODULES
 
 NAVY = colors.HexColor("#1e3a5f")
@@ -289,15 +288,16 @@ def build_ops_pdf(kind: str, record, project_name: str = "",
     if atts:
         story.append(_section_title("المرفقات والأدلة", st))
         story.append(Spacer(1, 3 * mm))
-        att_rows = [[Paragraph(ar(a.filename), st["cell"]),
-                      Paragraph(ar(a.mime_type), st["cell"]),
-                      Paragraph(a.created_at.strftime("%Y-%m-%d %H:%M")
-                                 if a.created_at else "—", st["cell"])]]
+        first = atts[0]
+        att_rows = [[Paragraph(ar(first.filename), st["cell"]),
+                     Paragraph(ar(first.mime_type), st["cell"]),
+                     Paragraph(first.created_at.strftime("%Y-%m-%d %H:%M")
+                               if first.created_at else "—", st["cell"])]]
         for att in atts[1:]:
             att_rows.append([Paragraph(ar(att.filename), st["cell"]),
                              Paragraph(ar(att.mime_type), st["cell"]),
                              Paragraph(att.created_at.strftime("%Y-%m-%d %H:%M")
-                                        if att.created_at else "—", st["cell"])])
+                                       if att.created_at else "—", st["cell"])])
         att_tbl = Table(att_rows, colWidths=[90 * mm, 50 * mm, 50 * mm])
         att_tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), LIGHT),
