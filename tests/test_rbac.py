@@ -10,17 +10,8 @@ from tests.conftest import login_as
 
 
 # ---- Helpers ------------------------------------------------------------
-
-def check_permissions(client, username, expected_perms):
-    """Log in as *username* and verify has_perm for every known permission."""
-    login_as(client, username)
-    from app.models import User
-    u = User.query.filter_by(username=username).first()
-    for p in PERMISSIONS.keys():
-        u.has_perm(p)
-        # NOTE: test only reports; does not assert per run to avoid
-        #     flaky failures from DB state. The matrix is verified
-        #     independently in test_permission_matrix.
+# (Role checks live in the parametrized tests below; the permission matrix
+# itself is verified in test_permission_matrix.)
 
 
 PERMISSIONS = {
@@ -126,7 +117,8 @@ def test_role_permission_checks(client, role_name, username):
     # Build a user with the target role if we have credentials
     if username:
         login_as(client, username)
-        u = User.query.filter_by(username=username).first()
+        with client.application.app_context():
+            u = User.query.filter_by(username=username).first()
         norm = u.norm_role
     else:
         # For roles without a pre-seeded test user, verify the matrix
@@ -149,7 +141,8 @@ def test_superadmin_all_permissions(client):
     """superadmin must have every permission."""
     login_as(client, "t_owner")
     from app.models import User
-    u = User.query.filter_by(username="t_owner").first()
+    with client.application.app_context():
+        u = User.query.filter_by(username="t_owner").first()
     for p in PERMISSIONS_LIST:
         assert u.has_perm(p), f"superadmin missing permission '{p}'"
 
@@ -158,7 +151,8 @@ def test_admin_no_manage_settings(client):
     """admin must NOT have manage_settings (fail-closed)."""
     login_as(client, "t_admin")
     from app.models import User
-    u = User.query.filter_by(username="t_admin").first()
+    with client.application.app_context():
+        u = User.query.filter_by(username="t_admin").first()
     assert not u.has_perm("manage_settings"), \
         "admin should not have manage_settings"
 
@@ -167,7 +161,8 @@ def test_admin_has_view_analytics(client):
     """admin MUST have view_analytics."""
     login_as(client, "t_admin")
     from app.models import User
-    u = User.query.filter_by(username="t_admin").first()
+    with client.application.app_context():
+        u = User.query.filter_by(username="t_admin").first()
     assert u.has_perm("view_analytics"), \
         "admin should have view_analytics"
 
@@ -185,7 +180,8 @@ def test_safety_officer_no_approve(client):
     """safety_officer must NOT have approve_reports."""
     login_as(client, "t_safety")
     from app.models import User
-    u = User.query.filter_by(username="t_safety").first()
+    with client.application.app_context():
+        u = User.query.filter_by(username="t_safety").first()
     assert not u.has_perm("approve_reports"), \
         "safety_officer should not have approve_reports"
 
@@ -194,7 +190,8 @@ def test_site_engineer_limited(client):
     """site_engineer has the 6 base permissions only."""
     login_as(client, "t_eng")
     from app.models import User
-    u = User.query.filter_by(username="t_eng").first()
+    with client.application.app_context():
+        u = User.query.filter_by(username="t_eng").first()
     base = {"view_reports", "create_reports", "edit_own_reports",
             "delete_own_reports", "view_archive", "export_pdf"}
     for p in PERMISSIONS_LIST:
@@ -209,7 +206,8 @@ def test_legacy_user_aliases_site_engineer(client):
     # Note: the conftest creates users with explicit roles;
     #       verify norm_role mapping via model if needed.
     from app.models import User
-    u = User.query.filter_by(username="t_eng").first()
+    with client.application.app_context():
+        u = User.query.filter_by(username="t_eng").first()
     assert u.norm_role == "site_engineer"
 
 
