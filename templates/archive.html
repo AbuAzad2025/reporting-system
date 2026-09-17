@@ -85,7 +85,7 @@
     {% for s in submissions %}
     <div class="bg-white rounded-2xl shadow p-4 hover:shadow-md transition">
       <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-[11px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-800">{{ s.template.name_ar }}</span>
+        <span class="text-[11px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-800">{{ s.template.name_ar if s.template else '—' }}</span>
         <span class="text-[11px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600"><bdi dir="ltr">DS-{{ '%05d'|format(s.id) }}</bdi></span>
       </div>
       <div class="font-bold text-sm mt-1">{{ s.project_name }}</div>
@@ -94,7 +94,7 @@
         <a href="{{ url_for('reports.dyn_view', sub_id=s.id) }}" class="bg-slate-100 py-3 rounded-xl hover:bg-slate-200">👁️ عرض</a>
         <a href="{{ url_for('reports.dyn_pdf', sub_id=s.id) }}" target="_blank" class="bg-red-50 text-red-700 py-3 rounded-xl hover:bg-red-100">📄 PDF</a>
         <a href="{{ url_for('reports.dyn_edit', sub_id=s.id) }}" class="bg-amber-50 text-amber-800 py-3 rounded-xl hover:bg-amber-100">✏️ تعديل</a>
-        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" onclick="shareArchive('dynamic', {{ s.id }}, 'DS-{{ '%05d'|format(s.id) }}', '{{ s.project_name|tojson }}', '{{ s.template.name_ar|tojson }}')">
+        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" onclick="shareArchive('dynamic', {{ s.id }}, 'DS-{{ '%05d'|format(s.id) }}', '{{ s.project_name|tojson }}', '{{ (s.template.name_ar if s.template else '—')|tojson }}')">
           📤 مشاركة
         </button>
       </div>

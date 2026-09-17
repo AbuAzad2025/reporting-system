@@ -47,6 +47,11 @@ def app(tmp_path):
     app.config["UPLOAD_FOLDER"] = str(tmp_path / "uploads")
     with app.app_context():
         db.create_all()
+        # Hermetic template seed: CI runs with AZADEXA_AUTO_CREATE=0, so
+        # seed here explicitly — tests must not depend on boot seeding.
+        from app.models import ReportTemplate, DynamicField
+        from app.services.default_templates import ensure_default_templates
+        ensure_default_templates(db, ReportTemplate, DynamicField)
 
         def user(username, role, full):
             u = User(username=username, email=f"{username}@t.com",

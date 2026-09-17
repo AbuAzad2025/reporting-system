@@ -14,6 +14,9 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
                                 Table, TableStyle, HRFlowable)
 from reportlab.lib import colors
 import io
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class _DynReportAdapter:
@@ -58,7 +61,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
                 if not contractor or contractor == "—":
                     contractor = proj.contractor or "—"
     except Exception:
-        pass
+        log.warning("dynamic PDF header project lookup failed", exc_info=True)
     header_data = [
         [Paragraph(ar("صاحب العمل / المالك"), st["cell_h"]),
          Paragraph(ar(project_owner), st["cell"]),
