@@ -31,12 +31,18 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
       AZADEXA_AUTO_CREATE: "0"
       PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Create isolated test database
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa \
+            -c "CREATE DATABASE azadexa_test;"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
