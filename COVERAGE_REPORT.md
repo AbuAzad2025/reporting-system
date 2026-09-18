@@ -22,7 +22,7 @@ Name                      Stmts   Miss Branch BrPart  Cover   Missing
 ---------------------------------------------------------------------
 app\admin\routes.py         387    272     80      0    25%   27-46, 55-56, ...  (only backup block 368-459 hit)
 app\main\routes.py          342    228     90      5    29%   18-20, 32->34, ...  (only backup block 426+ hit)
-app\services\backup.py      238    163    104      2    27%   68-70, 87-88, ...  (build/restore hit; ZIP/CSV paths partial)
+app\services\backup.py      238    132    45%    45%  (updated after test_backup_coverage.py)
 app\services\storage.py     149     23     32      5    82%   40-41, 51-52, ...  (local + mock S3/Azure/GCS covered)
 ---------------------------------------------------------------------
 TOTAL                      1116    686    306     12    34%
