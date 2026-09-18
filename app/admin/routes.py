@@ -365,6 +365,100 @@ def user_delete(user_id):
     return redirect(url_for("admin.users"))
 
 
+# ---------------------------------------------------------------- backup
+@bp.route("/backup", methods=["GET"])
+@login_required
+@roles_required("superadmin")
+def backup_index():
+    backups = []
+    try:
+        from app.services.storage import list_backups
+        backups = list_backups()
+    except Exception as exc:
+        flash(f"تعذر جلب قائمة النسخ: {exc}", "danger")
+    return render_template("admin/backup.html", backups=backups)
+
+
+@bp.route("/backup/export", methods=["POST"])
+@login_required
+@roles_required("superadmin")
+def backup_export():
+    from app.services.backup import build_backup, backup_filename, \
+        upload as storage_upload, validate_backup
+    data = build_backup()
+    validation = validate_backup(data)
+    if not validation["ok"]:
+        flash(f"فشل التحقق من النسخة: {validation['error']}", "danger")
+        return redirect(url_for("admin.backup_index"))
+    filename = backup_filename()
+    try:
+        location = storage_upload(data, filename)
+    except Exception as exc:
+        flash(f"فشل الرفع إلى التخزين: {exc}", "danger")
+        return redirect(url_for("admin.backup_index"))
+    flash(f"تم إنشاء نسخة احتياطية كاملة: {filename}", "success")
+    return redirect(url_for("admin.backup_index"))
+
+
+@bp.route("/backup/import", methods=["POST"])
+@login_required
+@roles_required("superadmin")
+def backup_import():
+    from app.services.backup import restore_backup, validate_backup
+    if "backup_file" not in request.files:
+        flash("لم يتم اختيار ملف نسخة احتياطية.", "danger")
+        return redirect(url_for("admin.backup_index"))
+    file = request.files["backup_file"]
+    if file.filename == "":
+        flash("لم يتم اختيار ملف نسخة احتياطية.", "danger")
+        return redirect(url_for("admin.backup_index"))
+    data = file.read()
+    validation = validate_backup(data)
+    if not validation["ok"]:
+        flash(f"الملف غير صالح: {validation['error']}", "danger")
+        return redirect(url_for("admin.backup_index"))
+    try:
+        counts = restore_backup(data)
+    except Exception as exc:
+        flash(f"فشل الاستعادة: {exc}", "danger")
+        return redirect(url_for("admin.backup_index"))
+    summary = ", ".join(f"{k}: {v}" for k, v in counts.items())
+    flash(f"تم استعادة النسخة بنجاح — {summary}", "success")
+    return redirect(url_for("admin.backup_index"))
+
+
+@bp.route("/backup/download/<path:key>", methods=["GET"])
+@login_required
+@roles_required("superadmin")
+def backup_download(key):
+    from flask import send_file
+    import io
+    from app.services.storage import download as storage_download
+    try:
+        data = storage_download(key)
+    except Exception as exc:
+        flash(f"تعذر تنزيل النسخة: {exc}", "danger")
+        return redirect(url_for("admin.backup_index"))
+    buf = io.BytesIO(data)
+    fname = key.rsplit("/", 1)[-1] if "/" in key else key
+    return send_file(buf, as_attachment=True,
+                      download_name=fname,
+                      mimetype="application/zip")
+
+
+@bp.route("/backup/delete/<path:key>", methods=["POST"])
+@login_required
+@roles_required("superadmin")
+def backup_delete(key):
+    from app.services.storage import delete as storage_delete
+    try:
+        storage_delete(key)
+        flash(f"تم حذف النسخة: {key}", "info")
+    except Exception as exc:
+        flash(f"تعذر حذف النسخة: {exc}", "danger")
+    return redirect(url_for("admin.backup_index"))
+
+
 # ---------------------------------------------------------------- ops analytics
 def _ops_analytics() -> dict:
     """Cross-tenant rollup over all nine ops modules (superadmin only).

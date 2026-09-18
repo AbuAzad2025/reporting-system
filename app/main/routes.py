@@ -424,3 +424,62 @@ def project_member_remove(project_id, user_id):
             db.session.commit()
             flash("تمت إزالة العضو.", "info")
     return redirect(url_for("main.project_detail", project_id=project.id))
+
+
+# ---------------------------------------------------------------- project backup
+@bp.route("/projects/<int:project_id>/backup", methods=["POST"])
+@login_required
+def project_backup(project_id):
+    """Project owner/manager exports project data as downloadable ZIP."""
+    from app.services.backup import build_backup, backup_filename
+    from app.services.storage import upload as storage_upload
+    from app.ops.isolation import get_linked_project_or_404, membership_role, is_platform_manager
+    project = get_linked_project_or_404(current_user, project_id)
+    my_role = membership_role(current_user, project.id)
+    can_manage = is_platform_manager(current_user) or my_role == "owner"
+    if not can_manage:
+        flash("إدارة النسخ الاحتياطي مقصورة على مالك المشروع.", "danger")
+        return redirect(url_for("main.project_detail", project_id=project_id))
+    data = build_backup(project_id)
+    filename = backup_filename(project_id)
+    try:
+        storage_upload(data, filename)
+    except Exception as exc:
+        flash(f"فشل حفظ النسخة الاحتياطية: {exc}", "danger")
+        return redirect(url_for("main.project_detail", project_id=project_id))
+    flash(f"تم إنشاء نسخة احتياطية للمشروع «{project.name}».", "success")
+    return redirect(url_for("main.project_detail", project_id=project_id))
+
+
+@bp.route("/projects/<int:project_id>/backup/import", methods=["POST"])
+@login_required
+def project_backup_import(project_id):
+    """Project owner/manager restores project data from uploaded backup."""
+    from app.services.backup import restore_backup, validate_backup
+    from app.ops.isolation import get_linked_project_or_404, membership_role, is_platform_manager
+    project = get_linked_project_or_404(current_user, project_id)
+    my_role = membership_role(current_user, project.id)
+    can_manage = is_platform_manager(current_user) or my_role == "owner"
+    if not can_manage:
+        flash("إدارة النسخ الاحتياطي مقصورة على مالك المشروع.", "danger")
+        return redirect(url_for("main.project_detail", project_id=project_id))
+    if "backup_file" not in request.files:
+        flash("لم يتم اختيار ملف نسخة احتياطية.", "danger")
+        return redirect(url_for("main.project_detail", project_id=project_id))
+    file = request.files["backup_file"]
+    if file.filename == "":
+        flash("لم يتم اختيار ملف نسخة احتياطية.", "danger")
+        return redirect(url_for("main.project_detail", project_id=project_id))
+    data = file.read()
+    validation = validate_backup(data)
+    if not validation["ok"]:
+        flash(f"الملف غير صالح: {validation['error']}", "danger")
+        return redirect(url_for("main.project_detail", project_id=project_id))
+    try:
+        counts = restore_backup(data, project_id=project_id, replace=True)
+    except Exception as exc:
+        flash(f"فشل الاستعادة: {exc}", "danger")
+        return redirect(url_for("main.project_detail", project_id=project_id))
+    summary = ", ".join(f"{k}: {v}" for k, v in counts.items())
+    flash(f"تم استعادة المشروع «{project.name}» — {summary}", "success")
+    return redirect(url_for("main.project_detail", project_id=project_id))

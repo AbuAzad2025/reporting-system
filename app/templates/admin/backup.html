@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}نسخ احتياطي — الإدارة{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4"><i class="bi bi-archive-fill text-primary me-2"></i>إدارة النسخ الاحتياطي</h2>
+
+  <div class="row">
+    <!-- Export -->
+    <div class="col-md-6 mb-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white"><h5 class="mb-0">إنشاء نسخة احتياطية كاملة</h5></div>
+        <div class="card-body">
+          <p class="text-muted">تصدير كل قاعدة البيانات، المشاريع، القوالب، والملفات للمخزن المهيأ.</p>
+          <form method="post" action="{{ url_for('admin.backup_export') }}">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-download me-2"></i>تصدير الآن</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import -->
+    <div class="col-md-6 mb-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-warning text-dark"><h5 class="mb-0">استعادة من نسخة احتياطية</h5></div>
+        <div class="card-body">
+          <p class="text-muted">رفع ملف ZIP سابق واستعادة البيانات بالكامل.</p>
+          <form method="post" action="{{ url_for('admin.backup_import') }}" enctype="multipart/form-data">
+            <div class="mb-3">
+              <input class="form-control" type="file" name="backup_file" accept=".zip,application/zip" required>
+            </div>
+            <button type="submit" class="btn btn-warning w-100"><i class="bi bi-upload me-2"></i>استعادة الآن</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- List -->
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-secondary text-white"><h5 class="mb-0">النسخ المحفوظة</h5></div>
+    <div class="card-body">
+      {% if backups %}
+      <table class="table table-hover align-middle">
+        <thead class="table-light"><tr><th>الاسم / المسار</th><th>الإجراء</th></tr></thead>
+        <tbody>
+          {% for b in backups %}
+          <tr>
+            <td><code>{{ b }}</code></td>
+            <td>
+              <a href="{{ url_for('admin.backup_download', key=b) }}" class="btn btn-sm btn-outline-primary me-1">تنزيل</a>
+              <form method="post" action="{{ url_for('admin.backup_delete', key=b) }}" style="display:inline" onsubmit="return confirm('حذف النسخة؟');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-muted">لا توجد نسخ احتياطية محفوظة حالياً.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
