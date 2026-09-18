@@ -7,7 +7,8 @@ on:
     branches: [master, develop]
 
 jobs:
-  test:
+  tests-backup-service:
+    name: tests-backup (${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -76,7 +77,8 @@ jobs:
             coverage.xml
             htmlcov/
 
-  security:
+  security-check:
+    name: security-check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
