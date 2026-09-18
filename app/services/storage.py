@@ -202,6 +202,27 @@ def _local_download(key: str) -> bytes:
         return fh.read()
 
 
+def upload_image(project_name: str, filename: str, data: bytes) -> str:
+    """Upload image organized by project / date / sequential number."""
+    from datetime import datetime
+    safe_project = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(project_name))
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    base_dir = os.path.join(BACKUP_LOCAL_DIR, "images", safe_project, today)
+    os.makedirs(base_dir, exist_ok=True)
+    # Sequential naming to avoid repeats
+    stem = os.path.splitext(filename)[0]
+    ext = os.path.splitext(filename)[1] or ".jpg"
+    seq = 1
+    while True:
+        new_name = f"{stem}_{seq:03d}{ext}"
+        path = os.path.join(base_dir, new_name)
+        if not os.path.exists(path):
+            with open(path, "wb") as fh:
+                fh.write(_to_bytes(data))
+            return path
+        seq += 1
+
+
 def upload(data: bytes, key: str) -> str:
     """Upload backup data to the configured storage backend."""
     data = _to_bytes(data)
