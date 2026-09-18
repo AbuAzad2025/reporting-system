@@ -46,7 +46,8 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
                             bottomMargin=36,
-                            title=f"Report-{template.key}-{submission.id}")
+                            title=f"Azadexa-{template.key}-{submission.id}",
+                            author="AZAD Intelligent Systems")
     from utils.pdf_generator import _footer
     from app.models import Project
     project_owner = "—"

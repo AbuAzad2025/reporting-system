@@ -67,14 +67,28 @@ def test_pdf_watermark_draft_only(client, kind):
 def test_pdf_dynamic_header_governance(client):
     """Dynamic report PDF generates successfully with 3-party header."""
     login_as(client, "t_eng")
-    from app.models import ReportSubmission, Project
+    from datetime import date
+    from app.models import ReportSubmission, ReportTemplate, Project, User
+    from app.extensions import db
     with client.application.app_context():
         sub = ReportSubmission.query.first()
         if sub is None:
-            pytest.skip("no dynamic submissions")
-        pid = sub.project_id
-        Project.query.get(pid)
-    r = client.get(f"/reports/dyn/{sub.id}/pdf")
+            # Self-sufficient: seed one submission instead of skipping,
+            # so the dynamic-PDF header path is always exercised.
+            tpl = ReportTemplate.query.filter_by(key="daily").first()
+            eng = User.query.filter_by(username="t_eng").first()
+            pa = Project.query.filter_by(name="Alpha Tower").first()
+            sub = ReportSubmission(
+                template_id=tpl.id, project_id=pa.id,
+                project_name=pa.name, report_date=date.today(),
+                data={"note": "remediation"}, signatory_name=eng.full_name,
+                user_id=eng.id)
+            db.session.add(sub)
+            db.session.commit()
+            sub_id = sub.id
+        else:
+            sub_id = sub.id
+    r = client.get(f"/reports/dyn/{sub_id}/pdf")
     assert r.status_code == 200
     assert r.data[:5] == b"%PDF-"
     text = r.data.decode("latin-1", errors="ignore")
