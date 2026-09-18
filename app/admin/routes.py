@@ -392,7 +392,7 @@ def backup_export():
         return redirect(url_for("admin.backup_index"))
     filename = backup_filename()
     try:
-        location = storage_upload(data, filename)
+        storage_upload(data, filename)
     except Exception as exc:
         flash(f"فشل الرفع إلى التخزين: {exc}", "danger")
         return redirect(url_for("admin.backup_index"))
@@ -442,8 +442,8 @@ def backup_download(key):
     buf = io.BytesIO(data)
     fname = key.rsplit("/", 1)[-1] if "/" in key else key
     return send_file(buf, as_attachment=True,
-                      download_name=fname,
-                      mimetype="application/zip")
+                     download_name=fname,
+                     mimetype="application/zip")
 
 
 @bp.route("/backup/delete/<path:key>", methods=["POST"])

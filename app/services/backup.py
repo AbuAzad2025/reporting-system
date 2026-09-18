@@ -33,7 +33,6 @@ Structure:
 """
 import io
 import json
-import os
 import zipfile
 from datetime import date, datetime
 from typing import Any, Dict, Iterable, List, Optional
