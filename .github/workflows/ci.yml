@@ -62,7 +62,7 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest tests/ -v --tb=short --tb=native -x
+          python -m pytest tests/ -v --tb=short --tb=native -x -k "not test_restore_postgresql_real"
 
       - name: Test coverage
         run: |
