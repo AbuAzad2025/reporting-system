@@ -383,8 +383,8 @@ def backup_index():
 @login_required
 @roles_required("superadmin")
 def backup_export():
-    from app.services.backup import build_backup, backup_filename, \
-        upload as storage_upload, validate_backup
+    from app.services.backup import build_backup, backup_filename, validate_backup
+    from app.services.storage import upload as storage_upload
     data = build_backup()
     validation = validate_backup(data)
     if not validation["ok"]:
