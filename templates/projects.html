@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}مشاريعي{% endblock %}
+{% block content %}
+<div class="bg-navy text-white rounded-3xl p-5 shadow">
+  <h1 class="font-extrabold text-lg">🏗️ مشاريعي</h1>
+  <p class="text-xs text-slate-300">المشاريع ضمن نطاقك{% if is_manager %} (مدير منصة: ترى الكل){% endif %} — أنشئ مشروعك ثم أضف فريقك قبل التقارير</p>
+</div>
+
+<div class="bg-white rounded-3xl shadow p-5 mt-3">
+  <h2 class="font-extrabold text-navy mb-2">➕ مشروع جديد</h2>
+  <form method="post" action="{{ url_for('main.projects') }}" class="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
+    <input name="name" required maxlength="200" placeholder="اسم المشروع *" class="border rounded-xl px-3 py-2">
+    <input name="location" maxlength="200" placeholder="الموقع" class="border rounded-xl px-3 py-2">
+    <input name="contractor" maxlength="200" placeholder="المقاول" class="border rounded-xl px-3 py-2">
+    <input name="client" maxlength="200" placeholder="المالك" class="border rounded-xl px-3 py-2">
+    <div class="md:col-span-4"><button class="bg-navy text-white font-bold px-6 py-2 rounded-xl hover:brightness-110">إنشاء — سأكون المالك</button></div>
+  </form>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+  {% for p in projects %}
+  <a href="{{ url_for('main.project_detail', project_id=p.id) }}" class="bg-white rounded-2xl shadow p-4 hover:bg-slate-50 block">
+    <div class="flex items-center justify-between">
+      <div class="font-extrabold text-navy truncate">{{ p.name }}</div>
+      {% if p.is_active %}<span class="text-[11px] font-bold px-2 py-1 rounded-full bg-green-100 text-green-800">نشط</span>{% else %}<span class="text-[11px] font-bold px-2 py-1 rounded-full bg-slate-200 text-slate-600">مؤرشف</span>{% endif %}
+    </div>
+    <div class="text-xs text-slate-500 mt-1">📍 {{ p.location or '—' }} · 🏢 {{ p.contractor or '—' }}</div>
+    <div class="text-[11px] mt-1 font-bold text-gold">دوري: {{ 'مالك' if roles.get(p.id) == 'owner' else ('مدير منصة' if roles.get(p.id) == 'manager' else 'عضو') }}</div>
+  </a>
+  {% else %}
+  <p class="text-sm text-slate-400 bg-white rounded-2xl shadow p-6 text-center md:col-span-2">لا مشاريع بعد — أنشئ أول مشروع بالأعلى.</p>
+  {% endfor %}
+</div>
+{% endblock %}

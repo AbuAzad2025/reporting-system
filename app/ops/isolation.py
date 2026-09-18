@@ -82,6 +82,48 @@ def tenant_create_guard(user, project_id):
     return project
 
 
+def visible_projects(user, active_only: bool = True):
+    """Projects the user may see/link: all active (manager) or member rows.
+
+    Single choke point for every project picker in the UI.
+    """
+    from app.models import Project
+    from app.ops.models import ProjectMember
+    q = Project.query.order_by(Project.name)
+    if active_only:
+        q = q.filter_by(is_active=True)
+    if is_platform_manager(user):
+        return q.all()
+    ids = [r[0] for r in db.session.query(
+        ProjectMember.project_id).filter_by(user_id=user.id).all()]
+    return q.filter(Project.id.in_(ids)).all() if ids else []
+
+
+def get_linked_project_or_404(user, project_id):
+    """Validate a linked project id from a form: digit + exists + in scope.
+
+    Returns the Project; aborts 404 otherwise (no existence oracle).
+    Linked reports sync their project_name from the project (single source).
+    """
+    from app.models import Project
+    if not str(project_id or "").isdigit():
+        abort(404)
+    project = db.session.get(Project, int(project_id))
+    if project is None or not can_access_project(user, project.id):
+        abort(404)
+    return project
+
+
+def membership_role(user, project_id):
+    """The user's row role on a project, or None (platform managers bypass)."""
+    from app.ops.models import ProjectMember
+    if is_platform_manager(user):
+        return "manager"
+    row = ProjectMember.query.filter_by(
+        user_id=user.id, project_id=int(project_id)).first()
+    return row.role_in_project if row else None
+
+
 def roles_required_json(*roles):
     """Role gate for JSON controllers: authenticated + role match else 403."""
     allowed = set(roles)

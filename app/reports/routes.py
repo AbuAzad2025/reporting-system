@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from app.reports import bp
 from app.extensions import db
 from app.models import Report, ReportTemplate, ReportSubmission, Project, REPORT_TYPES
+from app.ops.isolation import visible_projects, get_linked_project_or_404
 from utils.helpers import FIELD_SPECS
 from utils.pdf_generator import build_report_pdf
 from app.services.pdf_dynamic import build_dynamic_pdf
@@ -279,7 +280,7 @@ def dyn_list():
 def dyn_new(template_key):
     tpl = ReportTemplate.query.filter_by(key=template_key,
                                          is_active=True).first_or_404()
-    projects = Project.query.filter_by(is_active=True).order_by(Project.name).all()
+    projects = visible_projects(current_user)
     if request.method == "POST":
         project_name = request.form.get("project_name", "").strip()
         project_id = request.form.get("project_id") or None
@@ -287,6 +288,11 @@ def dyn_new(template_key):
             project_id = int(project_id) if project_id else None
         except ValueError:
             project_id = None
+        if project_id:
+            # linked project is tenant-checked; its name is authoritative
+            project_id = get_linked_project_or_404(
+                current_user, project_id).id
+            project_name = db.session.get(Project, project_id).name
         location = request.form.get("location", "").strip()
         contractor = request.form.get("contractor", "").strip()
         try:
@@ -346,9 +352,14 @@ def dyn_view(sub_id):
 def dyn_edit(sub_id):
     s = _visible_submission(sub_id)
     tpl = s.template
-    projects = Project.query.filter_by(is_active=True).order_by(Project.name).all()
+    projects = visible_projects(current_user)
     if request.method == "POST":
         project_name = request.form.get("project_name", "").strip()
+        link_id = request.form.get("project_id") or None
+        if link_id:
+            # linked project is tenant-checked; its name is authoritative
+            linked = get_linked_project_or_404(current_user, link_id)
+            project_name = linked.name
         try:
             report_date = datetime.strptime(
                 request.form.get("report_date", ""), "%Y-%m-%d").date()
@@ -372,11 +383,7 @@ def dyn_edit(sub_id):
             s.contractor = request.form.get("contractor", "").strip()
             s.report_date = report_date
             s.data = payload
-            try:
-                pid = request.form.get("project_id") or None
-                s.project_id = int(pid) if pid else None
-            except ValueError:
-                s.project_id = None
+            s.project_id = int(link_id) if link_id else None
             db.session.commit()
             flash("تم تحديث التقرير بنجاح.", "success")
             return redirect(url_for("reports.dyn_view", sub_id=s.id))

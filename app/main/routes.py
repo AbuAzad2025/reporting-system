@@ -10,7 +10,7 @@ import os
 from app.main import bp
 from app.extensions import db
 from app.models import User, Report, ReportTemplate, ReportSubmission, ROLES, Project
-from app.utils.decorators import roles_required
+from app.utils.decorators import roles_required, permission_required
 
 
 @bp.route("/")
@@ -295,3 +295,116 @@ def toggle_role(user_id):
         db.session.commit()
         flash(f"تم تحديث دور {user.full_name} إلى ({user.role_ar}).", "success")
     return redirect(url_for("main.users"))
+
+
+# ---------------------------------------------------------------- self-service projects
+@bp.route("/projects", methods=["GET", "POST"])
+@login_required
+@permission_required("create_reports")
+def projects():
+    """My projects: tenant-scoped list + create (creator becomes owner)."""
+    from app.ops.isolation import (visible_projects, is_platform_manager,
+                                   membership_role)
+    from app.ops.models import ProjectMember
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if not name:
+            flash("اسم المشروع مطلوب.", "danger")
+        elif Project.query.filter_by(name=name).first():
+            flash("يوجد مشروع بنفس الاسم.", "danger")
+        else:
+            p = Project(
+                name=name, location=request.form.get("location", "").strip(),
+                contractor=request.form.get("contractor", "").strip(),
+                client=request.form.get("client", "").strip())
+            db.session.add(p)
+            db.session.flush()
+            db.session.add(ProjectMember(
+                user_id=current_user.id, project_id=p.id,
+                role_in_project="owner"))
+            db.session.commit()
+            flash(f"تم إنشاء المشروع «{name}» وأصبحت مالكه.", "success")
+            return redirect(url_for("main.project_detail",
+                                    project_id=p.id))
+        return redirect(url_for("main.projects"))
+    plist = visible_projects(current_user, active_only=False)
+    roles = {p.id: (membership_role(current_user, p.id) or "member")
+             for p in plist}
+    return render_template("projects.html", projects=plist, roles=roles,
+                           is_manager=is_platform_manager(current_user))
+
+
+@bp.route("/projects/<int:project_id>")
+@login_required
+@permission_required("view_reports")
+def project_detail(project_id):
+    """Project card + member roster (tenant-scoped, 404 outside scope)."""
+    from app.ops.isolation import (get_linked_project_or_404,
+                                   is_platform_manager, membership_role)
+    from app.ops.models import ProjectMember
+    project = get_linked_project_or_404(current_user, project_id)
+    my_role = membership_role(current_user, project.id)
+    members = (db.session.query(User, ProjectMember)
+               .join(ProjectMember, ProjectMember.user_id == User.id)
+               .filter(ProjectMember.project_id == project.id)
+               .order_by(User.full_name).all())
+    can_manage = is_platform_manager(current_user) or my_role == "owner"
+    return render_template("project_detail.html", project=project,
+                           members=members, my_role=my_role,
+                           can_manage=can_manage)
+
+
+@bp.route("/projects/<int:project_id>/members", methods=["POST"])
+@login_required
+def project_member_add(project_id):
+    """Owner (or platform manager) invites a member by username."""
+    from app.ops.isolation import (get_linked_project_or_404,
+                                   is_platform_manager, membership_role)
+    from app.ops.models import ProjectMember
+    project = get_linked_project_or_404(current_user, project_id)
+    my_role = membership_role(current_user, project.id)
+    if not (is_platform_manager(current_user) or my_role == "owner"):
+        flash("إدارة الأعضاء مقصورة على مالك المشروع.", "danger")
+        return redirect(url_for("main.project_detail",
+                                project_id=project.id))
+    username = request.form.get("username", "").strip()
+    u = User.query.filter_by(username=username).first() if username else None
+    if u is None or not u.is_active:
+        flash("المستخدم غير موجود أو موقوف.", "danger")
+    elif ProjectMember.query.filter_by(
+            user_id=u.id, project_id=project.id).first():
+        flash("هذا المستخدم عضو بالفعل.", "warning")
+    else:
+        db.session.add(ProjectMember(user_id=u.id, project_id=project.id,
+                                     role_in_project="member"))
+        db.session.commit()
+        flash(f"تمت إضافة {u.full_name} إلى المشروع.", "success")
+    return redirect(url_for("main.project_detail", project_id=project.id))
+
+
+@bp.route("/projects/<int:project_id>/members/<int:user_id>/remove",
+          methods=["POST"])
+@login_required
+def project_member_remove(project_id, user_id):
+    """Owner (or platform manager) removes a member; self-removal barred."""
+    from app.ops.isolation import (get_linked_project_or_404,
+                                   is_platform_manager, membership_role)
+    from app.ops.models import ProjectMember
+    project = get_linked_project_or_404(current_user, project_id)
+    my_role = membership_role(current_user, project.id)
+    if not (is_platform_manager(current_user) or my_role == "owner"):
+        flash("إدارة الأعضاء مقصورة على مالك المشروع.", "danger")
+        return redirect(url_for("main.project_detail",
+                                project_id=project.id))
+    if user_id == current_user.id:
+        flash("لا يمكنك إزالة نفسك من المشروع.", "warning")
+    else:
+        row = ProjectMember.query.filter_by(
+            user_id=user_id, project_id=project.id).first()
+        if row is None:
+            flash("العضوية غير موجودة.", "warning")
+        else:
+            db.session.delete(row)
+            db.session.commit()
+            flash("تمت إزالة العضو.", "info")
+    return redirect(url_for("main.project_detail", project_id=project.id))

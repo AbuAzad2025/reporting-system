@@ -72,8 +72,9 @@ tailwind.config = { theme: { extend: {
 {% if current_user.is_authenticated %}
 <!-- Mobile bottom nav (field-optimized big touch targets) -->
 <nav class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t shadow-[0_-4px_20px_rgba(0,0,0,.12)]">
-  <div class="grid grid-cols-5 text-center text-[11px] font-bold">
+  <div class="grid grid-cols-6 text-center text-[11px] font-bold">
     <a href="{{ url_for('main.dashboard') }}" class="py-3 px-1 text-navy">🏠<br>الرئيسية</a>
+    <a href="{{ url_for('main.projects') }}" class="py-3 px-1 text-navy">🏗️<br>مشاريعي</a>
     <a href="{{ url_for('reports.dyn_list') }}" class="py-3 px-1 text-navy">📋<br>التقارير</a>
     <a href="{{ url_for('main.archive') }}" class="py-3 px-1 text-navy">📁<br>الأرشيف</a>
     {% if current_user.can_manage_templates() %}
@@ -89,6 +90,7 @@ tailwind.config = { theme: { extend: {
   <a href="{{ url_for('main.dashboard') }}" class="px-4 py-2 rounded-lg bg-[#1a1610]/60 text-white shadow border border-[#a67c00]/30 hover:bg-[#2a2318]">🏠 الرئيسية</a>
   <a href="{{ url_for('reports.dyn_list') }}" class="px-4 py-2 rounded-lg bg-[#1a1610]/60 text-white shadow border border-[#a67c00]/30 hover:bg-[#2a2318]">📋 التقارير الديناميكية</a>
   <a href="{{ url_for('main.archive') }}" class="px-4 py-2 rounded-lg bg-[#1a1610]/60 text-white shadow border border-[#a67c00]/30 hover:bg-[#2a2318]">📁 الأرشيف المركزي</a>
+  <a href="{{ url_for('main.projects') }}" class="px-4 py-2 rounded-lg bg-[#1a1610]/60 text-white shadow border border-[#a67c00]/30 hover:bg-[#2a2318]">🏗️ مشاريعي</a>
   {% if current_user.can_manage_templates() %}
   <a href="{{ url_for('admin.dashboard') }}" class="px-4 py-2 rounded-lg bg-[#a67c00] text-[#1a1610] shadow hover:brightness-110">⚙️ لوحة الإدارة</a>
   {% endif %}
