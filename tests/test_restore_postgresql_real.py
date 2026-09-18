@@ -2,12 +2,6 @@
 import os
 import pytest
 
-try:
-    import psycopg2
-    _pg_available = True
-except Exception:
-    _pg_available = False
-
 def _pg_reachable() -> bool:
     try:
         import psycopg2
@@ -28,8 +22,11 @@ def test_restore_real_postgresql(app):
     from app.models import User, Project
     from app.ops.models import ProjectMember
     with app.app_context():
-        db.drop_all()
-        db.create_all()
+        # Clean target data without dropping tables (safe for CI PG)
+        db.session.query(ProjectMember).delete()
+        db.session.query(Project).delete()
+        db.session.query(User).delete()
+        db.session.commit()
         u = User(username="pg_real", email="pg@t.com", full_name="PG Real",
                  role="admin")
         u.set_password("pw")
