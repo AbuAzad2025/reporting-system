@@ -3,19 +3,21 @@
 {% block content %}
 <div class="bg-navy text-white rounded-3xl p-5 shadow">
   <h1 class="font-extrabold text-lg">🏗️ مشاريعي</h1>
-  <p class="text-xs text-slate-300">المشاريع ضمن نطاقك{% if is_manager %} (مدير منصة: ترى الكل){% endif %} — أنشئ مشروعك ثم أضف فريقك قبل التقارير</p>
+  <p class="text-xs text-slate-300">المشاريع ضمن نطاقك{% if is_manager %} (مدير منصة: ترى الكل){% endif %} — يُنشئ المشروعَ مديرُ المشروع مرة واحدة، ثم يدعو الفريق</p>
 </div>
 
+{% if can_create %}
 <div class="bg-white rounded-3xl shadow p-5 mt-3">
-  <h2 class="font-extrabold text-navy mb-2">➕ مشروع جديد</h2>
-  <form method="post" action="{{ url_for('main.projects') }}" class="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
+  <h2 class="font-extrabold text-navy mb-2">➕ مشروع جديد (مدير المشروع)</h2>
+  <form method="post" action="{{ url_for('main.project_create') }}" class="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
     <input name="name" required maxlength="200" placeholder="اسم المشروع *" class="border rounded-xl px-3 py-2">
     <input name="location" maxlength="200" placeholder="الموقع" class="border rounded-xl px-3 py-2">
     <input name="contractor" maxlength="200" placeholder="المقاول" class="border rounded-xl px-3 py-2">
     <input name="client" maxlength="200" placeholder="المالك" class="border rounded-xl px-3 py-2">
-    <div class="md:col-span-4"><button class="bg-navy text-white font-bold px-6 py-2 rounded-xl hover:brightness-110">إنشاء — سأكون المالك</button></div>
+    <div class="md:col-span-4"><button class="bg-navy text-white font-bold px-6 py-2 rounded-xl hover:brightness-110">إنشاء المشروع</button></div>
   </form>
 </div>
+{% endif %}
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
   {% for p in projects %}

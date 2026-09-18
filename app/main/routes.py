@@ -298,40 +298,50 @@ def toggle_role(user_id):
 
 
 # ---------------------------------------------------------------- self-service projects
-@bp.route("/projects", methods=["GET", "POST"])
+# Domain rule: a real-world project is created ONCE by its project manager
+# (manage_projects); everyone else joins by invitation with role permissions.
+@bp.route("/projects", methods=["GET"])
 @login_required
 @permission_required("create_reports")
 def projects():
-    """My projects: tenant-scoped list + create (creator becomes owner)."""
+    """My projects: tenant-scoped list (creation lives in project_create)."""
     from app.ops.isolation import (visible_projects, is_platform_manager,
                                    membership_role)
-    from app.ops.models import ProjectMember
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        if not name:
-            flash("اسم المشروع مطلوب.", "danger")
-        elif Project.query.filter_by(name=name).first():
-            flash("يوجد مشروع بنفس الاسم.", "danger")
-        else:
-            p = Project(
-                name=name, location=request.form.get("location", "").strip(),
-                contractor=request.form.get("contractor", "").strip(),
-                client=request.form.get("client", "").strip())
-            db.session.add(p)
-            db.session.flush()
-            db.session.add(ProjectMember(
-                user_id=current_user.id, project_id=p.id,
-                role_in_project="owner"))
-            db.session.commit()
-            flash(f"تم إنشاء المشروع «{name}» وأصبحت مالكه.", "success")
-            return redirect(url_for("main.project_detail",
-                                    project_id=p.id))
-        return redirect(url_for("main.projects"))
     plist = visible_projects(current_user, active_only=False)
     roles = {p.id: (membership_role(current_user, p.id) or "member")
              for p in plist}
-    return render_template("projects.html", projects=plist, roles=roles,
-                           is_manager=is_platform_manager(current_user))
+    return render_template(
+        "projects.html", projects=plist, roles=roles,
+        is_manager=is_platform_manager(current_user),
+        can_create=current_user.has_perm("manage_projects"))
+
+
+@bp.route("/projects", methods=["POST"])
+@login_required
+@permission_required("manage_projects")
+def project_create():
+    """Create a project (project manager and above); creator becomes owner."""
+    from app.ops.models import ProjectMember
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("اسم المشروع مطلوب.", "danger")
+    elif Project.query.filter_by(name=name).first():
+        flash("يوجد مشروع بنفس الاسم.", "danger")
+    else:
+        p = Project(
+            name=name, location=request.form.get("location", "").strip(),
+            contractor=request.form.get("contractor", "").strip(),
+            client=request.form.get("client", "").strip())
+        db.session.add(p)
+        db.session.flush()
+        db.session.add(ProjectMember(
+            user_id=current_user.id, project_id=p.id,
+            role_in_project="owner"))
+        db.session.commit()
+        flash(f"تم إنشاء المشروع «{name}» — ادعُ فريقك قبل التقارير.",
+              "success")
+        return redirect(url_for("main.project_detail", project_id=p.id))
+    return redirect(url_for("main.projects"))
 
 
 @bp.route("/projects/<int:project_id>")

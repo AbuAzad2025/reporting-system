@@ -62,6 +62,7 @@ def app(tmp_path):
 
         user("t_owner", "superadmin", "مالك اختبار تجريبي عام")
         admin = user("t_admin", "admin", "مدير اختبار تجريبي عام")
+        pm = user("t_pm", "project_manager", "مدير مشروع اختبار عام")
         eng = user("t_eng", "site_engineer", "مهندس اختبار تجريبي عام")
         eng2 = user("t_eng2", "site_engineer", "مهندس ثان اختبار تجريبي")
         safety = user("t_safety", "safety_officer", "مسؤول سلامة اختبار عام")
@@ -77,6 +78,8 @@ def app(tmp_path):
         db.session.add_all([
             ProjectMember(user_id=eng.id, project_id=pa.id),
             ProjectMember(user_id=safety.id, project_id=pa.id),
+            ProjectMember(user_id=pm.id, project_id=pa.id,
+                          role_in_project="owner"),
             ProjectMember(user_id=eng2.id, project_id=pb.id),
         ])
 
