@@ -28,7 +28,8 @@
   {% endfor %}
   {% if can_manage %}
   <form method="post" action="{{ url_for('main.project_member_add', project_id=project.id) }}" class="flex gap-2 mt-3 text-sm">
-    <input name="username" required maxlength="80" placeholder="اسم المستخدم للدعوة @" class="border rounded-xl px-3 py-2 flex-1" dir="ltr">
+    <input name="username" required maxlength="80" list="user-directory" placeholder="اسم المستخدم للدعوة @" class="border rounded-xl px-3 py-2 flex-1" dir="ltr">
+    <datalist id="user-directory">{% for d in directory %}<option value="{{ d.username }}">{{ d.full_name }} ({{ d.role_ar }})</option>{% endfor %}</datalist>
     <button class="bg-navy text-white font-bold px-5 py-2 rounded-xl hover:brightness-110">دعوة</button>
   </form>
   {% endif %}

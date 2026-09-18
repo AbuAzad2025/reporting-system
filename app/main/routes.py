@@ -359,9 +359,15 @@ def project_detail(project_id):
                .filter(ProjectMember.project_id == project.id)
                .order_by(User.full_name).all())
     can_manage = is_platform_manager(current_user) or my_role == "owner"
+    directory = []
+    if can_manage:
+        # invite UX: active-user directory (username + name) for the
+        # invite box; visible to project managers only, not plain members.
+        directory = User.query.filter_by(is_active=True).order_by(
+            User.full_name).all()
     return render_template("project_detail.html", project=project,
                            members=members, my_role=my_role,
-                           can_manage=can_manage)
+                           can_manage=can_manage, directory=directory)
 
 
 @bp.route("/projects/<int:project_id>/members", methods=["POST"])

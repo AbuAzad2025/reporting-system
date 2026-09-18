@@ -118,6 +118,31 @@ def test_owner_invites_engineer_who_reports(client):
     assert r.status_code == 201, r.get_json()
 
 
+def test_owner_invites_whole_crew_all_roles(client):
+    """Anyone related joins: every role invitable, every invitee in scope."""
+    from app.ops.models import ProjectMember
+    pid = _pm_project_id(client, name="مشروع الطاقم")
+    for username in ("t_eng", "t_eng2", "t_safety", "t_admin"):
+        assert _invite(client, pid, username).status_code == 302
+    with client.application.app_context():
+        assert ProjectMember.query.filter_by(project_id=pid).count() == 5
+    for username in ("t_eng", "t_eng2", "t_safety"):
+        login_as(client, username)
+        assert client.get(f"/projects/{pid}").status_code == 200
+
+
+def test_directory_visible_to_manager_only(client):
+    pid = _pm_project_id(client)
+    _invite(client, pid, "t_safety")
+    login_as(client, "t_pm")
+    text = client.get(f"/projects/{pid}").get_data(as_text=True)
+    assert "user-directory" in text
+    assert "t_safety" in text
+    login_as(client, "t_safety")  # plain member: roster yes, directory no
+    text = client.get(f"/projects/{pid}").get_data(as_text=True)
+    assert "user-directory" not in text
+
+
 def test_invite_unknown_or_duplicate_user(client):
     from app.ops.models import ProjectMember
     pid = _pm_project_id(client)
