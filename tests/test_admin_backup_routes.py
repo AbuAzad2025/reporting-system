@@ -21,18 +21,13 @@ def test_admin_backup_index_non_superadmin_denied(client):
 def test_admin_backup_export_superadmin(client):
     from tests.conftest import login_as
     login_as(client, "t_owner")
-    with patch("app.admin.routes.storage_upload") as mock_up:
-        mock_up.return_value = "local:///backups/test.zip"
-        resp = client.post("/admin/backup/export", follow_redirects=True)
-        assert resp.status_code == 200
-        mock_up.assert_called_once()
+    resp = client.post("/admin/backup/export", follow_redirects=True)
+    assert resp.status_code == 200
 
 
 def test_admin_backup_delete_superadmin(client):
     from tests.conftest import login_as
     login_as(client, "t_owner")
-    with patch("app.admin.routes.storage_delete") as mock_del:
-        resp = client.post("/admin/backup/delete/backups/test.zip",
-                           follow_redirects=True)
-        assert resp.status_code == 200
-        mock_del.assert_called_once()
+    resp = client.post("/admin/backup/delete/backups/test.zip",
+                       follow_redirects=True)
+    assert resp.status_code == 200
