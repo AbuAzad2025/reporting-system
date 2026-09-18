@@ -7,7 +7,8 @@ body table from DynamicField rows instead of hardcoded FIELD_SPECS.
 from datetime import datetime
 
 from utils.pdf_generator import (_styles, _info_table, _section_title,
-                                 _kv_table, ar, NAVY)
+                                 _kv_table, _header_table, ar, NAVY,
+                                 _footer)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
@@ -48,48 +49,22 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
                             bottomMargin=36,
                             title=f"Azadexa-{template.key}-{submission.id}",
                             author="AZAD Intelligent Systems")
-    from utils.pdf_generator import _footer
-    from app.models import Project
-    project_owner = "—"
-    consultant = "—"
-    contractor = submission.contractor or "—"
+    story = []
+
+    # ---- corporate header (shared: project owner / consultant / contractor)
     try:
-        if submission.project_id:
-            proj = Project.query.get(submission.project_id)
-            if proj:
-                project_owner = proj.client or "—"
-                consultant = proj.consultant or "—"
-                if not contractor or contractor == "—":
-                    contractor = proj.contractor or "—"
+        header_tbl = _header_table(adapter, st)
     except Exception:
-        log.warning("dynamic PDF header project lookup failed", exc_info=True)
-    header_data = [
-        [Paragraph(ar("صاحب العمل / المالك"), st["cell_h"]),
-         Paragraph(ar(project_owner), st["cell"]),
-         Paragraph(ar("الاستشاري / الجهة المشرفة"), st["cell_h"]),
-         Paragraph(ar(consultant), st["cell"]),
-         Paragraph(ar("المقاول / شركة التنفيذ"), st["cell_h"]),
-         Paragraph(ar(contractor), st["cell"])],
-    ]
-    header_tbl = Table(header_data,
-                       colWidths=[32 * mm, 30 * mm, 32 * mm, 30 * mm, 32 * mm, 34 * mm])
-    header_tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#b9c6d2")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story = [header_tbl]
+        header_tbl = None
+    story.append(header_tbl)
     story.append(Spacer(1, 4 * mm))
     story.append(HRFlowable(width="100%", thickness=1.2,
-                            color=colors.HexColor("#c9a227")))
+                               color=colors.HexColor("#c9a227")))
     story.append(Spacer(1, 4 * mm))
     story.append(_info_table(adapter, st))
     story.append(Spacer(1, 5 * mm))
+
+    # ---- template fields
     story.append(_section_title(f"تفاصيل {template.name_ar}", st))
     story.append(Spacer(1, 3 * mm))
 
@@ -117,16 +92,18 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         items = [("لا توجد حقول معرفة لهذا القالب", "—")]
     story.append(_kv_table(items, st))
     story.append(Spacer(1, 6 * mm))
-    for label, header, body in tables:
+
+    # ---- line-item tables (alternating shading, repeat header)
+    for idx, (label, header, body) in enumerate(tables):
         story.append(_section_title(f"{label} ({len(body)} بنود)", st))
         story.append(Spacer(1, 3 * mm))
         head = [Paragraph(ar(h), st["cell_h"]) for h in header]
         grid = [head] + [[Paragraph(ar(v), st["cell"]) for v in row]
-                         for row in body]
+                            for row in body]
         widths = [max(150 * mm / max(len(header), 1), 25 * mm)] * len(header)
         t = Table(grid, colWidths=widths, repeatRows=1)
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
+        style_cmds = [
+            ("BACKGROUND", (0, 0), (-1, 0), NAVY),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#b9c6d2")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -134,9 +111,18 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("RIGHTPADDING", (0, 0), (-1, -1), 6),
             ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ]))
+        ]
+        # alternating row shading for readability
+        if len(body) > 1:
+            alt = colors.HexColor("#f4f7fa")
+            for r in range(1, len(grid)):
+                if r % 2 == 0:
+                    style_cmds.append(("BACKGROUND", (0, r), (-1, r), alt))
+        t.setStyle(TableStyle(style_cmds))
         story.append(t)
         story.append(Spacer(1, 6 * mm))
+
+    # ---- signatory block
     story.append(_section_title("التوقيع والاعتماد", st))
     story.append(Spacer(1, 3 * mm))
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -160,10 +146,13 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     story.append(Paragraph(
         ar("أقر بأن البيانات المذكورة أعلاه صحيحة ومطابقة للواقع في الموقع بتاريخ التقرير."),
         st["cell_small"]))
+
     serial = f"{submission.id:06d}" if submission.id else "000000"
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
 
     def _foot(c, d):
-        _footer(c, d, serial=serial, timestamp=stamp)
+        _footer(c, d, serial=serial, timestamp=stamp,
+                project_name=submission.project_name,
+                report_type=template.name_ar)
     doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
     return buf.getvalue()

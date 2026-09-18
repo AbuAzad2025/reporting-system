@@ -288,25 +288,30 @@ SECTION_ORDER = {
 }
 
 
-def _footer(canvas, doc, serial="", timestamp=""):
+def _footer(canvas, doc, serial="", timestamp="", project_name="",
+            report_type=""):
+    """Full corporate footer: serial, timestamp, page, project context."""
     canvas.saveState()
     canvas.setFillColor(NAVY)
-    canvas.rect(0, 0, A4[0], 32, fill=1, stroke=0)
+    canvas.rect(0, 0, A4[0], 34, fill=1, stroke=0)
+    canvas.setStrokeColor(GOLD)
+    canvas.setLineWidth(1.5)
+    canvas.line(0, 30, A4[0], 30)
     canvas.setFillColor(colors.white)
-    canvas.setFont("Helvetica", 7.5)
-    canvas.drawString(10 * mm, 22,
+    canvas.setFont(FONT_BOLD, 8)
+    canvas.drawString(10 * mm, 22, BRAND_AR)
+    canvas.setFont(FONT_NORMAL, 7)
+    canvas.drawString(10 * mm, 13,
                       "Generated securely via Azadexa Cloud Platform")
-    canvas.setFont("Helvetica", 7)
+    canvas.setFont(FONT_NORMAL, 7.5)
     canvas.drawCentredString(A4[0] / 2, 22,
                              f"SIR-{serial}  •  {timestamp}")
     canvas.drawRightString(A4[0] - 10 * mm, 22,
-                           f"Page {doc.page}")
-    canvas.setFont("Helvetica", 6.5)
-    canvas.drawCentredString(A4[0] / 2, 12,
+                            f"Page {doc.page}")
+    canvas.setFont(FONT_NORMAL, 6.5)
+    canvas.drawCentredString(A4[0] / 2, 13,
+                             f"{project_name or '—'}  •  {report_type or '—'}  •  "
                              "© 2026 AZAD Intelligent Systems — All rights reserved")
-    canvas.setStrokeColor(GOLD)
-    canvas.setLineWidth(2)
-    canvas.line(0, 28, A4[0], 28)
     canvas.restoreState()
 
 
@@ -369,6 +374,7 @@ def build_report_pdf(report, author_name: str = "", generated_at: str = "") -> b
     serial = f"{report.id:06d}" if report.id else "000000"
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     def _foot(c, d):
-        _footer(c, d, serial=serial, timestamp=stamp)
+        _footer(c, d, serial=serial, timestamp=stamp,
+                project_name=report.project_name, report_type=report.type_ar)
     doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
     return buf.getvalue()
