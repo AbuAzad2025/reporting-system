@@ -189,7 +189,10 @@ def default_fields_for(template_key):
     # v1 static specs -> required only for the two most critical daily fields
     out = []
     for k, label, kind in FIELD_SPECS.get(template_key, []):
-        req = template_key == "daily" and k in ("manpower", "works_completed")
+        # Skip text fields that are superseded by the sequential tables below
+        if template_key == "daily" and k in ("manpower", "equipment", "materials"):
+            continue
+        req = template_key == "daily" and k in ("works_completed",)
         out.append(_spec_to_field(k, label, kind, req))
     if template_key == "daily":
         out += [_spec_to_field(k, lb, "table", False, [], cols)
