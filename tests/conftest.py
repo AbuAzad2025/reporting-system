@@ -111,8 +111,11 @@ def app(tmp_path):
            subcontractor="ACME Electric", quality_score=90,
            schedule_score=80, safety_score=70, compliance_score=85)
         mk(DailySiteReport, "DSR-000001", pa, eng, weather="مشمس",
-           works_executed="صب أعمدة", engineers_count=2,
-           technicians_count=3, labor_count=28, day_progress_pct=3.0)
+           temp_c=30.0, work_hours=8.0, engineers_count=2,
+           technicians_count=3, labor_count=28,
+           labor_table=[{"trade": "حدادة", "count": 8}],
+           equipment_table=[{"eq_type": "رافعة", "qty": 1, "hours": 8, "status": "operating"}],
+           work_fronts=[{"area": "الدور الثالث", "activity": "صب أعمدة", "progress_pct": 50}])
         mk(VariationOrder, "VOR-000001", pa, eng, title="تعميق الأساسات",
            category="ظروف موقع", description="زيادة العمق 60 سم",
            cost_impact=54850, time_impact_days=6)

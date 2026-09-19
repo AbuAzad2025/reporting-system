@@ -101,8 +101,11 @@ def test_new_modules_create_with_serials(app, eng_client):
     pa = _alpha(app)
     cases = [
         ("/ops/daily-reports", {"project_id": pa, "weather": "مشمس",
-                                "works_executed": "صب أعمدة",
-                                "engineers_count": 1, "labor_count": 20},
+                                "temp_c": 30.0, "work_hours": 8.0,
+                                "engineers_count": 1,
+                                "labor_count": 20,
+                                "labor_table": [{"trade": "حدادة", "count": 8}],
+                                "equipment_table": [{"eq_type": "رافعة", "qty": 1, "hours": 8, "status": "operating"}]},
          "DSR-", "manpower_total", 21),
         ("/ops/variation-orders", {"project_id": pa, "title": "بند مستجد",
                                    "category": "أعمال إضافية",
@@ -127,7 +130,7 @@ def test_new_modules_validation_matrix(app, eng_client):
     cases = [
         ("/ops/daily-reports", {"project_id": pa, "weather": "ممطر"}, 422),
         ("/ops/daily-reports",
-         {"project_id": pa, "day_progress_pct": 150}, 422),
+         {"project_id": pa, "temp_c": 60}, 422),
         ("/ops/variation-orders", {"project_id": pa}, 422),  # missing title
         ("/ops/variation-orders",
          {"project_id": pa, "title": "t", "category": "غير معروف"}, 422),

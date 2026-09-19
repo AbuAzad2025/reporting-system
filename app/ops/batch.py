@@ -40,7 +40,7 @@ CONDENSED = {
                                    ("grade", "التقدير")],
     "daily-reports": [("weather", "الطقس"),
                       ("manpower_total", "القوى العاملة"),
-                      ("day_progress_pct", "إنجاز اليوم %")],
+                      ("equipment_hours_total", "ساعات المعدات")],
     "variation-orders": [("title", "التغيير"),
                          ("impact_signed", "الأثر المالي"),
                          ("recommendation", "التوصية")],

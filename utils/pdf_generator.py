@@ -244,13 +244,11 @@ def _kv_table(items, st):
 SECTION_ORDER = {
     "daily": ("تفاصيل التقرير اليومي", [
         ("weather", "حالة الطقس"),
-        ("manpower", "القوى العاملة"),
-        ("equipment", "المعدات المستخدمة"),
-        ("materials", "المواد الموردة / المستلمة"),
-        ("works_completed", "الأعمال المنجزة اليوم"),
-        ("constraints", "المعوقات والتحديات"),
-        ("next_day_plan", "خطة عمل اليوم التالي"),
-        ("progress_percent", "نسبة الإنجاز التراكمية (%)"),
+        ("temp_c", "درجة الحرارة (°م)"),
+        ("work_hours", "ساعات العمل"),
+        ("engineers_count", "عدد المهندسين"),
+        ("technicians_count", "عدد الفنيين"),
+        ("labor_count", "عدد العمال"),
         ("notes", "ملاحظات إضافية"),
     ]),
     "weekly": ("تفاصيل التقرير الأسبوعي", [

@@ -133,48 +133,33 @@ def _spec_to_field(key, label, kind, required=False, options=None,
             "placeholder": f"اكتب {label}..." if _KIND_MAP.get(kind) in ("text", "textarea") else ""}
 
 
-#: Line-item tables appended to the daily site diary (UNRWA daily practice):
-#: manpower tiers, plant, deliveries, visitors/meetings.
+#: Structured tables for the daily site diary (UNRWA daily practice).
+#: Must match DailySiteReport model columns and routes.TABLE_SPECS:
+#: labor_table=[{trade, count}], equipment_table=[{eq_type, qty, hours, status}],
+#: work_fronts=[{area, activity, progress_pct}].
 DAILY_TABLES = [
-    ("manpower_table", "جدول القوى العاملة", [
-        {"key": "name", "label_ar": "الاسم", "type": "text",
+    ("labor_table", "جدول القوى العاملة", [
+        {"key": "trade", "label_ar": "النوع", "type": "text",
          "required": True, "options": []},
-        {"key": "role", "label_ar": "المهنة", "type": "dropdown",
-         "required": True,
-         "options": ["مهندس", "فني", "عامل", "سائق", "حارس"]},
         {"key": "count", "label_ar": "العدد", "type": "number",
          "required": True, "options": []},
-        {"key": "notes", "label_ar": "ملاحظات", "type": "text",
-         "required": False, "options": []},
     ]),
     ("equipment_table", "جدول المعدات والآليات", [
-        {"key": "type", "label_ar": "نوع المعدة", "type": "text",
+        {"key": "eq_type", "label_ar": "نوع المعدة", "type": "text",
          "required": True, "options": []},
-        {"key": "count", "label_ar": "العدد", "type": "number",
+        {"key": "qty", "label_ar": "العدد", "type": "number",
          "required": True, "options": []},
         {"key": "hours", "label_ar": "ساعات التشغيل", "type": "number",
          "required": False, "options": []},
         {"key": "status", "label_ar": "الحالة", "type": "dropdown",
          "required": False, "options": ["عاملة", "معطلة", "احتياط"]},
     ]),
-    ("materials_table", "جدول المواد المستلمة", [
-        {"key": "material", "label_ar": "المادة", "type": "text",
+    ("work_fronts", "جدول ميادين العمل", [
+        {"key": "area", "label_ar": "المنطقة / الميدان", "type": "text",
          "required": True, "options": []},
-        {"key": "qty", "label_ar": "الكمية", "type": "number",
-         "required": True, "options": []},
-        {"key": "unit", "label_ar": "الوحدة", "type": "text",
+        {"key": "activity", "label_ar": "النشاط", "type": "text",
          "required": False, "options": []},
-        {"key": "supplier", "label_ar": "المورّد", "type": "text",
-         "required": False, "options": []},
-    ]),
-    ("visitors_table", "جدول الزوار والاجتماعات", [
-        {"key": "name", "label_ar": "الاسم", "type": "text",
-         "required": True, "options": []},
-        {"key": "org", "label_ar": "الجهة", "type": "text",
-         "required": False, "options": []},
-        {"key": "purpose", "label_ar": "الغرض", "type": "text",
-         "required": False, "options": []},
-        {"key": "time", "label_ar": "الوقت", "type": "text",
+        {"key": "progress_pct", "label_ar": "نسبة الإنجاز", "type": "number",
          "required": False, "options": []},
     ]),
 ]
@@ -186,14 +171,9 @@ def default_fields_for(template_key):
         return [_spec_to_field(k, lb, kd, req, opts if len(r) > 4 else [])
                 for r in EXTRA_SPECS[template_key]
                 for (k, lb, kd, req, *opts) in [r]]
-    # v1 static specs -> required only for the two most critical daily fields
     out = []
     for k, label, kind in FIELD_SPECS.get(template_key, []):
-        # Skip text fields that are superseded by the sequential tables below
-        if template_key == "daily" and k in ("manpower", "equipment", "materials"):
-            continue
-        req = template_key == "daily" and k in ("works_completed",)
-        out.append(_spec_to_field(k, label, kind, req))
+        out.append(_spec_to_field(k, label, kind, False))
     if template_key == "daily":
         out += [_spec_to_field(k, lb, "table", False, [], cols)
                 for k, lb, cols in DAILY_TABLES]

@@ -99,7 +99,7 @@ VO_CATEGORIES = {
 VO_RECOMMENDATIONS = {
     "دراسة": {"label_ar": "دراسة", "label_en": "Study"},
     "اعتماد": {"label_ar": "اعتماد", "label_en": "Approve"},
-    " rejection": {"label_ar": "رفض", "label_en": "Reject"},
+    "رفض": {"label_ar": "رفض", "label_en": "Reject"},
 }
 #: HSE taxonomy
 RISK_LEVELS = {

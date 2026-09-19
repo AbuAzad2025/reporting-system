@@ -100,8 +100,7 @@ SCHEMAS = {
         "numbers": {"temp_c": (-10, 55), "work_hours": (0, 24),
                     "engineers_count": (0, None),
                     "technicians_count": (0, None),
-                    "labor_count": (0, None),
-                    "day_progress_pct": (0, 100)},
+                    "labor_count": (0, None)},
         "dates": ["report_date"],
     },
     "variation-orders": {

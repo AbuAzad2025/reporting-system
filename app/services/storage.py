@@ -16,7 +16,7 @@ Configuration is read from environment variables at import time:
 import io
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 BACKUP_LOCAL_DIR = os.environ.get(

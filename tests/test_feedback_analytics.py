@@ -11,9 +11,12 @@ def _alpha_pid(client):
 
 def _make_dsr(client, **over):
     payload = {"project_id": _alpha_pid(client), "weather": "مشمس",
-               "works_executed": "صب أعمدة", "engineers_count": 2,
-               "technicians_count": 3, "labor_count": 28,
-               "day_progress_pct": 3.0}
+               "temp_c": 30.0, "work_hours": 8.0,
+               "engineers_count": 2, "technicians_count": 3,
+               "labor_count": 28,
+               "labor_table": [{"trade": "حدادة", "count": 8}],
+               "equipment_table": [{"eq_type": "رافعة", "qty": 1, "hours": 8, "status": "operating"}],
+               "work_fronts": [{"area": "الدور الثالث", "activity": "صب أعمدة", "progress_pct": 50}]}
     payload.update(over)
     r = client.post("/ops/daily-reports", json=payload)
     assert r.status_code == 201, f"create DSR: {r.get_json()}"

@@ -58,8 +58,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         header_tbl = None
     story.append(header_tbl)
     story.append(Spacer(1, 4 * mm))
-    story.append(HRFlowable(width="100%", thickness=1.2,
-                               color=colors.HexColor("#c9a227")))
+    story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#c9a227")))
     story.append(Spacer(1, 4 * mm))
     story.append(_info_table(adapter, st))
     story.append(Spacer(1, 5 * mm))
@@ -99,7 +98,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         story.append(Spacer(1, 3 * mm))
         head = [Paragraph(ar(h), st["cell_h"]) for h in header]
         grid = [head] + [[Paragraph(ar(v), st["cell"]) for v in row]
-                            for row in body]
+                         for row in body]
         widths = [max(150 * mm / max(len(header), 1), 25 * mm)] * len(header)
         t = Table(grid, colWidths=widths, repeatRows=1)
         style_cmds = [

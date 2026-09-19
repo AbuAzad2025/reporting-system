@@ -20,13 +20,11 @@ def admin_required(view):
 FIELD_SPECS = {
     "daily": [
         ("weather", "حالة الطقس", "text"),
-        ("manpower", "القوى العاملة (العدد والتخصصات)", "textarea"),
-        ("equipment", "المعدات المستخدمة", "textarea"),
-        ("materials", "المواد الموردة / المستلمة", "textarea"),
-        ("works_completed", "الأعمال المنجزة اليوم", "textarea"),
-        ("constraints", "المعوقات والتحديات", "textarea"),
-        ("next_day_plan", "خطة عمل اليوم التالي", "textarea"),
-        ("progress_percent", "نسبة الإنجاز التراكمية (%)", "number"),
+        ("temp_c", "درجة الحرارة (°م)", "number"),
+        ("work_hours", "ساعات العمل", "number"),
+        ("engineers_count", "عدد المهندسين", "number"),
+        ("technicians_count", "عدد الفنيين", "number"),
+        ("labor_count", "عدد العمال", "number"),
         ("notes", "ملاحظات إضافية", "textarea"),
     ],
     "weekly": [
@@ -65,9 +63,9 @@ FIELD_SPECS = {
 
 # Which keys render as full-width rows in PDF tables (long text)
 LONG_TEXT_KEYS = {
-    "manpower", "equipment", "materials", "works_completed", "constraints",
-    "next_day_plan", "notes", "milestones", "manpower_summary", "look_ahead",
-    "challenges", "decisions_needed", "financial_overview", "achievements",
+    "works_completed", "constraints", "next_day_plan", "notes",
+    "milestones", "manpower_summary", "look_ahead", "challenges",
+    "decisions_needed", "financial_overview", "achievements",
     "subcontractor_perf", "risks", "next_month_plan", "ppe_compliance",
     "toolbox_talks", "near_miss", "hazards", "corrective_actions",
 }

@@ -283,7 +283,10 @@ def toggle_role(user_id):
     if user.id == current_user.id:
         flash("لا يمكنك تغيير دور حسابك الخاص.", "warning")
     else:
-        # Cycle through roles: site_engineer -> safety_officer -> procurement_officer -> qa_qc_inspector -> senior_consultant -> project_manager -> project_director -> admin -> superadmin -> site_engineer
+        # Cycle through roles:
+        # site_engineer -> safety_officer -> procurement_officer -> qa_qc_inspector
+        # -> senior_consultant -> project_manager -> project_director -> admin -> superadmin
+        # -> site_engineer
         role_order = ["site_engineer", "safety_officer", "procurement_officer",
                       "qa_qc_inspector", "senior_consultant", "project_manager",
                       "project_director", "admin", "superadmin"]
