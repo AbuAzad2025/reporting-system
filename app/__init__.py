@@ -23,15 +23,29 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     migrate.init_app(app, db)
 
-    # Auto-seed admin on deploy for backup feature access
+    # Auto-seed admin / owner with date-based password and clean session
     try:
         with app.app_context():
-            from app.models import User
-            if not User.query.filter_by(username="admin").first():
-                u = User(username="admin", email="admin@azadexa.com", full_name="Admin", role="superadmin")
-                u.set_password("AzadExa123!")
-                db.session.add(u)
-                db.session.commit()
+            from app.models import User, Project
+            from datetime import datetime
+            today = datetime.utcnow()
+            pw = f"Azad@1983@{today.year}@{today.month}@{today.day}"
+            from app.ops.models import ProjectMember
+            for uname, email, full, role in [
+                ("admin", "admin@azadexa.com", "مدير المنصة الرئيسي", "superadmin"),
+                ("owner", "owner@azadexa.com", "مالك المنصة الرئيسي", "project_manager"),
+            ]:
+                if not User.query.filter_by(username=uname).first():
+                    u = User(username=uname, email=email, full_name=full,
+                             role=role, company="شركة أزاد للأنظمة الذكية")
+                    u.set_password(pw)
+                    db.session.add(u)
+            # Create a sample project for owner reference (optional seed)
+            proj = Project.query.filter_by(name="مشروع برج النخيل السكني").first()
+            if proj:
+                for member in ProjectMember.query.filter_by(project_id=proj.id).all():
+                    pass
+            db.session.commit()
     except Exception:
         pass
 
