@@ -465,33 +465,33 @@ def seed_reference_data(db) -> dict:
     Called during app startup to populate dropdown options.
     """
     from app.models import DynamicField
-    
+
     results = {"updated": 0, "skipped": 0, "errors": []}
-    
+
     # Map reference tables to field keys in templates
     field_mapping = {
         # Site Inspections
         "test_category": "test_categories",
         "verdict": "test_verdicts",
-        
+
         # Material Submittals
         "consultant_action": "consultant_actions",
-        
+
         # RFIs
         "ball_in_court": "ball_in_court",
         "priority": "rfi_priority",
         "cost_impact": "rfi_cost_impact",
         "discipline": "rfi_discipline",
-        
+
         # Cost Variances
         # (no dropdown fields in base spec, but could add variance_reason)
-        
+
         # Progress Billings
         # (retention_pct is number)
-        
+
         # Subcontractor Performance
-        "recommendation": "sub_recommendations",
-        
+        "sub_recommendation": "sub_recommendations",
+
         # Daily Reports - structured tables use these
         # labor_table.role -> manpower_roles
         # equipment_table.eq_type -> equipment_types
@@ -499,24 +499,24 @@ def seed_reference_data(db) -> dict:
         # work_fronts.activity -> work_activities
         # materials_table.unit -> material_units
         # visitors_table.purpose -> visitor_purposes
-        
+
         # Variation Orders
         "category": "vo_categories",
         "recommendation": "vo_recommendations",
-        
+
         # Safety Reports
         "inspection_type": "safety_inspection_types",
         "risk_level": "risk_levels",
         "responsible": "safety_responsible",
     }
-    
+
     for field_key, ref_table_name in field_mapping.items():
         try:
             table = get_reference_table(ref_table_name)
             if not table:
                 results["errors"].append(f"Reference table not found: {ref_table_name}")
                 continue
-            
+
             # Find the dynamic field and update its options
             field = DynamicField.query.filter_by(field_key=field_key).first()
             if field:
@@ -524,10 +524,10 @@ def seed_reference_data(db) -> dict:
                 results["updated"] += 1
             else:
                 results["skipped"] += 1
-                
+
         except Exception as e:
             results["errors"].append(f"{field_key}: {e}")
-    
+
     db.session.commit()
     return results
 

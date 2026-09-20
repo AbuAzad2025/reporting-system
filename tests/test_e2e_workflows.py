@@ -29,7 +29,7 @@ PAYLOADS = {
                           "rate": 1000},
     "subcontractor-performances": {"subcontractor": "ACME",
                                    "quality_score": 90},
-"daily-reports": {"weather": "مشمس", "temp_c": 30.0, "work_hours": 8.0,
+    "daily-reports": {"weather": "مشمس", "temp_c": 30.0, "work_hours": 8.0,
                        "engineers_count": 2, "technicians_count": 3,
                        "labor_count": 28,
                        "labor_table": [{"trade": "حدادة", "count": 8}],

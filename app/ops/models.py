@@ -69,7 +69,7 @@ OPS_MODULES = {
                        "HSE Safety Report"),
 }
 
-from app.services.reference_data import (
+from app.services.reference_data import (  # noqa: E402
     TEST_CATEGORIES_DICT as TEST_CATEGORIES,
     BALL_IN_COURT_DICT as BALL_IN_COURT,
     WEATHER_DICT as WEATHER,
