@@ -12,9 +12,10 @@
       <label class="font-bold text-sm">اسم المستخدم أو البريد الإلكتروني</label>
       <input name="username" required autocomplete="username" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="مثال: engineer">
     </div>
-    <div>
+    <div class="relative">
       <label class="font-bold text-sm">كلمة المرور</label>
-      <input name="password" type="password" required autocomplete="current-password" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="••••••">
+      <input name="password" id="password" type="password" required autocomplete="current-password" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="••••••">
+      <button type="button" onclick="document.getElementById('password').type=document.getElementById('password').type==='password'?'text':'password';this.textContent=document.getElementById('password').type==='text'?'إخفاء':'إظهار';" class="absolute right-3 top-9 text-xs text-teal2 font-bold hover:underline">إظهار</button>
     </div>
     <button class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl text-lg hover:bg-[#254a78]">دخول ➜</button>
   </form>
