@@ -367,7 +367,7 @@ jobs:
           python -m pip install --upgrade pip --no-cache-dir
           python -m pip install --force-reinstall --no-cache-dir click==8.5.0
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
-          pip install pytest pytest-cov
+          pip install -r requirements.txt pytest pytest-cov
       - name: "Generate Coverage"
         run: |
           python -m pytest tests/ --cov=app \
