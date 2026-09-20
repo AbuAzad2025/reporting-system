@@ -52,7 +52,7 @@ class TestAdminDashboard:
             db.session.add(tpl)
             db.session.commit()
 
-            sub = ReportSubmission(project_id=p.id, template_id=tpl.id, user_id=1)
+            sub = ReportSubmission(project_id=p.id, template_id=tpl.id, user_id=1, project_name="Test", location="L", contractor="C", signatory_name="S")
             db.session.add(sub)
             db.session.commit()
 
@@ -163,7 +163,7 @@ class TestAdminTemplates:
             tpl = ReportTemplate(key="with_su", name_ar=".encode()مع تقديم", created_by_id=1)
             db.session.add(tpl)
             db.session.commit()
-            sub = ReportSubmission(project_id=p.id, template_id=tpl.id, user_id=1)
+            sub = ReportSubmission(project_id=p.id, template_id=tpl.id, user_id=1, project_name="Test", location="L", contractor="C", signatory_name="S")
             db.session.add(sub)
             db.session.commit()
             tid = tpl.id
