@@ -26,6 +26,19 @@ from app.ops.isolation import (is_platform_manager, scope_to_tenant,
                                get_object_or_404_tenant, tenant_create_guard,
                                roles_required_json)
 from app.utils.decorators import permission_required, any_permission_required
+from app.services.reference_data import (
+    TEST_CATEGORIES_LIST,
+    BALL_IN_COURT_LIST,
+    WEATHER_LIST,
+    VO_CATEGORIES_LIST,
+    VO_RECOMMENDATIONS_LIST,
+    RISK_LEVELS_LIST,
+    SAFETY_INSPECTION_TYPES_LIST,
+    SAFETY_RESPONSIBLE_LIST,
+    CONSULTANT_ACTIONS_LIST,
+    SUB_RECOMMENDATIONS_LIST,
+    EQUIPMENT_STATUS_LIST,
+)
 
 KIND_MODEL = {
     "site-inspections": M.SiteInspection,
@@ -43,7 +56,7 @@ KIND_MODEL = {
 SCHEMAS = {
     "site-inspections": {
         "required": ["project_id", "test_category", "test_type"],
-        "enums": {"test_category": list(M.TEST_CATEGORIES),
+        "enums": {"test_category": TEST_CATEGORIES_LIST,
                   "verdict": ["pass", "fail", "pending"]},
         "numbers": {"result_value": (None, None),
                     "acceptance_min": (None, None),
@@ -53,13 +66,13 @@ SCHEMAS = {
     },
     "material-submittals": {
         "required": ["project_id", "material_name"],
-        "enums": {"consultant_action": list(M.CONSULTANT_ACTIONS)},
+        "enums": {"consultant_action": CONSULTANT_ACTIONS_LIST},
         "numbers": {"quantity": (0, None)},
         "dates": ["report_date", "resubmit_due"],
     },
     "rfis": {
         "required": ["project_id", "subject", "question"],
-        "enums": {"ball_in_court": list(M.BALL_IN_COURT),
+        "enums": {"ball_in_court": BALL_IN_COURT_LIST,
                   "priority": ["low", "normal", "high", "critical"],
                   "cost_impact": ["none", "pending", "confirmed"]},
         "numbers": {"delay_days": (0, None)},
@@ -86,7 +99,7 @@ SCHEMAS = {
     },
     "subcontractor-performances": {
         "required": ["project_id", "subcontractor"],
-        "enums": {"recommendation": list(M.SUB_RECOMMENDATIONS)},
+        "enums": {"recommendation": SUB_RECOMMENDATIONS_LIST},
         "numbers": {"quality_score": (0, 100), "schedule_score": (0, 100),
                     "safety_score": (0, 100), "compliance_score": (0, 100),
                     "recommended_payment": (0, None),
@@ -96,7 +109,7 @@ SCHEMAS = {
     },
     "daily-reports": {
         "required": ["project_id"],
-        "enums": {"weather": list(M.WEATHER)},
+        "enums": {"weather": WEATHER_LIST},
         "numbers": {"temp_c": (-10, 55), "work_hours": (0, 24),
                     "engineers_count": (0, None),
                     "technicians_count": (0, None),
@@ -105,8 +118,8 @@ SCHEMAS = {
     },
     "variation-orders": {
         "required": ["project_id", "title"],
-        "enums": {"category": list(M.VO_CATEGORIES),
-                  "recommendation": list(M.VO_RECOMMENDATIONS)},
+        "enums": {"category": VO_CATEGORIES_LIST,
+                  "recommendation": VO_RECOMMENDATIONS_LIST},
         "numbers": {"cost_impact": (None, None),
                     "time_impact_days": (None, None),
                     "attachments": (0, None)},
@@ -114,9 +127,9 @@ SCHEMAS = {
     },
     "safety-reports": {
         "required": ["project_id", "area"],
-        "enums": {"inspection_type": list(M.SAFETY_INSPECTION_TYPES),
-                  "risk_level": list(M.RISK_LEVELS),
-                  "responsible": list(M.SAFETY_RESPONSIBLE)},
+        "enums": {"inspection_type": SAFETY_INSPECTION_TYPES_LIST,
+                  "risk_level": RISK_LEVELS_LIST,
+                  "responsible": SAFETY_RESPONSIBLE_LIST},
         "numbers": {"incidents_count": (0, None),
                     "lost_time_injuries": (0, None),
                     "toolbox_talks": (0, None),
@@ -139,7 +152,7 @@ TABLE_SPECS = {
                             ("qty", "number", True, (0, None)),
                             ("hours", "number", False, (0, 24)),
                             ("status", "enum", False,
-                             list(M.EQUIPMENT_STATUS))],
+                             EQUIPMENT_STATUS_LIST)],
         "work_fronts": [("area", "text", True, None),
                         ("activity", "text", False, None),
                         ("progress_pct", "number", False, (0, 100))],

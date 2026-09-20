@@ -108,7 +108,7 @@ def test_new_modules_create_with_serials(app, eng_client):
                                 "equipment_table": [{"eq_type": "رافعة", "qty": 1, "hours": 8, "status": "operating"}]},
          "DSR-", "manpower_total", 21),
         ("/ops/variation-orders", {"project_id": pa, "title": "بند مستجد",
-                                   "category": "أعمال إضافية",
+                                   "category": "أعمال_إضافية",
                                    "description": "وصف فني",
                                    "cost_impact": 12000},
          "VOR-", "impact_signed", "+12,000.00"),

@@ -69,88 +69,37 @@ OPS_MODULES = {
                        "HSE Safety Report"),
 }
 
-TEST_CATEGORIES = {
-    "concrete": {"label_ar": "خرسانة", "label_en": "Concrete"},
-    "soil": {"label_ar": "تربة", "label_en": "Soil"},
-    "mep": {"label_ar": "ميكانيكا وكهرباء وسباكة", "label_en": "MEP"},
-}
-BALL_IN_COURT = {
-    "contractor": {"label_ar": "المقاول", "label_en": "Contractor"},
-    "consultant": {"label_ar": "الاستشاري", "label_en": "Consultant"},
-    "client": {"label_ar": "المالك", "label_en": "Client"},
-}
-#: daily diary weather (UNRWA/FMIS daily progress practice)
-WEATHER = {
-    "مشمس": {"label_ar": "مشمس", "label_en": "Sunny"},
-    "غائم": {"label_ar": "غائم", "label_en": "Cloudy"},
-    "ماطر": {"label_ar": "ماطر", "label_en": "Rainy"},
-    "عاصف": {"label_ar": "عاصف", "label_en": "Stormy"},
-    "حر جداً": {"label_ar": "حر جداً", "label_en": "Very Hot"},
-}
-#: variation-order taxonomy (MoPWH change-order database practice)
-VO_CATEGORIES = {
-    "تغيير تصميم": {"label_ar": "تغيير تصميم", "label_en": "Design Change"},
-    "ظروف موقع": {"label_ar": "ظروف موقع", "label_en": "Site Conditions"},
-    "طلب المالك": {"label_ar": "طلب المالك", "label_en": "Owner Request"},
-    "أعمال إضافية": {"label_ar": "أعمال إضافية", "label_en": "Additional Works"},
-    "حذف أعمال": {"label_ar": "حذف أعمال", "label_en": "Work Deletion"},
-    "تمديد زمني": {"label_ar": "تمديد زمني", "label_en": "Extension of Time"},
-}
-VO_RECOMMENDATIONS = {
-    "دراسة": {"label_ar": "دراسة", "label_en": "Study"},
-    "اعتماد": {"label_ar": "اعتماد", "label_en": "Approve"},
-    "رفض": {"label_ar": "رفض", "label_en": "Reject"},
-}
-#: HSE taxonomy
-RISK_LEVELS = {
-    "مرتفع": {"label_ar": "مرتفع", "label_en": "High"},
-    "متوسط": {"label_ar": "متوسط", "label_en": "Medium"},
-    "منخفض": {"label_ar": "منخفض", "label_en": "Low"},
-}
-SAFETY_INSPECTION_TYPES = {
-    "دوري": {"label_ar": "دوري", "label_en": "Routine"},
-    "طارئ": {"label_ar": "طارئ", "label_en": "Emergency"},
-    "معدات": {"label_ar": "معدات", "label_en": "Equipment"},
-    "حفر": {"label_ar": "حفر", "label_en": "Excavation"},
-    "كهرباء": {"label_ar": "كهرباء", "label_en": "Electrical"},
-    "سقالات": {"label_ar": "سقالات", "label_en": "Scaffolding"},
-    "رافعات": {"label_ar": "رافعات", "label_en": "Cranes"},
-}
-SAFETY_RESPONSIBLE = {
-    "مقاول": {"label_ar": "مقاول", "label_en": "Contractor"},
-    "مقاول باطن": {"label_ar": "مقاول باطن", "label_en": "Subcontractor"},
-    "استشاري": {"label_ar": "استشاري", "label_en": "Consultant"},
-    "مالك": {"label_ar": "مالك", "label_en": "Owner"},
-}
-#: consultant sample-action codes (A: approved, B: approved as noted,
-#: C: revise & resubmit, D: rejected) — MoPWH sample-approval committees
-CONSULTANT_ACTIONS = {
-    "A": {"label_ar": "معتمد", "label_en": "Approved"},
-    "B": {"label_ar": "معتمد مع ملاحظات", "label_en": "Approved as Noted"},
-    "C": {"label_ar": "تعديل وإعادة التقديم", "label_en": "Revise & Resubmit"},
-    "D": {"label_ar": "مرفض", "label_en": "Rejected"},
-}
-#: subcontractor overall recommendation
-SUB_RECOMMENDATIONS = {
-    "استمرار": {"label_ar": "استمرار", "label_en": "Continue"},
-    "إنذار": {"label_ar": "إنذار", "label_en": "Warning"},
-    "استبعاد": {"label_ar": "استبعاد", "label_en": "Exclude"},
-}
-#: equipment row status taxonomy for the DSR plant log
-EQUIPMENT_STATUS = {
-    "operating": {"label_ar": "تعمل", "label_en": "Operating"},
-    "idle": {"label_ar": "غير نشط", "label_en": "Idle"},
-    "down": {"label_ar": "متعطل", "label_en": "Down"},
-    "maintenance": {"label_ar": "صيانة", "label_en": "Maintenance"},
-}
+from app.services.reference_data import (
+    TEST_CATEGORIES_DICT as TEST_CATEGORIES,
+    BALL_IN_COURT_DICT as BALL_IN_COURT,
+    WEATHER_DICT as WEATHER,
+    VO_CATEGORIES_DICT as VO_CATEGORIES,
+    VO_RECOMMENDATIONS_DICT as VO_RECOMMENDATIONS,
+    RISK_LEVELS_DICT as RISK_LEVELS,
+    SAFETY_INSPECTION_TYPES_DICT as SAFETY_INSPECTION_TYPES,
+    SAFETY_RESPONSIBLE_DICT as SAFETY_RESPONSIBLE,
+    CONSULTANT_ACTIONS_DICT as CONSULTANT_ACTIONS,
+    SUB_RECOMMENDATIONS_DICT as SUB_RECOMMENDATIONS,
+    EQUIPMENT_STATUS_DICT as EQUIPMENT_STATUS,
+    COMMENT_PARTIES_DICT as COMMENT_PARTIES,
+    TEST_CATEGORIES_LIST,
+    BALL_IN_COURT_LIST,
+    WEATHER_LIST,
+    VO_CATEGORIES_LIST,
+    VO_RECOMMENDATIONS_LIST,
+    RISK_LEVELS_LIST,
+    SAFETY_INSPECTION_TYPES_LIST,
+    SAFETY_RESPONSIBLE_LIST,
+    CONSULTANT_ACTIONS_LIST,
+    SUB_RECOMMENDATIONS_LIST,
+    EQUIPMENT_STATUS_LIST,
+    COMMENT_PARTIES_LIST,
+)
 #: dual-party feedback: supervision side (consultant/management) vs
 #: execution side (contractor/site team). Derived from the author's role.
 SUPERVISION_ROLES = {"senior_consultant", "project_manager",
                      "project_director", "admin", "superadmin"}
-COMMENT_PARTIES = {
-    "contractor": {"label_ar": "المقاول", "label_en": "Contractor"},
-    "consultant": {"label_ar": "الاستشاري", "label_en": "Consultant"},
-}
+
 #: feedback body length guard (mirrors review_notes discipline)
 MAX_COMMENT_LEN = 2000
 #: structured-table guard: max rows per DSR workflow table
