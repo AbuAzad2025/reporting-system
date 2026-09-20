@@ -54,11 +54,11 @@ class TestCollectBatch:
             db.session.add(ProjectMember(user_id=u.id, project_id=p1.id))
             db.session.commit()
             s1 = SiteInspection(project_id=p1.id, user_id=u.id, serial="SIR-001",
-                               test_category="concrete", test_type="cube", result_value=25,
-                               acceptance_min=20, verdict="pass", signatory_name="Eng")
+                                   test_category="concrete", test_type="cube", result_value=25,
+                                   acceptance_min=20, verdict="pass", signatory_name="Eng")
             s2 = SiteInspection(project_id=p2.id, user_id=u.id, serial="SIR-002",
-                               test_category="concrete", test_type="cube", result_value=30,
-                               acceptance_min=20, verdict="pass", signatory_name="Eng")
+                                   test_category="concrete", test_type="cube", result_value=30,
+                                   acceptance_min=20, verdict="pass", signatory_name="Eng")
             db.session.add_all([s1, s2])
             db.session.commit()
 
@@ -182,9 +182,9 @@ class TestCondensedMapping:
         from app.ops.models import OPS_MODULES
         for kind in CONDENSED:
             assert kind in ["site-inspections", "material-submittals", "rfis",
-                           "cost-variances", "progress-billings",
-                           "subcontractor-performances", "daily-reports",
-                           "variation-orders", "safety-reports"]
+                            "cost-variances", "progress-billings",
+                            "subcontractor-performances", "daily-reports",
+                            "variation-orders", "safety-reports"]
             for attr, label in CONDENSED[kind]:
                 assert attr
                 assert label

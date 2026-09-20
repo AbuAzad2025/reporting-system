@@ -46,11 +46,11 @@ class TestAdminDashboard:
             p = Project(name="Test Project")
             db.session.add(p)
             db.session.commit()
-            
+
             tpl = ReportTemplate(key="test", name_ar="اختبار", created_by_id=1)
             db.session.add(tpl)
             db.session.commit()
-            
+
             sub = ReportSubmission(project_id=p.id, template_id=tpl.id, submitted_by_id=1)
             db.session.add(sub)
             db.session.commit()
@@ -352,7 +352,7 @@ class TestAdminProjects:
         r = client.get("/admin/projects")
         assert r.status_code == 200
 
-    def test_project_create_valid(self, client):
+    def test_project_create_valid(self, client, app):
         login_as(client, "t_admin")
         r = client.post("/admin/projects", data={
             "name": "مشروع جديد",
