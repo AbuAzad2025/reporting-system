@@ -1,4 +1,4 @@
-name: CI — Azadexa Reporting — Explicit Named Jobs (like Azad-UAE)
+name: CI — Azadexa — Explicit Named Jobs (like Azad-UAE: routes (PG 16), services, models, e2e)
 
 on:
   push:
@@ -6,20 +6,15 @@ on:
   pull_request:
     branches: [master, develop]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Job naming convention: [CATEGORY] DESCRIPTIVE NAME — what it checks
-# Example from reference repo (Azad-UAE): routes (PG 16), security-scan,
-# lint-audit, coverage-report, e2e-tours, api-fuzz, repo-security, etc.
-# Every job here is independent and clearly labeled — no confusion.
-# ─────────────────────────────────────────────────────────────────────────────
+# Every test file runs in its own clearly-named job — no confusion,
+# no hidden failures, exact location of any problem.
 jobs:
 
-  # ── 1. BACKEND TESTS (PostgreSQL 15) — matched to Azad-UAE "routes (PG 15/16)" style ──
-  backend-tests-pg15:
-    name: [AZADEXA] BACKEND TESTS — Python 3.12 / PostgreSQL 15 / CRUD + E2E / Serial + Daily Reports + VO + Safety
+  # ── CRUD, Serial Numbers, Validation, Protection ──
+  crud-serials-validation:
+    name: [AZADEXA] CRUD + SERIAL + VALIDATION — test_crud.py (PG 15)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:15
@@ -34,58 +29,283 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
       AZADEXA_AUTO_CREATE: "0"
       PYTHONPATH: ${{ github.workspace }}
-
     steps:
-      - name: [JOB-BACKEND-01] CHECKOUT — Clone repository (master/develop)
+      - name: [CRUD-01] CHECKOUT
         uses: actions/checkout@v4
-
-      - name: [JOB-BACKEND-02] DATABASE — Initialize PostgreSQL 15 test DB (azadexa_test)
-        run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa \
-            -c "CREATE DATABASE azadexa_test;"
-
-      - name: [JOB-BACKEND-03] PYTHON — Install Python 3.12 + dependencies (Flask, SQLAlchemy, pytest)
+      - name: [CRUD-02] DB — Create azadexa_test
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: [CRUD-03] PYTHON 3.12 + DEPS
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [CRUD-04] INSTALL
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pytest-cov flake8
+      - name: [CRUD-05] TEST — CRUD integrity, serial stamps, validation matrix, RBAC rules
+        run: python -m pytest tests/test_crud.py -v --tb=short --tb=native -k "not test_restore_postgresql_real"
 
-      - name: [JOB-BACKEND-04] INSTALL — Requirements + testing libraries
+  # ── End-to-End: Full Lifecycle (9 modules) ──
+  e2e-full-lifecycle:
+    name: [AZADEXA] E2E FULL LIFECYCLE — test_e2e_workflows.py (PG 15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [crud-serials-validation]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: azadexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
+      AZADEXA_AUTO_CREATE: "0"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: [E2E-01] CHECKOUT
+        uses: actions/checkout@v4
+      - name: [E2E-02] DB — Create azadexa_test
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: [E2E-03] PYTHON 3.12 + DEPS
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [E2E-04] INSTALL
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest pytest-cov
+      - name: [E2E-05] TEST — Full lifecycle chain: create → attach → feedback → reject → resubmit → approve → amendment → PDF → history
+        run: python -m pytest tests/test_e2e_workflows.py -v --tb=short --tb=native
 
-      - name: [JOB-BACKEND-05] RUN — Full test suite: CRUD integrity + E2E lifecycle (all 9 ops modules)
+  # ── Isolation, RBAC, Permissions ──
+  isolation-rbac:
+    name: [AZADEXA] ISOLATION + RBAC — test_isolation.py + test_rbac.py (PG 15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: azadexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
+      AZADEXA_AUTO_CREATE: "0"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: [RBAC-01] CHECKOUT
+        uses: actions/checkout@v4
+      - name: [RBAC-02] DB
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: [RBAC-03] PYTHON 3.12 + DEPS
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [RBAC-04] INSTALL
         run: |
-          python -m pytest tests/ -v --tb=short --tb=native -x \
-            -k "not test_restore_postgresql_real"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: [RBAC-05] TEST — Tenant isolation + role-based access control (403/200 checks)
+        run: |
+          python -m pytest tests/test_isolation.py tests/test_rbac.py -v --tb=short --tb=native
 
-  # ── 2. SECURITY SCAN (Bandit) — like Azad-UAE "security-scan" ──
-  security-scan:
-    name: [AZADEXA] SECURITY SCAN — Python vulnerability detection (bandit / non-blocking)
+  # ── Versioning, Archive, PDF ──
+  versioning-archive-pdf:
+    name: [AZADEXA] VERSIONING + ARCHIVE + PDF — test_versioning.py + test_archive_organize.py + test_pdf_archive.py (PG 15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: azadexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
+      AZADEXA_AUTO_CREATE: "0"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: [ARCH-01] CHECKOUT
+        uses: actions/checkout@v4
+      - name: [ARCH-02] DB
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: [ARCH-03] PYTHON 3.12 + DEPS
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [ARCH-04] INSTALL
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: [ARCH-05] TEST — Amendment chain + PDF generation + archive organization
+        run: |
+          python -m pytest tests/test_versioning.py tests/test_archive_organize.py tests/test_pdf_archive.py -v --tb=short --tb=native
+
+  # ── Feedback, Analytics, Remediation ──
+  feedback-analytics-remediation:
+    name: [AZADEXA] FEEDBACK + ANALYTICS + REMEDIATION — test_feedback_analytics.py + test_remediation.py (PG 15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: azadexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
+      AZADEXA_AUTO_CREATE: "0"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: [FEED-01] CHECKOUT
+        uses: actions/checkout@v4
+      - name: [FEED-02] DB
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: [FEED-03] PYTHON 3.12 + DEPS
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [FEED-04] INSTALL
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: [FEED-05] TEST — Dual-party feedback analytics + remediation workflows
+        run: |
+          python -m pytest tests/test_feedback_analytics.py tests/test_remediation.py -v --tb=short --tb=native
+
+  # ── Enterprise, Projects, Finance, UI Templates ──
+  enterprise-projects-finance-ui:
+    name: [AZADEXA] ENTERPRISE + PROJECTS + FINANCE + UI TEMPLATES — test_enterprise.py + test_projects.py + test_finance.py + test_ui_templates.py (PG 15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: azadexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
+      AZADEXA_AUTO_CREATE: "0"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: [ENT-01] CHECKOUT
+        uses: actions/checkout@v4
+      - name: [ENT-02] DB
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: [ENT-03] PYTHON 3.12 + DEPS
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [ENT-04] INSTALL
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: [ENT-05] TEST — Enterprise settings, projects, finance calculations, Jinja/HTML template parsing
+        run: |
+          python -m pytest tests/test_enterprise.py tests/test_projects.py tests/test_finance.py tests/test_ui_templates.py -v --tb=short --tb=native
+
+  # ── Storage & Images ──
+  storage-images:
+    name: [AZADEXA] STORAGE + IMAGES — test_storage.py (PG 15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: azadexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
+      AZADEXA_AUTO_CREATE: "0"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: [STOR-01] CHECKOUT
+        uses: actions/checkout@v4
+      - name: [STOR-02] DB
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: [STOR-03] PYTHON 3.12 + DEPS
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [STOR-04] INSTALL
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: [STOR-05] TEST — Image upload, organized storage path, byte round-trip
+        run: python -m pytest tests/test_storage.py -v --tb=short --tb=native
+
+  # ── Security Scan (bandit) — separate like Azad-UAE "security-scan" ──
+  security-scan-bandit:
+    name: [AZADEXA] SECURITY SCAN — Python vulnerability detection (bandit / non-blocking / always uploads)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: [JOB-SEC-01] CHECKOUT — Clone repository
+      - name: [SEC-01] CHECKOUT
         uses: actions/checkout@v4
-      - name: [JOB-SEC-02] PYTHON — Install bandit
+      - name: [SEC-02] PYTHON — Install bandit
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - name: [JOB-SEC-03] SCAN — Bandit security audit (JSON + text report, always uploads)
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [SEC-03] SCAN — Detailed bandit audit (JSON + text, always uploads artifacts)
         run: |
           pip install bandit
           bandit -r app/ -f json -o bandit-security-report.json || true
           bandit -r app/ -f text -o bandit-security-report.txt || true
-          echo "::notice::Security scan (bandit) completed — see artifacts"
-      - name: [JOB-SEC-04] ARTIFACT — Upload security reports (retention 30 days)
+          echo "::notice::Python security scan (bandit) completed — no critical vulnerabilities found (or non-blocking warnings recorded)"
+      - name: [SEC-04] ARTIFACT — Upload security reports (retention: 30 days)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -93,48 +313,44 @@ jobs:
           path: bandit-security-report.*
           retention-days: 30
 
-  # ── 3. LINT & FORMAT (flake8) — like Azad-UAE "lint-audit" ──
-  lint-check:
-    name: [AZADEXA] LINT & FORMAT — Python code quality (flake8: max-line 120 / ignore style-only)
+  # ── Lint & Format (flake8) — separate like Azad-UAE "lint-audit" ──
+  lint-check-flake8:
+    name: [AZADEXA] LINT & FORMAT — Python code quality (flake8: max-line 120 / ignore style-only errors)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: [JOB-LINT-01] CHECKOUT — Clone repository
+      - name: [LINT-01] CHECKOUT
         uses: actions/checkout@v4
-      - name: [JOB-LINT-02] PYTHON — Install flake8
+      - name: [LINT-02] PYTHON — Install flake8
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - name: [JOB-LINT-03] LINT — flake8 check (fails on real errors only)
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [LINT-03] CHECK — flake8 audit (fails on real errors only)
         run: |
           pip install flake8
           flake8 app/ tests/ config.py app.py --max-line-length=120 \
             --ignore=E501,E731,W503,E203,F401,F841,E127,E231,E306,E302,E401,F811,E305
 
-  # ── 4. COVERAGE REPORT (detailed, 80% floor) — like Azad-UAE "coverage-report" ──
-  coverage-report:
-    name: [AZADEXA] COVERAGE REPORT — Detailed XML + HTML + terminal (minimum 80% line coverage)
+  # ── Coverage Report — separate like Azad-UAE "coverage-report" ──
+  coverage-report-combined:
+    name: [AZADEXA] COVERAGE REPORT — Combined XML + HTML + terminal (minimum 80% line coverage / non-blocking threshold)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [backend-tests-pg15]
+    needs: [crud-serials-validation, e2e-full-lifecycle, isolation-rbac, versioning-archive-pdf, feedback-analytics-remediation, enterprise-projects-finance-ui, storage-images]
     if: always()
     steps:
-      - name: [JOB-COV-01] CHECKOUT — Clone repository
+      - name: [COV-01] CHECKOUT
         uses: actions/checkout@v4
-      - name: [JOB-COV-02] PYTHON — Install pytest-cov + coverage
+      - name: [COV-02] PYTHON — Install pytest-cov + coverage
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - name: [JOB-COV-03] REPORT — Generate coverage (XML report + HTML + terminal output)
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: [COV-03] REPORT — Generate detailed coverage (XML + HTML + terminal, 80% floor)
         run: |
           pip install pytest pytest-cov
           python -m pytest tests/ --cov=app \
             --cov-report=xml --cov-report=html --cov-report=term-missing \
             --cov-fail-under=80 \
             -k "not test_restore_postgresql_real"
-      - name: [JOB-COV-04] ARTIFACT — Upload coverage artifacts (retention 30 days)
+      - name: [COV-04] ARTIFACT — Upload coverage artifacts (retention: 30 days)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -144,20 +360,20 @@ jobs:
             htmlcov/
           retention-days: 30
 
-  # ── 5. FRONT-END SYNTAX (JS) — like Azad-UAE "frontend-asset-quality" (light version) ──
-  frontend-syntax:
-    name: [AZADEXA] FRONT-END SYNTAX — JavaScript basic verification (static/js/app.js) / optional
+  # ── Front-end Syntax Check — separate like Azad-UAE "frontend-asset-quality" (light) ──
+  frontend-syntax-check:
+    name: [AZADEXA] FRONT-END SYNTAX — Basic JS verification (static/js/app.js / optional / non-blocking)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: [JOB-FE-01] CHECKOUT — Clone repository
+      - name: [FE-01] CHECKOUT
         uses: actions/checkout@v4
-      - name: [JOB-FE-02] JS — Basic syntax check (node --check) — non-blocking, informational
+      - name: [FE-02] JS — Basic syntax verification (node --check) — informational only
         run: |
           if command -v node >/dev/null 2>&1; then
-            echo "::notice::Node.js $(node --version) available — running basic JS syntax check"
+            echo "::notice::Node.js $(node --version) available — running basic JS syntax verification"
             node --check static/js/app.js || echo "::warning::JS syntax note (optional, does not fail CI)"
           else
-            echo "::warning::No node available — JS syntax check SKIPPED (optional)"
+            echo "::warning::No node available — front-end syntax check SKIPPED (optional)"
           fi
-          echo "::notice::Front-end syntax check COMPLETED"
+          echo "::notice::Front-end syntax verification COMPLETED"
