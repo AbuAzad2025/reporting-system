@@ -355,7 +355,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [crud-serials-validation, e2e-full-lifecycle, isolation-rbac, versioning-archive-pdf, feedback-analytics-remediation, enterprise-projects-finance-ui, storage-images]
-    if: always()
+    if: success()
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
@@ -373,9 +373,9 @@ jobs:
           python -m pytest tests/ --cov=app \
             --cov-report=xml --cov-report=html --cov-report=term-missing \
             --cov-fail-under=80 \
-            -k "not test_restore_postgresql_real" || echo "Coverage generation failed or below threshold, continuing..."
+            -k "not test_restore_postgresql_real"
       - name: "Upload Coverage"
-        if: always() && hashFiles('coverage.xml') != '' && hashFiles('htmlcov/') != ''
+        if: success() && hashFiles('coverage.xml') != '' && hashFiles('htmlcov/') != ''
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-py312
