@@ -301,6 +301,21 @@ jobs:
     name: "Security Scan"
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "DB Setup"
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: "Python Setup"
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: "Install"
+        run: |
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
+          pip install -r requirements.txt pytest pytest-cov flake8
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
@@ -326,6 +341,21 @@ jobs:
     name: "Lint + Format"
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "DB Setup"
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: "Python Setup"
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: "Install"
+        run: |
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
+          pip install -r requirements.txt pytest pytest-cov flake8
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
@@ -343,6 +373,21 @@ jobs:
     name: "Coverage Report"
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "DB Setup"
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: "Python Setup"
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: "Install"
+        run: |
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
+          pip install -r requirements.txt pytest pytest-cov flake8
     needs: [crud-serials-validation, e2e-full-lifecycle, isolation-rbac, versioning-archive-pdf, feedback-analytics-remediation, enterprise-projects-finance-ui, storage-images]
     if: always()
     steps:
@@ -373,6 +418,21 @@ jobs:
     name: "Frontend Syntax"
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "DB Setup"
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: "Python Setup"
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: "Install"
+        run: |
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
+          pip install -r requirements.txt pytest pytest-cov flake8
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
