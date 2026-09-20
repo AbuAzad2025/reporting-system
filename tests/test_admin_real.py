@@ -22,9 +22,9 @@ class TestAdminRealTemplates:
         from tests.conftest import login_as
         from app.models import ReportTemplate
         from app.extensions import db
-        
+
         login_as(client, "t_admin")
-        
+
         # Create
         r = client.post("/admin/templates/new", data={
             "key": "real_tpl",
@@ -36,7 +36,7 @@ class TestAdminRealTemplates:
             "is_active": "on"
         }, follow_redirects=True)
         assert r.status_code == 200
-        
+
         # Verify created
         with app.app_context():
             tpl = ReportTemplate.query.filter_by(key="real_tpl").first()
@@ -48,11 +48,11 @@ class TestAdminRealProjects:
     def test_project_lifecycle(self, client, app):
         from tests.conftest import login_as
         login_as(client, "t_admin")
-        
+
         # List
         r = client.get("/admin/projects")
         assert r.status_code == 200
-        
+
         # Create
         r = client.post("/admin/projects", data={
             "name": "مشروع حقيقي",
