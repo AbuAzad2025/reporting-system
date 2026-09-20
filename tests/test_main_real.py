@@ -6,9 +6,9 @@ class TestMainRealRoutes:
         assert r.status_code == 200
 
     def test_main_login_redirect(self, client):
-        r = client.get("/login")
+        r = client.get("/auth/login")
         assert r.status_code in (200, 302)
 
     def test_main_logout(self, client):
-        r = client.get("/logout")
+        r = client.get("/auth/logout")
         assert r.status_code in (200, 302)

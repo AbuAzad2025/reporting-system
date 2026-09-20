@@ -146,7 +146,7 @@ class TestAuthRegister:
             "confirm": "123",
         })
         assert r.status_code == 200
-        assert "6 أحرف".encode() in r.data
+        assert "8 أحرف".encode() in r.data
 
     def test_register_post_password_mismatch(self, client):
         r = client.post("/auth/register", data={
