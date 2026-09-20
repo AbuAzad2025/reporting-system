@@ -27,7 +27,8 @@ def login():
             if not user.is_active:
                 flash("تم إيقاف هذا الحساب. تواصل مع الإدارة.", "danger")
                 return render_template("auth/login.html")
-            login_user(user, remember=True)
+            remember = request.form.get("remember", "off") == "on"
+            login_user(user, remember=remember)
             flash(f"مرحباً {user.full_name} 👋", "success")
             return redirect(request.args.get("next") or url_for("main.dashboard"))
         flash("بيانات الدخول غير صحيحة. تحقق من اسم المستخدم وكلمة المرور.", "danger")
@@ -53,10 +54,10 @@ def register():
             errors.append("يرجى إدخال الاسم الرباعي الكامل (أربعة مقاطع على الأقل).")
         if len(username) < 3:
             errors.append("اسم المستخدم يجب أن يكون 3 أحرف على الأقل.")
-        if "@" not in email:
-            errors.append("البريد الإلكتروني غير صالح.")
-        if len(password) < 6:
-            errors.append("كلمة المرور يجب أن تكون 6 أحرف على الأقل.")
+        if "@" not in email or "." not in email.split("@")[-1]:
+            errors.append("البريد الإلكتروني غير صالح (يجب أن يحتوي على @ واسم نطاق صالح).")
+        if len(password) < 8:
+            errors.append("كلمة المرور يجب أن تكون 8 أحرف على الأقل (أمان أفضل).")
         if password != confirm:
             errors.append("تأكيد كلمة المرور غير متطابق.")
         if User.query.filter_by(username=username).first():
