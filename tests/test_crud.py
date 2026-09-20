@@ -8,7 +8,7 @@ def _alpha(app):
         return Project.query.filter_by(name="Alpha Tower").first().id
 
 
-def test_create_stamps_serial_signatory_pending(app, eng_client):
+def test_crud_create_record_stamps_serial_number_and_sets_pending_status(app, eng_client):
     pa = _alpha(app)
     r = eng_client.post("/ops/site-inspections", json={
         "project_id": pa, "test_category": "soil",
@@ -22,7 +22,7 @@ def test_create_stamps_serial_signatory_pending(app, eng_client):
     assert body["computed"]["auto_pass"] is True
 
 
-def test_serials_unique_across_creates(app, eng_client):
+def test_crud_serial_numbers_unique_across_multiple_creates(app, eng_client):
     pa = _alpha(app)
     serials = set()
     for i in range(3):
@@ -33,7 +33,7 @@ def test_serials_unique_across_creates(app, eng_client):
     assert len(serials) == 3
 
 
-def test_protected_fields_cannot_be_mass_assigned(app, eng_client):
+def test_crud_protected_fields_id_serial_status_not_client_settable(app, eng_client):
     pa = _alpha(app)
     r = eng_client.post("/ops/rfis", json={
         "project_id": pa, "subject": "s", "question": "q",
@@ -44,7 +44,7 @@ def test_protected_fields_cannot_be_mass_assigned(app, eng_client):
     assert body["serial"] != "RFI-999999"
 
 
-def test_validation_matrix(eng_client, app):
+def test_crud_validation_matrix_bad_enum_bad_number_bad_date_returns_422(eng_client, app):
     pa = _alpha(app)
     cases = [
         ("/ops/rfis", {"project_id": pa, "subject": "x"},  # missing question
@@ -67,7 +67,7 @@ def test_validation_matrix(eng_client, app):
         assert r.status_code == expected, (url, r.get_json())
 
 
-def test_author_can_edit_but_not_change_status(app, eng_client):
+def test_crud_author_edits_own_record_but_cannot_change_status_to_approved(app, eng_client):
     r = eng_client.put("/ops/rfis/1", json={"priority": "critical"})
     assert r.status_code == 200
     assert r.get_json()["priority"] == "critical"
@@ -76,13 +76,13 @@ def test_author_can_edit_but_not_change_status(app, eng_client):
     assert r.get_json()["status"] == "pending"  # protected
 
 
-def test_non_author_non_manager_cannot_edit_or_delete(client):
+def test_crud_non_author_non_manager_denied_edit_and_delete_403(client):
     login_as(client, "t_safety")  # same project, not author, not manager
     assert client.put("/ops/rfis/1", json={"priority": "low"}).status_code == 403
     assert client.delete("/ops/rfis/1").status_code == 403
 
 
-def test_manager_can_edit_and_delete_any(client):
+def test_crud_manager_can_edit_and_delete_any_record_200(client):
     login_as(client, "t_admin")
     assert client.put("/ops/rfis/1",
                       json={"priority": "low"}).status_code == 200
@@ -91,12 +91,12 @@ def test_manager_can_edit_and_delete_any(client):
     assert r.get_json()["deleted"].startswith("RFI-")
 
 
-def test_unknown_module_404(eng_client):
+def test_crud_unknown_module_path_returns_404_not_found(eng_client):
     assert eng_client.get("/ops/nope").status_code == 404
     assert eng_client.post("/ops/nope", json={}).status_code == 404
 
 
-def test_new_modules_create_with_serials(app, eng_client):
+def test_crud_new_modules_daily_reports_variation_orders_safety_reports_create_with_serials(app, eng_client):
     """Daily diary / variation order / safety report end-to-end create."""
     pa = _alpha(app)
     cases = [
@@ -125,7 +125,7 @@ def test_new_modules_create_with_serials(app, eng_client):
         assert body["computed"][computed_key] == computed_val, body
 
 
-def test_new_modules_validation_matrix(app, eng_client):
+def test_crud_new_modules_validation_matrix_missing_fields_bad_values_422(app, eng_client):
     pa = _alpha(app)
     cases = [
         ("/ops/daily-reports", {"project_id": pa, "weather": "ممطر"}, 422),

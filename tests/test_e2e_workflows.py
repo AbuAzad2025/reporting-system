@@ -49,7 +49,7 @@ def _alpha_pid(client):
 
 
 @pytest.mark.parametrize("kind", KINDS)
-def test_full_lifecycle_e2e(client, kind):
+def test_e2e_full_lifecycle_chain_create_attach_feedback_reject_resubmit_approve_amendment_pdf_history(client, kind):
     pid = _alpha_pid(client)
 
     # 1. engineer creates (pending)
@@ -140,7 +140,7 @@ def test_full_lifecycle_e2e(client, kind):
                for row in r.get_json()["results"]), f"{kind} in archive"
 
 
-def test_three_generation_chain_e2e(client):
+def test_e2e_three_generation_chain_amendment_versioning_pdf_history(client):
     """approve → amend → approve → amend → approve: only latest approved."""
     login_as(client, "t_eng")
     pid = _alpha_pid(client)
@@ -167,7 +167,7 @@ def test_three_generation_chain_e2e(client):
     assert statuses == ["amended", "amended", "approved"]
 
 
-def test_rbac_cross_role_e2e(client):
+def test_e2e_rbac_cross_role_engineer_denied_manager_approve_allowed(client):
     """One record, three roles: eng creates, safety blocked, admin
     approves, owner sees it in cross-tenant analytics."""
     login_as(client, "t_eng")
@@ -186,7 +186,7 @@ def test_rbac_cross_role_e2e(client):
     assert data["by_kind"]["rfis"]["by_status"].get("approved", 0) >= 1
 
 
-def test_batch_export_e2e(client):
+def test_e2e_batch_export_pdf_and_attachments_across_all_modules(client):
     """Admin aggregates a project range into one PDF."""
     login_as(client, "t_admin")
     pid = _alpha_pid(client)
@@ -198,7 +198,7 @@ def test_batch_export_e2e(client):
     assert r.data[:5] == b"%PDF-"
 
 
-def test_delete_draft_cascades_everything_e2e(client):
+def test_e2e_delete_draft_cascades_attachments_comments_history_archives(client):
     """Draft delete removes bytes, attachment rows, and feedback threads."""
     import os
     from app.ops.models import Attachment, OpsRecordComment

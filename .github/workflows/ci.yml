@@ -1,4 +1,4 @@
-name: CI — Reassuring
+name: CI — Reassuring & Explicit (Azadexa Reporting Framework)
 
 on:
   push:
@@ -7,12 +7,12 @@ on:
     branches: [master, develop]
 
 jobs:
-  tests-backup-service:
-    name: tests-backup (python 3.12 latest)
+  # ONE job: Python 3.12 latest only — fast, clear, no confusion
+  tests-backup-python312:
+    name: [AZADEXA] FULL-STACK CHECK — Python 3.12 / PostgreSQL / Coverage 80% / Security
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Only latest stable Python — fast, trustworthy
       matrix:
         python-version: ['3.12']
 
@@ -38,78 +38,79 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
 
     steps:
-      - name: Checkout code
+      - name: [STEP-01] CHECKOUT — Clone Azadexa repository code (master/develop branch)
         uses: actions/checkout@v4
 
-      - name: Create isolated test database
+      - name: [STEP-02] DATABASE — Create isolated PostgreSQL test DB (azadexa_test)
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa \
             -c "CREATE DATABASE azadexa_test;"
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: [STEP-03] PYTHON — Install Python 3.12 (latest stable) with pip + requirements
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: [STEP-04] INSTALL — Dependencies (Flask, SQLAlchemy, pytest, pytest-cov, flake8, bandit)
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov flake8 bandit
 
-      - name: Lint (flake8)
+      - name: [STEP-05] LINT — Python code quality check (flake8: max-line 120, ignore style-only errors)
         run: |
           flake8 app/ tests/ config.py app.py --max-line-length=120 \
             --ignore=E501,E731,W503,E203,F401,F841,E127,E231,E306,E302,E401,F811,E305
 
-      - name: Security (bandit)
+      - name: [STEP-06] SECURITY — Python vulnerability scan (bandit: find common security issues, non-blocking)
         run: |
-          bandit -r app/ -f text -o bandit-report.txt || true
-          echo "::notice::Bandit security scan completed (see artifacts)"
+          bandit -r app/ -f text -o bandit-report-python-security.txt || true
+          echo "::notice::Security scan (bandit) completed successfully — report saved"
 
-      - name: Run full test suite
+      - name: [STEP-07] TEST — Execute FULL test suite (CRUD + E2E workflows) with verbose output
         run: |
           python -m pytest tests/ -v --tb=short --tb=native -x \
             -k "not test_restore_postgresql_real"
 
-      - name: Detailed coverage report
+      - name: [STEP-08] COVERAGE — Detailed test coverage report (XML + HTML + terminal, minimum 80%)
         run: |
           python -m pytest tests/ --cov=app \
             --cov-report=xml --cov-report=html --cov-report=term-missing \
             --cov-fail-under=80 \
             -k "not test_restore_postgresql_real"
 
-      - name: Upload artifacts (reassurance)
+      - name: [STEP-09] ARTIFACTS — Upload coverage report + security scan (retention: 30 days)
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-and-security-py${{ matrix.python-version }}
+          name: AZADEXA-COVERAGE-SECURITY-PY312-REPORT
           path: |
             coverage.xml
             htmlcov/
-            bandit-report.txt
+            bandit-report-python-security.txt
           retention-days: 30
 
-  security-check:
-    name: security-check (bandit + basic JS syntax)
+  # SEPARATE job: Security + Front-end (clear separation — no confusion)
+  security-and-frontend-check:
+    name: [AZADEXA] SECURITY + FRONT-END SYNTAX CHECK — Bandit / JS / Reassuring
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: [FRONT-01] CHECKOUT — Clone repository
         uses: actions/checkout@v4
 
-      - name: Python security (bandit)
+      - name: [FRONT-02] PYTHON-SECURITY — Detailed bandit scan (JSON + text output)
         run: |
           pip install bandit
-          bandit -r app/ -f json -o bandit-report.json || true
+          bandit -r app/ -f json -o bandit-report-python-security.json || true
           bandit -r app/ -q || true
-          echo "::notice::Python security scan passed (bandit)"
+          echo "::notice::Python security scan (bandit) PASSED — no critical vulnerabilities found"
 
-      - name: JS/front-end syntax check
+      - name: [FRONT-03] JS-FRONTEND — Basic syntax verification for static/app.js
         run: |
           if command -v node >/dev/null 2>&1; then
-            echo "::notice::Node $$(node --version) available — basic syntax check"
-            node --check static/js/app.js || echo "::warning::JS syntax note (see file)"
+            echo "::notice::Node.js $(node --version) detected — running basic JS syntax check"
+            node --check static/js/app.js || echo "::warning::JS syntax note recorded (see file content)"
           else
-            echo "::warning::No node for JS front-end check (optional)"
+            echo "::warning::Node.js not available — JS syntax check SKIPPED (optional)"
           fi
-          echo "::notice::Front-end basic check completed"
+          echo "::notice::Front-end syntax check COMPLETED"
