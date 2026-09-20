@@ -46,7 +46,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip --no-cache-dir
           python -m pip install --force-reinstall --no-cache-dir click
-          python -c "import click; print('click verified:', click.__version__)"
+          python -c "import click; ver = click.__version__; assert ver == '8.4.2', f'FAIL: click={ver}, expected 8.4.2'; print(f'PASS: click verified exactly 8.4.2')"
           pip install -r requirements.txt pytest pytest-cov flake8
       - name: "Run Tests"
         run: python -m pytest tests/test_crud.py -v --tb=short --tb=native -k "not test_restore_postgresql_real"
