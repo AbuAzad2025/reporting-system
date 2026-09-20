@@ -6,8 +6,7 @@ on:
   pull_request:
     branches: [master, develop]
 
-# Every test file runs in its own clearly-named job — no confusion,
-# no hidden failures, exact location of any problem.
+# Every job has explicit Install step with click verification — no confusion, exact failure location.
 jobs:
 
   # ── CRUD, Serial Numbers, Validation, Protection ──
@@ -45,7 +44,7 @@ jobs:
       - name: "Install"
         run: |
           python -m pip install --upgrade pip --no-cache-dir
-          python -m pip install --force-reinstall --no-cache-dir click
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest pytest-cov flake8
       - name: "Run Tests"
@@ -86,8 +85,9 @@ jobs:
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
-          python -m pip install --upgrade pip
-          pip install click
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest pytest-cov
       - name: "Run E2E Tests"
         run: python -m pytest tests/test_e2e_workflows.py -v --tb=short --tb=native
@@ -126,12 +126,12 @@ jobs:
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
-          python -m pip install --upgrade pip
-          pip install click
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest
       - name: "Run RBAC Tests"
-        run: |
-          python -m pytest tests/test_isolation.py tests/test_rbac.py -v --tb=short --tb=native
+        run: python -m pytest tests/test_isolation.py tests/test_rbac.py -v --tb=short --tb=native
 
   # ── Versioning, Archive, PDF ──
   versioning-archive-pdf:
@@ -167,12 +167,12 @@ jobs:
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
-          python -m pip install --upgrade pip
-          pip install click
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest
       - name: "Run Archive Tests"
-        run: |
-          python -m pytest tests/test_versioning.py tests/test_archive_organize.py tests/test_pdf_archive.py -v --tb=short --tb=native
+        run: python -m pytest tests/test_versioning.py tests/test_archive_organize.py tests/test_pdf_archive.py -v --tb=short --tb=native
 
   # ── Feedback, Analytics, Remediation ──
   feedback-analytics-remediation:
@@ -208,12 +208,12 @@ jobs:
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
-          python -m pip install --upgrade pip
-          pip install click
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest
       - name: "Run Feedback Tests"
-        run: |
-          python -m pytest tests/test_feedback_analytics.py tests/test_remediation.py -v --tb=short --tb=native
+        run: python -m pytest tests/test_feedback_analytics.py tests/test_remediation.py -v --tb=short --tb=native
 
   # ── Enterprise, Projects, Finance, UI Templates ──
   enterprise-projects-finance-ui:
@@ -249,12 +249,12 @@ jobs:
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
-          python -m pip install --upgrade pip
-          pip install click
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest
       - name: "Run Enterprise Tests"
-        run: |
-          python -m pytest tests/test_enterprise.py tests/test_projects.py tests/test_finance.py tests/test_ui_templates.py -v --tb=short --tb=native
+        run: python -m pytest tests/test_enterprise.py tests/test_projects.py tests/test_finance.py tests/test_ui_templates.py -v --tb=short --tb=native
 
   # ── Storage & Images ──
   storage-images:
@@ -290,23 +290,21 @@ jobs:
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
-          python -m pip install --upgrade pip
-          pip install click
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest
       - name: "Run Storage Tests"
         run: python -m pytest tests/test_storage.py -v --tb=short --tb=native
 
-  # ── Security Scan (bandit) — separate like Azad-UAE "security-scan" ──
+  # ── Security Scan (bandit) ──
   security-scan-bandit:
     name: "Security Scan"
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
-      - name: "DB Setup"
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
         uses: actions/setup-python@v5
         with: { python-version: '3.12', cache: 'pip' }
@@ -315,16 +313,9 @@ jobs:
           python -m pip install --upgrade pip --no-cache-dir
           python -m pip install --force-reinstall --no-cache-dir click==8.5.0
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
-          pip install -r requirements.txt pytest pytest-cov flake8
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v4
-      - name: "Install Bandit"
-        uses: actions/setup-python@v5
-        with: { python-version: '3.12', cache: 'pip' }
+          pip install bandit
       - name: "Run Security Scan"
         run: |
-          pip install bandit
           bandit -r app/ -f json -o bandit-security-report.json || true
           bandit -r app/ -f text -o bandit-security-report.txt || true
           echo "::notice::Python security scan (bandit) completed — no critical vulnerabilities found (or non-blocking warnings recorded)"
@@ -336,17 +327,14 @@ jobs:
           path: bandit-security-report.*
           retention-days: 30
 
-  # ── Lint & Format (flake8) — separate like Azad-UAE "lint-audit" ──
+  # ── Lint & Format (flake8) ──
   lint-check-flake8:
     name: "Lint + Format"
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
-      - name: "DB Setup"
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
         uses: actions/setup-python@v5
         with: { python-version: '3.12', cache: 'pip' }
@@ -355,50 +343,33 @@ jobs:
           python -m pip install --upgrade pip --no-cache-dir
           python -m pip install --force-reinstall --no-cache-dir click==8.5.0
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
-          pip install -r requirements.txt pytest pytest-cov flake8
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v4
-      - name: "Install Flake8"
-        uses: actions/setup-python@v5
-        with: { python-version: '3.12', cache: 'pip' }
+          pip install flake8
       - name: "Run Lint Check"
         run: |
-          pip install flake8
           flake8 app/ tests/ config.py app.py --max-line-length=120 \
             --ignore=E501,E731,W503,E203,F401,F841,E127,E231,E306,E302,E401,F811,E305
 
-  # ── Coverage Report — separate like Azad-UAE "coverage-report" ──
+  # ── Coverage Report ──
   coverage-report-combined:
     name: "Coverage Report"
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v4
-      - name: "DB Setup"
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
-      - name: "Python Setup"
-        uses: actions/setup-python@v5
-        with: { python-version: '3.12', cache: 'pip' }
-      - name: "Install"
-        run: |
-          python -m pip install --upgrade pip --no-cache-dir
-          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
-          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
-          pip install -r requirements.txt pytest pytest-cov flake8
     needs: [crud-serials-validation, e2e-full-lifecycle, isolation-rbac, versioning-archive-pdf, feedback-analytics-remediation, enterprise-projects-finance-ui, storage-images]
     if: always()
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
-      - name: "Install Coverage"
+      - name: "Python Setup"
         uses: actions/setup-python@v5
         with: { python-version: '3.12', cache: 'pip' }
+      - name: "Install"
+        run: |
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
+          pip install pytest pytest-cov
       - name: "Generate Coverage"
         run: |
-          pip install pytest pytest-cov
           python -m pytest tests/ --cov=app \
             --cov-report=xml --cov-report=html --cov-report=term-missing \
             --cov-fail-under=80 \
@@ -413,17 +384,14 @@ jobs:
             htmlcov/
           retention-days: 30
 
-  # ── Front-end Syntax Check — separate like Azad-UAE "frontend-asset-quality" (light) ──
+  # ── Front-end Syntax Check ──
   frontend-syntax-check:
     name: "Frontend Syntax"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
-      - name: "DB Setup"
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
         uses: actions/setup-python@v5
         with: { python-version: '3.12', cache: 'pip' }
@@ -432,10 +400,6 @@ jobs:
           python -m pip install --upgrade pip --no-cache-dir
           python -m pip install --force-reinstall --no-cache-dir click==8.5.0
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
-          pip install -r requirements.txt pytest pytest-cov flake8
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v4
       - name: "Check JS Syntax"
         run: |
           if command -v node >/dev/null 2>&1; then
