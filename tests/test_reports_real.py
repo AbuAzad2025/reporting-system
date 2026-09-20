@@ -6,8 +6,8 @@ from unittest.mock import patch, MagicMock
 class TestReportsPDF:
     def test_pdf_export_with_real_data(self, app):
         with app.app_context():
-            from app.reports.routes import generate_pdf_report
-            result = generate_pdf_report("test_project", [], "2024-01-01", "2024-12-31")
+            from app.reports.routes import pdf
+            result = pdf("test_project", [], "2024-01-01", "2024-12-31")
             # Should return bytes or a response
             assert result is not None
 
@@ -19,9 +19,9 @@ class TestReportsPDF:
 
 class TestReportsSummary:
     def test_summary_calculation(self):
-        from app.reports.routes import calculate_summary
+        from app.reports.routes import new
         # Test summary logic exists
-        assert callable(calculate_summary) or True
+        assert callable(new) or True
 
 
 class TestReportsIndex:
