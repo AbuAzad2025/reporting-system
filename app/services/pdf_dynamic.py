@@ -43,6 +43,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     """Render A4 PDF for a dynamic submission. Returns raw bytes."""
     st = _styles()
     adapter = _DynReportAdapter(submission, template)
+    payload = submission.data or {}
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
@@ -60,14 +61,50 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     story.append(Spacer(1, 4 * mm))
     story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#c9a227")))
     story.append(Spacer(1, 4 * mm))
-    story.append(_info_table(adapter, st))
-    story.append(Spacer(1, 5 * mm))
+    # ---- project general data (7 rows for daily, generic for others)
+    if template.key == "daily":
+        # header title as in PDF: تقرير الإنجاز اليومي + التاريخ/رقم التقرير
+        title_tbl = Table([
+            [Paragraph(ar(f"رقم التقرير : {submission.id or '—'}"), st["cell"]),
+             Paragraph(ar(f"التاريخ : {submission.report_date or ''}"), st["cell"])],
+        ], colWidths=[95 * mm, 95 * mm])
+        title_tbl.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#b9c6d2")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(Paragraph(ar("تقرير الإنجاز اليومي"), st["title"]))
+        story.append(Spacer(1, 3 * mm))
+        story.append(title_tbl)
+        story.append(Spacer(1, 3 * mm))
+        story.append(Paragraph(ar("بيانات المشروع العامة"), st["cell_h"]))
+        story.append(Spacer(1, 2 * mm))
+        proj_rows = [
+            ("اسم المشروع", submission.project_name or payload.get("project_name", "—")),
+            ("رقم المناقصة / العقد", payload.get("contract_no", "CTD/2026/021-WB/MOF")),
+            ("مصدر التمويل", payload.get("funding_source", "البنك الدولي - مشروع التعافي الاجتماعي والوظائف")),
+            ("الجهة المنفذة", payload.get("implementing_entity", "وزارة المالية / CTD/MOF")),
+            ("الجهة المستفيدة", payload.get("beneficiary_entity", "الإدارة العامة للمعابر والحدود (GABC)")),
+            ("المقاول المنفذ", submission.contractor or payload.get("contractor", "شركة سمرقند للمقاولات")),
+            ("الموقع", submission.location or payload.get("project_location", "استراحة أريحا - معبر الكرامة، أريحا")),
+        ]
+        proj_body = [[Paragraph(ar(v), st["cell"]), Paragraph(ar(k), st["cell_h"])] for k, v in proj_rows]
+        proj_tbl = Table(proj_body, colWidths=[140 * mm, 50 * mm])
+        proj_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (1, 0), (1, -1), colors.HexColor("#eef3f7")),
+            ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#b9c6d2")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.append(proj_tbl)
+        story.append(Spacer(1, 5 * mm))
+    else:
+        story.append(_info_table(adapter, st))
+        story.append(Spacer(1, 5 * mm))
+        story.append(_section_title(f"تفاصيل {template.name_ar}", st))
+        story.append(Spacer(1, 3 * mm))
 
-    # ---- template fields
-    story.append(_section_title(f"تفاصيل {template.name_ar}", st))
-    story.append(Spacer(1, 3 * mm))
-
-    payload = submission.data or {}
     items = []
     tables = []  # (field label, header labels, body rows) for line items
     for f in template.ordered_fields:
@@ -76,14 +113,22 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             cols = f.sub_columns() if hasattr(f, "sub_columns") else []
             rows = val if isinstance(val, list) else []
             if cols and rows:
-                tables.append((f.label_ar, [c["label_ar"] for c in cols],
-                               [[str(r.get(c["key"], "") or "—") for c in cols]
-                                for r in rows if isinstance(r, dict)]))
+                # render checkbox cells as ☒/☐
+                def _fmt_cell(c, raw):
+                    if c.get("type") == "checkbox":
+                        is_c = str(raw).lower() in ("1", "true", "yes", "on", "نعم", "☒", "checked")
+                        return "☒" if is_c else "☐"
+                    return str(raw) if str(raw).strip() else "—"
+                body_rows = [[_fmt_cell(c, r.get(c["key"], "")) for c in cols]
+                             for r in rows if isinstance(r, dict)]
+                tables.append((f.label_ar, [c["label_ar"] for c in cols], body_rows))
             else:
                 items.append((f.label_ar, "— لا بنود مسجلة —"))
             continue
         if f.field_type == "checkbox":
-            val = "نعم ✔" if str(val).lower() in ("1", "true", "yes", "on", "نعم") else "لا"
+            # ESHS model uses ☒ / ☐ exactly as in PDF
+            is_checked = str(val).lower() in ("1", "true", "yes", "on", "نعم", "checked", "☒")
+            val = "☒" if is_checked else "☐"
         elif f.field_type == "number" and val not in ("", None):
             val = str(val)
         items.append((f.label_ar, val if str(val).strip() else "—"))

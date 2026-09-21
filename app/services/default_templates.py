@@ -133,34 +133,129 @@ def _spec_to_field(key, label, kind, required=False, options=None,
             "placeholder": f"اكتب {label}..." if _KIND_MAP.get(kind) in ("text", "textarea") else ""}
 
 
-#: Structured tables for the daily site diary (UNRWA daily practice).
-#: Must match DailySiteReport model columns and routes.TABLE_SPECS:
-#: labor_table=[{trade, count}], equipment_table=[{eq_type, qty, hours, status}],
-#: work_fronts=[{area, activity, progress_pct}].
+#: Comprehensive ESHS Daily Report — matches استراحة أريحا model (11 sections + 8.1-8.11).
+#: Replaces thin UNRWA tables with full spec from user PDFs.
 DAILY_TABLES = [
-    ("labor_table", "جدول القوى العاملة", [
-        {"key": "trade", "label_ar": "النوع", "type": "text",
-         "required": True, "options": []},
-        {"key": "count", "label_ar": "العدد", "type": "number",
-         "required": True, "options": []},
+    ("equipment_esha", "2. قائمة المعدات والآلات في الموقع", [
+        {"key": "eq_name", "label_ar": "اسم المعدة", "type": "text", "required": True, "options": []},
+        {"key": "ownership", "label_ar": "الملكية (ملك/إيجار)", "type": "dropdown", "required": False, "options": ["ملك", "إيجار"]},
+        {"key": "hours_work", "label_ar": "ساعات العمل", "type": "number", "required": False, "options": []},
+        {"key": "hours_stop", "label_ar": "ساعات التوقف", "type": "number", "required": False, "options": []},
+        {"key": "hours_total", "label_ar": "إجمالي الساعات", "type": "number", "required": False, "options": []},
     ]),
-    ("equipment_table", "جدول المعدات والآليات", [
-        {"key": "eq_type", "label_ar": "نوع المعدة", "type": "text",
-         "required": True, "options": []},
-        {"key": "qty", "label_ar": "العدد", "type": "number",
-         "required": True, "options": []},
-        {"key": "hours", "label_ar": "ساعات التشغيل", "type": "number",
-         "required": False, "options": []},
-        {"key": "status", "label_ar": "الحالة", "type": "dropdown",
-         "required": False, "options": ["عاملة", "معطلة", "احتياط"]},
+    ("staff_esha", "3. الكادر الفني والعاملون في الموقع", [
+        {"key": "company", "label_ar": "الشركة / المؤسسة", "type": "dropdown", "required": True, "options": ["المقاول", "الاستشاري / وزارة المالية", "وزارة المالية"]},
+        {"key": "role", "label_ar": "المسمى الوظيفي / دور العمل", "type": "text", "required": True, "options": []},
+        {"key": "name", "label_ar": "الاسم", "type": "text", "required": True, "options": []},
+        {"key": "hours", "label_ar": "ساعات العمل", "type": "number", "required": False, "options": []},
+        {"key": "nature", "label_ar": "طبيعة الدوام", "type": "dropdown", "required": False, "options": ["دوام كامل", "دوام كامل/", "كامل"]},
     ]),
-    ("work_fronts", "جدول ميادين العمل", [
-        {"key": "area", "label_ar": "المنطقة / الميدان", "type": "text",
-         "required": True, "options": []},
-        {"key": "activity", "label_ar": "النشاط", "type": "text",
-         "required": False, "options": []},
-        {"key": "progress_pct", "label_ar": "نسبة الإنجاز", "type": "number",
-         "required": False, "options": []},
+    ("work_progress_esha", "4. تقدم الأشغال والتنفيذ", [
+        {"key": "activity", "label_ar": "الأنشطة والأعمال", "type": "textarea", "required": True, "options": []},
+        {"key": "qty", "label_ar": "الكميات المنجزة مع الوحدات", "type": "text", "required": False, "options": []},
+        {"key": "notes", "label_ar": "ملاحظات", "type": "text", "required": False, "options": []},
+    ]),
+    ("materials_esha", "5. المواد الموردة للموقع", [
+        {"key": "mat_type", "label_ar": "النوع", "type": "text", "required": True, "options": []},
+        {"key": "unit", "label_ar": "الوحدة", "type": "text", "required": False, "options": []},
+        {"key": "qty_supplied", "label_ar": "الكميات الموردة", "type": "number", "required": False, "options": []},
+        {"key": "qty_used", "label_ar": "الكميات المستهلكة", "type": "number", "required": False, "options": []},
+        {"key": "qty_remain", "label_ar": "المتبقي", "type": "number", "required": False, "options": []},
+        {"key": "qc_notes", "label_ar": "الملاحظات / فحص الجودة والسلامة", "type": "text", "required": False, "options": []},
+    ]),
+    ("next_day_esha", "6. الأنشطة المخطط لها لليوم التالي", [
+        {"key": "activity_next", "label_ar": "الأنشطة المخطط لها", "type": "textarea", "required": True, "options": []},
+        {"key": "qty_next", "label_ar": "الكميات المخطط لها مع الوحدات", "type": "text", "required": False, "options": []},
+        {"key": "safety_next", "label_ar": "الملاحظات / إجراءات السلامة والبيئة المطلوبة", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("meetings_esha", "7. الاجتماعات والزيارات بالموقع", [
+        {"key": "m_type", "label_ar": "نوع الاجتماع / الزيارة", "type": "text", "required": True, "options": []},
+        {"key": "m_date", "label_ar": "التاريخ", "type": "date", "required": False, "options": []},
+        {"key": "m_attendees", "label_ar": "الحضور", "type": "text", "required": False, "options": []},
+        {"key": "m_summary", "label_ar": "الملخص", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("waste_daily_esha", "8.3 سجل النفايات اليومية", [
+        {"key": "w_type", "label_ar": "نوع النفايات / المادة", "type": "text", "required": True, "options": []},
+        {"key": "w_qty", "label_ar": "الكمية", "type": "number", "required": False, "options": []},
+        {"key": "w_unit", "label_ar": "الوحدة", "type": "text", "required": False, "options": []},
+        {"key": "w_dest", "label_ar": "الوجهة / موقع التفريغ", "type": "text", "required": False, "options": []},
+        {"key": "w_mitigation", "label_ar": "إجراءات التخفيف أثناء النقل", "type": "text", "required": False, "options": []},
+    ]),
+    ("waste_mgmt_esha", "إجراءات إدارة النفايات (8.3)", [
+        {"key": "proc", "label_ar": "إجراء إدارة النفايات", "type": "text", "required": True, "options": []},
+        {"key": "done", "label_ar": "تم التنفيذ ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
+    ]),
+    ("eshs_air_esha", "8.4 أ. التلوث الهوائي والغبار والضوضاء", [
+        {"key": "proc", "label_ar": "إجراء التخفيف / الإجراء الوقائي", "type": "text", "required": True, "options": []},
+        {"key": "done", "label_ar": "تم التنفيذ ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
+    ]),
+    ("eshs_utilities_esha", "8.4 ب. المرافق العامة والخدمات القائمة", [
+        {"key": "proc", "label_ar": "إجراء التخفيف", "type": "text", "required": True, "options": []},
+        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "الملاحظات", "type": "text", "required": False, "options": []},
+    ]),
+    ("eshs_ohs_esha", "8.4 ج. الصحة والسلامة المهنية OHS", [
+        {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
+        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
+    ]),
+    ("eshs_workcond_esha", "8.4 د. ظروف العمل", [
+        {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
+        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
+    ]),
+    ("eshs_community_esha", "8.4 هـ. صحة وسلامة المجتمع والمسافرين", [
+        {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
+        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
+    ]),
+    ("announcements_esha", "8.5 الإعلانات وإخطارات أصحاب المصلحة", [
+        {"key": "purpose", "label_ar": "الغرض من الإعلان", "type": "textarea", "required": True, "options": []},
+        {"key": "audience", "label_ar": "الجمهور / الفئة المستهدفة", "type": "text", "required": False, "options": []},
+        {"key": "platform", "label_ar": "المنصة / طريقة الإخطار", "type": "text", "required": False, "options": []},
+        {"key": "date", "label_ar": "تاريخ الإعلان", "type": "date", "required": False, "options": []},
+        {"key": "result", "label_ar": "الوصف / النتيجة", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("incidents_esha", "8.6 حوادث الموقع ومتابعة إجراءات السلامة", [
+        {"key": "inc_type", "label_ar": "نوع الحادث / العارض", "type": "dropdown", "required": True, "options": ["عارض", "حادث", "لا يوجد اليوم"]},
+        {"key": "level", "label_ar": "مستوى الحادث", "type": "text", "required": False, "options": []},
+        {"key": "action", "label_ar": "الإجراء المتخذ في الموقع", "type": "textarea", "required": False, "options": []},
+        {"key": "details", "label_ar": "تفاصيل إضافية", "type": "text", "required": False, "options": []},
+        {"key": "notes", "label_ar": "ملاحظات", "type": "text", "required": False, "options": []},
+    ]),
+    ("stakeholder_activities_esha", "8.7 أنشطة مشاركة أصحاب المصلحة", [
+        {"key": "act_desc", "label_ar": "وصف النشاط", "type": "textarea", "required": True, "options": []},
+        {"key": "stakeholders", "label_ar": "أصحاب المصلحة المستهدفون", "type": "text", "required": False, "options": []},
+        {"key": "action_taken", "label_ar": "الإجراء المتخذ في الموقع", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("complaints_esha", "8.8 آلية الشكاوى والاعتراضات", [
+        {"key": "category", "label_ar": "فئة الشكوى", "type": "text", "required": True, "options": []},
+        {"key": "desc", "label_ar": "الوصف", "type": "textarea", "required": False, "options": []},
+        {"key": "complainant", "label_ar": "المشتكي / وسيلة التواصل", "type": "text", "required": False, "options": []},
+        {"key": "status", "label_ar": "الحالة", "type": "dropdown", "required": False, "options": ["مفتوحة", "مغلقة", "لا يوجد"]},
+        {"key": "solution", "label_ar": "الحلول / الملاحظات", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("safety_team_esha", "8.9 فريق البيئة والسلامة للمقاول", [
+        {"key": "role", "label_ar": "الكادر الفني للسلامة والبيئة", "type": "text", "required": True, "options": []},
+        {"key": "status", "label_ar": "الحالة (متواجد/غائب)", "type": "dropdown", "required": True, "options": ["متواجد ☒ دوام كامل", "غائب ☐", "متواجد ☒", "غائب"]},
+    ]),
+    ("photos_esha", "8.10 الصور التوثيقية مع التعليقات", [
+        {"key": "photo", "label_ar": "الصورة (رابط/ملف)", "type": "text", "required": False, "options": []},
+        {"key": "caption", "label_ar": "التعليق", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("signatures_esha", "8.11 الإعداد والتدقيق والاعتماد", [
+        {"key": "entity", "label_ar": "الصفة / الجهة", "type": "dropdown", "required": True, "options": ["اعداد المقاول", "وزارة المالية / المهندس المشرف (اعتماد)"]},
+        {"key": "name_title", "label_ar": "المسمى الوظيفي / الاسم", "type": "text", "required": True, "options": []},
+        {"key": "signature", "label_ar": "التوقيع", "type": "text", "required": False, "options": []},
+        {"key": "date", "label_ar": "التاريخ", "type": "date", "required": False, "options": []},
     ]),
 ]
 
@@ -175,8 +270,15 @@ def default_fields_for(template_key):
     for k, label, kind in FIELD_SPECS.get(template_key, []):
         out.append(_spec_to_field(k, label, kind, False))
     if template_key == "daily":
+        # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
+        out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False))
+        out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False))
         out += [_spec_to_field(k, lb, "table", False, [], cols)
                 for k, lb, cols in DAILY_TABLES]
+        # attachments checkboxes (المرفقات) - 3 items
+        out.append(_spec_to_field("attach_attendance", "المرفقات: كشف الحضور اليومي للموقع", "checkbox", False))
+        out.append(_spec_to_field("attach_complaints", "المرفقات: سجل الشكاوى والحوادث", "checkbox", False))
+        out.append(_spec_to_field("attach_scaffolding", "المرفقات: قائمة فحص وتدقيق السقالات والمعدات", "checkbox", False))
     return out
 
 
