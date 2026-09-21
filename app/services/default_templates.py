@@ -259,6 +259,26 @@ DAILY_TABLES = [
     ]),
 ]
 
+#: Weekly — matches Biweekly Progress Report (MOF/CTD)
+WEEKLY_TABLES = [
+    ("wp_status", "الموقف التنفيذي التفصيلي حسب حزم العمل", [
+        {"key": "wp_code", "label_ar": "رمز البند", "type": "text", "required": True, "options": []},
+        {"key": "wp_name", "label_ar": "حزمة العمل", "type": "text", "required": True, "options": []},
+        {"key": "wp_week", "label_ar": "الحالة الأسبوعية", "type": "dropdown", "required": False, "options": ["منجز خلال الأسبوع", "منجز / مستمر", "مستمر", "قيد التنفيذ", "قيد المتابعة"]},
+        {"key": "wp_field", "label_ar": "الحالة الميدانية والملاحظات", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("weekly_issues", "المشاكل والأضرار والإجراءات المتخذة", [
+        {"key": "issue", "label_ar": "المشكلة / التحدي", "type": "text", "required": True, "options": []},
+        {"key": "risk", "label_ar": "مستوى الخطر", "type": "dropdown", "required": False, "options": ["منخفض", "متوسط", "عالي"]},
+        {"key": "impact", "label_ar": "الأثر", "type": "textarea", "required": False, "options": []},
+        {"key": "action", "label_ar": "الإجراء التصحيحي", "type": "textarea", "required": False, "options": []},
+    ]),
+    ("weekly_photos", "صور تقدم الأعمال (الأسبوعي)", [
+        {"key": "photo", "label_ar": "الصورة", "type": "text", "required": False, "options": []},
+        {"key": "caption", "label_ar": "التعليق", "type": "textarea", "required": False, "options": []},
+    ]),
+]
+
 
 def default_fields_for(template_key):
     """Return ordered field dicts for a template key."""
@@ -279,6 +299,14 @@ def default_fields_for(template_key):
         out.append(_spec_to_field("attach_attendance", "المرفقات: كشف الحضور اليومي للموقع", "checkbox", False))
         out.append(_spec_to_field("attach_complaints", "المرفقات: سجل الشكاوى والحوادث", "checkbox", False))
         out.append(_spec_to_field("attach_scaffolding", "المرفقات: قائمة فحص وتدقيق السقالات والمعدات", "checkbox", False))
+    if template_key == "weekly":
+        # weekly summary (12 items) + attachments + WP tables
+        out.append(_spec_to_field("weekly_summary_12", "ملخص التقدم التنفيذي (12 بند)", "textarea", False))
+        out.append(_spec_to_field("weekly_extra_challenges", "الأعمال الإضافية والتحديات الفنية", "textarea", False))
+        out += [_spec_to_field(k, lb, "table", False, [], cols)
+                for k, lb, cols in WEEKLY_TABLES]
+        out.append(_spec_to_field("weekly_next_plan", "الأعمال المخطط لها الأسبوع القادم (7 بنود)", "textarea", False))
+        out.append(_spec_to_field("weekly_conclusion", "الخلاصة", "textarea", False))
     return out
 
 
