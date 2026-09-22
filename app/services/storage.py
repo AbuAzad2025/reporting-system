@@ -269,9 +269,9 @@ def list_backups() -> list:
         bucket = _gcs_bucket(client)
         return [blob.name for blob in bucket.list_blobs(
             prefix="backups/")]
-    # local filesystem
+    # local filesystem — return basenames only (relative keys) to avoid path disclosure and double-join bugs
     local_dir = _local_dir()
-    return [os.path.join(local_dir, name) for name in os.listdir(local_dir)
+    return [name for name in os.listdir(local_dir)
             if os.path.isfile(os.path.join(local_dir, name))]
 
 

@@ -23,7 +23,9 @@
       <div class="mt-2 flex items-center gap-4">
         <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="border-2 border-slate-200 rounded-xl px-4 py-3 w-full max-w-xs" onchange="previewAvatar(this)">
         {% if current_user.avatar %}
-        <a href="{{ url_for('main.remove_avatar') }}" class="text-sm text-red-600 hover:underline">حذف الصورة الحالية</a>
+        <form method="POST" action="{{ url_for('main.remove_avatar') }}" class="inline">
+          <button type="submit" class="text-sm text-red-600 hover:underline" onclick="return confirm('حذف الصورة؟')">حذف الصورة الحالية</button>
+        </form>
         {% endif %}
       </div>
       <img id="avatarPreview" class="mt-3 hidden w-20 h-20 rounded-xl object-cover border">
@@ -90,7 +92,7 @@
     <div>
       <h3 class="font-bold text-base text-navy mb-3">🔒 تغيير كلمة المرور</h3>
       <input name="new_password" type="password" placeholder="اتركها فارغة للإبقاء على الحالية" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
-      <p class="text-xs text-slate-500 mt-1">كلمة المرور يجب أن تكون 6 أحرف على الأقل.</p>
+      <p class="text-xs text-slate-500 mt-1">كلمة المرور يجب أن تكون 8 أحرف على الأقل.</p>
     </div>
 
     <button type="submit" class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl hover:bg-navy/90 transition">💾 حفظ التعديلات</button>

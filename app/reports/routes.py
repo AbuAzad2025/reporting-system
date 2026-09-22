@@ -15,6 +15,11 @@ from flask import (render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 
+import os
+import re
+import uuid
+from flask import current_app
+
 from app.reports import bp
 from app.extensions import db
 from app.models import Report, ReportTemplate, ReportSubmission, Project, REPORT_TYPES
@@ -23,6 +28,37 @@ from utils.helpers import FIELD_SPECS
 from utils.pdf_generator import build_report_pdf
 from app.services.pdf_dynamic import build_dynamic_pdf
 from app.services.share import get_share_data
+
+# secure upload for dynamic table file cells (mirrors ops secure handling)
+ALLOWED_MIME_DYN = {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}
+MAX_UPLOAD_DYN = 4 * 1024 * 1024
+
+
+def _safe_filename_dyn(name: str) -> str:
+    base = os.path.basename(name or "").strip()
+    base = re.sub(r"[^\w.\-]+", "_", base, flags=re.UNICODE).strip("._")
+    if not base:
+        return ""
+    if "." in base:
+        stem, _, ext = base.rpartition(".")
+        ext = re.sub(r"[^\w]+", "", ext, flags=re.UNICODE)[:10]
+        stem = (stem or "file")[:40]
+        return f"{stem}.{ext}" if ext else stem
+    return base[:40]
+
+
+def _store_dyn_file(template_key: str, filename: str, buf: bytes) -> str:
+    """Store under UPLOAD_FOLDER/reports/<template_key>/ ; return relative key."""
+    rel = os.path.join("reports", template_key, f"{uuid.uuid4().hex[:12]}_{filename}")
+    rel = rel.replace(os.sep, "/")
+    base = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+    abs_path = os.path.abspath(os.path.join(base, rel))
+    if abs_path != base and not abs_path.startswith(base + os.sep):
+        raise ValueError("storage key escapes upload folder")
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    with open(abs_path, "wb") as fh:
+        fh.write(buf)
+    return rel
 
 
 # ================================================================ LEGACY
@@ -234,8 +270,46 @@ def _collect_dynamic(template, form):
                 payload[f.field_key] = []
                 continue
             rows = _extract_table_rows(f, form)
+            # secure file handling for file-type columns (photos etc.)
+            try:
+                from flask import request as _req
+                _files = getattr(_req, "files", None)
+            except Exception:
+                _files = None
+            if _files is not None:
+                for idx, row in enumerate(rows):
+                    for c in cols:
+                        if c.get("type") != "file":
+                            continue
+                        file_key = f"f_{f.field_key}__{idx}__{c['key']}"
+                        file_obj = _files.get(file_key)
+                        if file_obj and getattr(file_obj, "filename", ""):
+                            safe = _safe_filename_dyn(file_obj.filename)
+                            if not safe:
+                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: اسم الملف غير صالح.")
+                                continue
+                            mime = (getattr(file_obj, "mimetype", "") or "application/octet-stream").lower()
+                            if mime not in ALLOWED_MIME_DYN:
+                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: نوع الملف غير مدعوم ({mime}).")
+                                continue
+                            try:
+                                file_obj.stream.seek(0)
+                            except Exception:
+                                pass
+                            buf = file_obj.read()
+                            if len(buf) > MAX_UPLOAD_DYN:
+                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: الملف يتجاوز 4MB.")
+                                continue
+                            try:
+                                storage_key = _store_dyn_file(template.key, safe, buf)
+                                row[c["key"]] = storage_key
+                            except Exception as exc:
+                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: فشل الحفظ.")
             for n, row in enumerate(rows, 1):
                 for c in cols:
+                    if c.get("type") == "file":
+                        # file already validated via MIME/size; keep stored key as-is
+                        continue
                     if c["required"] and not row[c["key"]]:
                         errors.append(
                             f"«{f.label_ar}» — الصف {n}: «{c['label_ar']}» مطلوب.")

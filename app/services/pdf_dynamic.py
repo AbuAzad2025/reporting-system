@@ -16,6 +16,7 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
 from reportlab.lib import colors
 import io
 import logging
+import os
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +52,44 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
                             title=f"Azadexa-{template.key}-{submission.id}",
                             author="AZAD Intelligent Systems")
     story = []
+
+    # ---- custom logos header (user-uploaded) — professional dual-logo bar
+    try:
+        from app.models import Project
+        from app.extensions import db as _db
+        from utils.pdf_generator import _custom_logo, _brand_logo
+        proj = _db.session.get(Project, submission.project_id) if submission.project_id else None
+        logo1 = getattr(proj, 'logo_path', '') if proj else ''
+        logo2 = getattr(proj, 'logo2_path', '') if proj else ''
+        # fallback to env or default brand
+        img1 = _custom_logo(logo1) if logo1 else None
+        img2 = _custom_logo(logo2) if logo2 else None
+        if not img1:
+            img1 = _brand_logo(22)
+        # if only one logo, still render header with company names
+        logo_row = None
+        if img1 or img2:
+            from reportlab.platypus import Image as _Img
+            # titles under logos
+            left_title = Paragraph(ar("وزارة الأشغال العامة والإسكان<br/>Ministry of Public Works and Housing"), st["cell_small"])
+            right_title = Paragraph(ar("شركة سمرقند للمقاولات<br/>Sumer Qand Contracting Company"), st["cell_small"])
+            # build 2-col logo table
+            logo_data = [[img1 or left_title, img2 or right_title],
+                         [left_title, right_title]]
+            # if images are None, text already placed
+            # use simple table with images on top row and titles bottom
+            logo_tbl = Table([[img1 or Paragraph("", st["cell"]), img2 or Paragraph("", st["cell"])],
+                              [left_title, right_title]], colWidths=[95 * mm, 95 * mm])
+            logo_tbl.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ]))
+            story.append(logo_tbl)
+            story.append(Spacer(1, 3 * mm))
+    except Exception:
+        pass
 
     # ---- corporate header (shared: project owner / consultant / contractor)
     try:
@@ -119,22 +158,24 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         story.append(Spacer(1, 3 * mm))
 
     items = []
-    tables = []  # (field label, header labels, body rows) for line items
+    tables = []  # (field label, cols, body rows) for line items — cols kept for image handling
     for f in template.ordered_fields:
         val = payload.get(f.field_key, "")
         if f.field_type == "table":
             cols = f.sub_columns() if hasattr(f, "sub_columns") else []
             rows = val if isinstance(val, list) else []
             if cols and rows:
-                # render checkbox cells as ☒/☐
                 def _fmt_cell(c, raw):
                     if c.get("type") == "checkbox":
                         is_c = str(raw).lower() in ("1", "true", "yes", "on", "نعم", "☒", "checked")
                         return "☒" if is_c else "☐"
+                    if c.get("type") == "file":
+                        # keep raw path for image embedding later
+                        return str(raw).strip() if str(raw).strip() else "—"
                     return str(raw) if str(raw).strip() else "—"
                 body_rows = [[_fmt_cell(c, r.get(c["key"], "")) for c in cols]
                              for r in rows if isinstance(r, dict)]
-                tables.append((f.label_ar, [c["label_ar"] for c in cols], body_rows))
+                tables.append((f.label_ar, cols, body_rows))
             else:
                 items.append((f.label_ar, "— لا بنود مسجلة —"))
             continue
@@ -150,13 +191,29 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     story.append(_kv_table(items, st))
     story.append(Spacer(1, 6 * mm))
 
-    # ---- line-item tables (alternating shading, repeat header)
-    for idx, (label, header, body) in enumerate(tables):
+    # ---- line-item tables (alternating shading, repeat header) — with image embedding
+    for idx, (label, cols, body) in enumerate(tables):
+        header = [c["label_ar"] for c in cols]
         story.append(_section_title(f"{label} ({len(body)} بنود)", st))
         story.append(Spacer(1, 3 * mm))
         head = [Paragraph(ar(h), st["cell_h"]) for h in header]
-        grid = [head] + [[Paragraph(ar(v), st["cell"]) for v in row]
-                         for row in body]
+        # build rows: embed image if column type is file and path exists
+        grid_rows = []
+        for row in body:
+            pdf_row = []
+            for v, c in zip(row, cols):
+                if c.get("type") == "file" and v != "—" and os.path.isfile(str(v)):
+                    try:
+                        from reportlab.platypus import Image as RLImage
+                        img = RLImage(str(v), width=32 * mm, height=20 * mm, hAlign="CENTER")
+                        img.hAlign = "CENTER"
+                        pdf_row.append(img)
+                    except Exception:
+                        pdf_row.append(Paragraph(ar(v), st["cell"]))
+                else:
+                    pdf_row.append(Paragraph(ar(v), st["cell"]))
+            grid_rows.append(pdf_row)
+        grid = [head] + grid_rows
         widths = [max(150 * mm / max(len(header), 1), 25 * mm)] * len(header)
         t = Table(grid, colWidths=widths, repeatRows=1)
         style_cmds = [

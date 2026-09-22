@@ -200,6 +200,8 @@ class Project(db.Model):
     contractor = db.Column(db.String(200), default="")
     client = db.Column(db.String(200), default="")
     consultant = db.Column(db.String(200), default="")
+    logo_path = db.Column(db.String(500), default="")  # custom header logo (project)
+    logo2_path = db.Column(db.String(500), default="")  # second header logo (ministry/client)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -274,8 +276,8 @@ class DynamicField(db.Model):
     def options_list(self):
         return self.options or []
 
-    #: allowed cell types inside table fields
-    CELL_TYPES = ("text", "number", "dropdown", "date")
+    #: allowed cell types inside table fields (file for image upload)
+    CELL_TYPES = ("text", "number", "dropdown", "date", "file")
 
     def sub_columns(self):
         cols = []

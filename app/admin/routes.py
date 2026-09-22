@@ -4,10 +4,13 @@ user administration, system-wide analytics.
 Gates: templates/fields/projects/analytics -> admin+superadmin.
 Users suspend/delete -> superadmin only for delete; admin can suspend.
 """
+import logging
 from datetime import date, timedelta
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import func
+
+log = logging.getLogger(__name__)
 
 from app.admin import bp
 from app.extensions import db
@@ -274,7 +277,7 @@ def field_column_delete(field_id, col_key):
     return redirect(url_for("admin.fields", template_id=f.template_id))
 
 
-# ---------------------------------------------------------------- projects
+# ---------------------------------------------------------------- projects — with professional logo upload
 @bp.route("/projects", methods=["GET", "POST"])
 @login_required
 @template_manager_required
@@ -286,10 +289,51 @@ def projects():
         elif Project.query.filter_by(name=name).first():
             flash("يوجد مشروع بنفس الاسم.", "danger")
         else:
-            db.session.add(Project(
+            # ensure logo columns exist on old DBs (SQLite/Postgres)
+            try:
+                from sqlalchemy import text as _text
+                db.session.execute(_text("ALTER TABLE projects ADD COLUMN logo_path VARCHAR(500) DEFAULT ''"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            try:
+                from sqlalchemy import text as _text2
+                db.session.execute(_text2("ALTER TABLE projects ADD COLUMN logo2_path VARCHAR(500) DEFAULT ''"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            proj = Project(
                 name=name, location=request.form.get("location", "").strip(),
                 contractor=request.form.get("contractor", "").strip(),
-                client=request.form.get("client", "").strip()))
+                client=request.form.get("client", "").strip())
+            # handle custom header logos (professional)
+            try:
+                from app.services.storage import upload_image
+                for field_name, attr in [("logo", "logo_path"), ("logo2", "logo2_path")]:
+                    f = request.files.get(field_name)
+                    if f and f.filename:
+                        # validate image type
+                        ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else "png"
+                        if ext not in ("png", "jpg", "jpeg", "webp", "svg"):
+                            flash(f"صيغة الشعار {f.filename} غير مدعومة (png/jpg/webp/svg فقط).", "warning")
+                            continue
+                        data = f.read()
+                        if len(data) > 5 * 1024 * 1024:
+                            flash("حجم الشعار يجب ألا يتجاوز 5MB.", "warning")
+                            continue
+                        path = upload_image(name or "project", f.filename, data)
+                        setattr(proj, attr, path)
+            except Exception as exc:
+                # column may not exist on old DB — create it on the fly
+                try:
+                    from sqlalchemy import text as _text
+                    db.session.execute(_text("ALTER TABLE projects ADD COLUMN logo_path VARCHAR(500) DEFAULT ''"))
+                    db.session.execute(_text("ALTER TABLE projects ADD COLUMN logo2_path VARCHAR(500) DEFAULT ''"))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                log.warning("logo upload skipped: %s", exc)
+            db.session.add(proj)
             db.session.commit()
             flash(f"تمت إضافة المشروع «{name}».", "success")
         return redirect(url_for("admin.projects"))

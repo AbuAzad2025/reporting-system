@@ -113,6 +113,19 @@ def _brand_logo(width_mm=30):
         pass
     return None
 
+
+def _custom_logo(path, width_mm=28):
+    """User-uploaded logo — returns Image flowable or None."""
+    if not path:
+        return None
+    try:
+        from reportlab.platypus import Image
+        if os.path.isfile(str(path)):
+            return Image(str(path), width=width_mm * mm, height=width_mm * mm, hAlign="CENTER")
+    except Exception:
+        pass
+    return None
+
 TYPE_META = {
     "daily": ("التقرير اليومي للتقدم", "Daily Progress Report"),
     "weekly": ("التقرير الأسبوعي", "Weekly Summary Report"),

@@ -11,7 +11,7 @@
     <a href="{{ url_for('reports.dyn_list') }}" class="text-xs bg-white/15 px-3 py-2 rounded-xl font-bold">→ رجوع</a>
   </div>
 
-  <form method="POST" class="bg-white rounded-3xl shadow p-5 mt-3 space-y-4">
+  <form method="POST" enctype="multipart/form-data" class="bg-white rounded-3xl shadow p-5 mt-3 space-y-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div class="sm:col-span-2">
         <label class="font-bold text-sm">اسم المشروع *</label>
@@ -82,6 +82,16 @@
                   <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" type="number" step="any" dir="ltr" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm text-left">
                   {% elif c.type == 'date' %}
                   <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" type="date" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm">
+                  {% elif c.type == 'file' %}
+                  <div class="space-y-1">
+                    <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" type="file" accept="image/*,.pdf,.jpg,.jpeg,.png" class="w-full border border-slate-200 rounded-lg px-2 py-2 text-xs bg-white">
+                    {% if row.get(c.key) %}<div class="text-[10px] text-emerald-600 truncate">✓ {{ row.get(c.key).split('/')[-1] }}</div><input type="hidden" name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" value="{{ row.get(c.key) }}">{% endif %}
+                  </div>
+                  {% elif c.type == 'checkbox' %}
+                  <label class="flex items-center justify-center gap-1">
+                    <input type="checkbox" name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" value="yes" {% if row.get(c.key) in ['yes','true','1','☒','نعم'] %}checked{% endif %} class="w-5 h-5 accent-teal-600">
+                    <span class="text-[11px] font-bold">☒</span>
+                  </label>
                   {% else %}
                   <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm" placeholder="{{ c.label_ar }}">
                   {% endif %}

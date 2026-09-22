@@ -235,8 +235,8 @@ def profile():
 
             new_pw = request.form.get("new_password", "").strip()
             if new_pw:
-                if len(new_pw) < 6:
-                    flash("كلمة المرور الجديدة قصيرة (6 أحرف على الأقل).", "danger")
+                if len(new_pw) < 8:
+                    flash("كلمة المرور الجديدة قصيرة (8 أحرف على الأقل).", "danger")
                     return render_template("profile.html")
                 current_user.set_password(new_pw)
             db.session.commit()

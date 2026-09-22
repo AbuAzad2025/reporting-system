@@ -17,6 +17,9 @@
       <input name="password" id="password" type="password" required autocomplete="current-password" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="••••••">
       <button type="button" onclick="document.getElementById('password').type=document.getElementById('password').type==='password'?'text':'password';this.textContent=document.getElementById('password').type==='text'?'إخفاء':'إظهار';" class="absolute right-3 top-9 text-xs text-teal2 font-bold hover:underline">إظهار</button>
     </div>
+    <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+      <input type="checkbox" name="remember" id="remember" class="w-4 h-4 rounded border-slate-300 text-teal2"> تذكرني
+    </label>
     <button class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl text-lg hover:bg-[#254a78]">دخول ➜</button>
   </form>
   <p class="text-center text-sm mt-4">ليس لديك حساب؟ <a href="{{ url_for('auth.register') }}" class="text-teal2 font-bold">سجل الآن</a></p>

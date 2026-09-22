@@ -248,7 +248,7 @@ DAILY_TABLES = [
         {"key": "status", "label_ar": "الحالة (متواجد/غائب)", "type": "dropdown", "required": True, "options": ["متواجد ☒ دوام كامل", "غائب ☐", "متواجد ☒", "غائب"]},
     ]),
     ("photos_esha", "8.10 الصور التوثيقية مع التعليقات", [
-        {"key": "photo", "label_ar": "الصورة (رابط/ملف)", "type": "text", "required": False, "options": []},
+        {"key": "photo", "label_ar": "الصورة (ارفع ملف JPG/PNG)", "type": "file", "required": False, "options": []},
         {"key": "caption", "label_ar": "التعليق", "type": "textarea", "required": False, "options": []},
     ]),
     ("signatures_esha", "8.11 الإعداد والتدقيق والاعتماد", [
