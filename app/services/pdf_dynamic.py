@@ -61,12 +61,17 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     story.append(Spacer(1, 4 * mm))
     story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#c9a227")))
     story.append(Spacer(1, 4 * mm))
-    # ---- project general data (7 rows for daily, generic for others)
-    if template.key == "daily":
-        # header title as in PDF: تقرير الإنجاز اليومي + التاريخ/رقم التقرير
+    # ---- project general data — production headers for all report types
+    if template.key in ("daily", "weekly"):
+        is_daily = template.key == "daily"
+        title_ar = "تقرير الإنجاز اليومي" if is_daily else "تقرير التقدم الأسبوعي / نصف الشهري (Weekly / Biweekly Progress Report)"
+        period = payload.get("report_period", f"{submission.report_date or ''}")
+        if not is_daily:
+            # weekly period overrides date
+            period = payload.get("period_start", "") + " - " + payload.get("period_end", "") if payload.get("period_start") else period
         title_tbl = Table([
             [Paragraph(ar(f"رقم التقرير : {submission.id or '—'}"), st["cell"]),
-             Paragraph(ar(f"التاريخ : {submission.report_date or ''}"), st["cell"])],
+             Paragraph(ar(f"{'التاريخ' if is_daily else 'الفترة'} : {period}"), st["cell"])],
         ], colWidths=[95 * mm, 95 * mm])
         title_tbl.setStyle(TableStyle([
             ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#b9c6d2")),
@@ -74,14 +79,15 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
-        story.append(Paragraph(ar("تقرير الإنجاز اليومي"), st["title"]))
+        story.append(Paragraph(ar(title_ar), st["title"]))
         story.append(Spacer(1, 3 * mm))
         story.append(title_tbl)
         story.append(Spacer(1, 3 * mm))
-        story.append(Paragraph(ar("بيانات المشروع العامة"), st["cell_h"]))
+        story.append(Paragraph(ar("بيانات المشروع العامة" if is_daily else "البيانات التعريفية والتعاقدية للمشروع"), st["cell_h"]))
         story.append(Spacer(1, 2 * mm))
+        # 7 rows for daily, 9 rows for weekly (adds engineers + date/type)
         proj_rows = [
-            ("اسم المشروع", submission.project_name or payload.get("project_name", "—")),
+            ("اسم المشروع", submission.project_name or payload.get("project_name", "إعادة تأهيل وصيانة صالة القادمين في استراحة أريحا")),
             ("رقم المناقصة / العقد", payload.get("contract_no", "CTD/2026/021-WB/MOF")),
             ("مصدر التمويل", payload.get("funding_source", "البنك الدولي - مشروع التعافي الاجتماعي والوظائف")),
             ("الجهة المنفذة", payload.get("implementing_entity", "وزارة المالية / CTD/MOF")),
@@ -89,6 +95,13 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             ("المقاول المنفذ", submission.contractor or payload.get("contractor", "شركة سمرقند للمقاولات")),
             ("الموقع", submission.location or payload.get("project_location", "استراحة أريحا - معبر الكرامة، أريحا")),
         ]
+        if not is_daily:
+            proj_rows += [
+                ("مهندس المقاول / مدير المشروع", payload.get("pm_name", "م. محمد نسيم عرار")),
+                ("مهندس السلامة", payload.get("safety_eng", "م. محمد قباجه")),
+                ("تاريخ التقرير", str(submission.report_date or "")),
+                ("نوع التقرير", payload.get("report_type_label", "تقرير تقدم عمل أسبوعي شامل")),
+            ]
         proj_body = [[Paragraph(ar(v), st["cell"]), Paragraph(ar(k), st["cell_h"])] for k, v in proj_rows]
         proj_tbl = Table(proj_body, colWidths=[140 * mm, 50 * mm])
         proj_tbl.setStyle(TableStyle([
