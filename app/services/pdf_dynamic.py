@@ -68,9 +68,9 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             img1 = _brand_logo(22)
         # if only one logo, still render header with company names
         if img1 or img2:
-            # titles under logos
-            left_title = Paragraph(ar("وزارة الأشغال العامة والإسكان<br/>Ministry of Public Works and Housing"), st["cell_small"])
-            right_title = Paragraph(ar("شركة سمرقند للمقاولات<br/>Sumer Qand Contracting Company"), st["cell_small"])
+            # titles under logos — shape each language separately so <br/> survives ar()
+            left_title = Paragraph(ar("وزارة الأشغال العامة والإسكان") + "<br/>" + "Ministry of Public Works and Housing", st["cell_small"])
+            right_title = Paragraph(ar("شركة سمرقند للمقاولات") + "<br/>" + "Sumer Qand Contracting Company", st["cell_small"])
             # use simple table with images on top row and titles bottom
             logo_tbl = Table([[img1 or Paragraph("", st["cell"]), img2 or Paragraph("", st["cell"])],
                               [left_title, right_title]], colWidths=[95 * mm, 95 * mm])

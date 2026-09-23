@@ -149,6 +149,11 @@ def _spec_to_field(key, label, kind, required=False, options=None,
 #: Comprehensive ESHS Daily Report — matches استراحة أريحا model (11 sections + 8.1-8.11).
 #: Replaces thin UNRWA tables with full spec from user PDFs.
 DAILY_TABLES = [
+    ("weather_esha", "1. حالة الطقس وجودة الهواء", [
+        {"key": "condition", "label_ar": "حالة الطقس", "type": "dropdown", "required": False, "options": ["صافي", "غائم", "مطر"]},
+        {"key": "temp", "label_ar": "درجات الحرارة", "type": "text", "required": False, "options": []},
+        {"key": "air", "label_ar": "جودة الهواء", "type": "dropdown", "required": False, "options": ["نظيف", "مغبر / متأثر", "غبار"]},
+    ]),
     ("equipment_esha", "2. قائمة المعدات والآلات في الموقع", [
         {"key": "eq_name", "label_ar": "اسم المعدة", "type": "text", "required": True, "options": []},
         {"key": "ownership", "label_ar": "الملكية (ملك/إيجار)", "type": "dropdown", "required": False, "options": ["ملك", "إيجار"]},
@@ -354,9 +359,11 @@ def default_fields_for(template_key):
                 for r in EXTRA_SPECS[template_key]
                 for (k, lb, kd, req, *opts) in [r]]
     out = []
-    for k, label, kind in FIELD_SPECS.get(template_key, []):
-        out.append(_spec_to_field(k, label, kind, False))
+    if template_key != "daily":
+        for k, label, kind in FIELD_SPECS.get(template_key, []):
+            out.append(_spec_to_field(k, label, kind, False))
     if template_key == "daily":
+        # daily uses ONLY the ESHS model (legacy FIELD_SPECS дублировали weather/manpower)
         # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
         out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False))
         out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False))
@@ -387,6 +394,18 @@ def default_fields_for(template_key):
     return out
 
 
+#: obsolete daily keys from older specs (legacy FIELD_SPECS + UNRWA tables).
+#: Removed from the ESHS model to avoid duplicate/unclear form fields.
+OBSOLETE_DAILY_KEYS = {
+    "weather", "temp_c", "work_hours", "engineers_count",
+    "technicians_count", "labor_count", "notes",
+    "manpower", "equipment", "materials", "works_completed",
+    "constraints", "next_day_plan", "progress_percent",
+    "manpower_table", "equipment_table", "materials_table",
+    "visitors_table",
+}
+
+
 def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
     """Idempotent: create missing system templates + their fields."""
     for t in DEFAULT_TEMPLATES:
@@ -400,6 +419,11 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                                  is_system=t.get("is_system", False),
                                  created_by_id=admin_id)
             db.session.add(tpl)
+            db.session.flush()
+        # drop obsolete daily fields from older specs (no duplication)
+        if t["key"] == "daily":
+            for stale in tpl.fields.filter(DynamicField.field_key.in_(OBSOLETE_DAILY_KEYS)).all():
+                db.session.delete(stale)
             db.session.flush()
         # add missing fields only
         existing = {f.field_key for f in tpl.fields.all()}
