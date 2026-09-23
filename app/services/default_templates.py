@@ -61,6 +61,18 @@ EXTRA_SPECS = {
         ("verdict", "الحكم", "dropdown", False, ["pass", "fail", "pending"]),
         ("lab_name", "المختبر", "text", False),
         ("notes", "ملاحظات", "textarea", False),
+        # architectural & structural traceability (Lead Architect / Civil)
+        ("drawing_ref", "مرجع المخطط", "text", False),
+        ("finish_code", "رمز التشطيب", "text", False),
+        ("zone", "المنطقة / الحيز", "text", False),
+        ("level", "المنسوب / الطابق", "text", False),
+        ("grid_axis", "المحور الشبكي", "text", False),
+        ("code_clause", "بند الكود", "text", False),
+        ("structural_element", "العنصر الإنشائي (بلاطة/جسر/عمود)", "dropdown", False, ["slab", "beam", "column", "wall", "foundation", "other"]),
+        ("tolerance_mm", "التفاوت المسموح (مم)", "number", False),
+        ("pour_permit_no", "رقم إذن الصب", "text", False),
+        ("cube_7d", "مقاومة 7 أيام (MPa)", "number", False),
+        ("cube_28d", "مقاومة 28 يوم (MPa)", "number", False),
     ],
     "material-submittals": [
         ("material_name", "اسم المادة", "text", True),
@@ -111,6 +123,7 @@ EXTRA_SPECS = {
         ("subject", "موضوع التغيير", "textarea", True),
         ("reason", "سبب التغيير", "dropdown", True,
          ["طلب المالك", "خطأ تصميمي", "ظروف موقع", "متطلبات جهة حكومية", "أخرى"]),
+        ("affected_drawing_rev", "المخطط المتأثر / المراجعة", "text", False),
         ("cost_impact", "الأثر المالي التقديري", "number", False),
         ("time_impact", "الأثر الزمني (أيام)", "number", False),
         ("attachments", "المرفقات / المرجعيات", "text", False),
@@ -152,8 +165,20 @@ DAILY_TABLES = [
     ]),
     ("work_progress_esha", "4. تقدم الأشغال والتنفيذ", [
         {"key": "activity", "label_ar": "الأنشطة والأعمال", "type": "textarea", "required": True, "options": []},
+        {"key": "drawing_ref", "label_ar": "مرجع المخطط", "type": "text", "required": False, "options": []},
+        {"key": "finish_code", "label_ar": "رمز التشطيب", "type": "text", "required": False, "options": []},
+        {"key": "zone", "label_ar": "المنطقة / الحيز", "type": "text", "required": False, "options": []},
+        {"key": "level", "label_ar": "المنسوب / الطابق", "type": "text", "required": False, "options": []},
+        {"key": "grid_axis", "label_ar": "المحور الشبكي", "type": "text", "required": False, "options": []},
+        {"key": "code_clause", "label_ar": "بند الكود", "type": "text", "required": False, "options": []},
         {"key": "qty", "label_ar": "الكميات المنجزة مع الوحدات", "type": "text", "required": False, "options": []},
         {"key": "notes", "label_ar": "ملاحظات", "type": "text", "required": False, "options": []},
+    ]),
+    ("mockup_approval_esha", "4.ب اعتماد العينات والنماذج (Mockup)", [
+        {"key": "element_name", "label_ar": "العنصر / العينة", "type": "text", "required": True, "options": []},
+        {"key": "status", "label_ar": "الحالة", "type": "dropdown", "required": True, "options": ["قيد المراجعة", "معتمد", "معتمد بملاحظات", "مرفوض"]},
+        {"key": "approval_date", "label_ar": "تاريخ الاعتماد", "type": "date", "required": False, "options": []},
+        {"key": "drawing_rev", "label_ar": "مرجع المخطط / المراجعة", "type": "text", "required": False, "options": []},
     ]),
     ("materials_esha", "5. المواد الموردة للموقع", [
         {"key": "mat_type", "label_ar": "النوع", "type": "text", "required": True, "options": []},
@@ -226,6 +251,8 @@ DAILY_TABLES = [
     ]),
     ("incidents_esha", "8.6 حوادث الموقع ومتابعة إجراءات السلامة", [
         {"key": "inc_type", "label_ar": "نوع الحادث / العارض", "type": "dropdown", "required": True, "options": ["عارض", "حادث", "لا يوجد اليوم"]},
+        {"key": "incident_severity", "label_ar": "خطورة الحادث (1-5)", "type": "dropdown", "required": False, "options": ["1", "2", "3", "4", "5"]},
+        {"key": "lost_time_days", "label_ar": "أيام العمل المفقودة", "type": "number", "required": False, "options": []},
         {"key": "level", "label_ar": "مستوى الحادث", "type": "text", "required": False, "options": []},
         {"key": "action", "label_ar": "الإجراء المتخذ في الموقع", "type": "textarea", "required": False, "options": []},
         {"key": "details", "label_ar": "تفاصيل إضافية", "type": "text", "required": False, "options": []},
@@ -279,6 +306,23 @@ WEEKLY_TABLES = [
     ]),
 ]
 
+SAFETY_TABLES = [
+    ("ppe_matrix", "مصفوفة معدات الوقاية الشخصية (PPE)", [
+        {"key": "role", "label_ar": "الدور / الفئة", "type": "text", "required": True, "options": []},
+        {"key": "helmet", "label_ar": "خوذة ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "vest", "label_ar": "سترة ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "gloves", "label_ar": "قفازات ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "glasses", "label_ar": "نظارات ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "ملاحظات", "type": "text", "required": False, "options": []},
+    ]),
+    ("toolbox_talk", "سجل محاضرات التوعية (Toolbox Talks)", [
+        {"key": "talk_date", "label_ar": "التاريخ", "type": "date", "required": True, "options": []},
+        {"key": "attendees_count", "label_ar": "عدد الحضور", "type": "number", "required": True, "options": []},
+        {"key": "topic", "label_ar": "الموضوع", "type": "textarea", "required": True, "options": []},
+        {"key": "trainer", "label_ar": "المدرب", "type": "text", "required": False, "options": []},
+    ]),
+]
+
 
 def default_fields_for(template_key):
     """Return ordered field dicts for a template key."""
@@ -293,8 +337,10 @@ def default_fields_for(template_key):
         # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
         out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False))
         out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False))
-        out += [_spec_to_field(k, lb, "table", False, [], cols)
-                for k, lb, cols in DAILY_TABLES]
+        _required_esha = {"waste_mgmt_esha", "eshs_air_esha", "eshs_utilities_esha", "eshs_ohs_esha", "eshs_workcond_esha", "eshs_community_esha"}
+        for k, lb, cols in DAILY_TABLES:
+            req = k in _required_esha
+            out.append(_spec_to_field(k, lb, "table", req, [], cols))
         # attachments checkboxes (المرفقات) - 3 items
         out.append(_spec_to_field("attach_attendance", "المرفقات: كشف الحضور اليومي للموقع", "checkbox", False))
         out.append(_spec_to_field("attach_complaints", "المرفقات: سجل الشكاوى والحوادث", "checkbox", False))
@@ -307,6 +353,9 @@ def default_fields_for(template_key):
                 for k, lb, cols in WEEKLY_TABLES]
         out.append(_spec_to_field("weekly_next_plan", "الأعمال المخطط لها الأسبوع القادم (7 بنود)", "textarea", False))
         out.append(_spec_to_field("weekly_conclusion", "الخلاصة", "textarea", False))
+    if template_key == "safety":
+        out += [_spec_to_field(k, lb, "table", False, [], cols)
+                for k, lb, cols in SAFETY_TABLES]
     return out
 
 
