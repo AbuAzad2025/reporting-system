@@ -3,12 +3,28 @@
 Multi-tier RBAC: registration offers engineer tiers + admin request.
 The very first account in the DB becomes superadmin (platform owner).
 """
+from urllib.parse import urlparse
+
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, current_user
 
 from app.auth import bp
 from app.extensions import db
 from app.models import User, ROLES
+
+
+def _is_safe_next(target: str) -> bool:
+    if not target:
+        return False
+    # must be relative, no scheme/netloc, no //, no backslash, no external
+    parsed = urlparse(target)
+    if parsed.scheme or parsed.netloc:
+        return False
+    if target.startswith("//") or "\\" in target:
+        return False
+    if not target.startswith("/"):
+        return False
+    return True
 
 # Roles a self-registering user may pick (superadmin never self-assignable)
 SELF_REGISTER_ROLES = ["site_engineer", "safety_officer", "project_manager", "admin"]
@@ -30,7 +46,10 @@ def login():
             remember = request.form.get("remember", "off") == "on"
             login_user(user, remember=remember)
             flash(f"مرحباً {user.full_name} 👋", "success")
-            return redirect(request.args.get("next") or url_for("main.dashboard"))
+            nxt = request.args.get("next")
+            if nxt and _is_safe_next(nxt):
+                return redirect(nxt)
+            return redirect(url_for("main.dashboard"))
         flash("بيانات الدخول غير صحيحة. تحقق من اسم المستخدم وكلمة المرور.", "danger")
     return render_template("auth/login.html")
 
