@@ -202,6 +202,9 @@ class Project(db.Model):
     consultant = db.Column(db.String(200), default="")
     logo_path = db.Column(db.String(500), default="")  # custom header logo (project)
     logo2_path = db.Column(db.String(500), default="")  # second header logo (ministry/client)
+    contract_no = db.Column(db.String(120), default="")  # CTD/2026/021-WB/MOF
+    funding_source = db.Column(db.String(200), default="")  # World Bank IPF
+    currency = db.Column(db.String(10), default="ILS")  # ILS/USD
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

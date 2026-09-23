@@ -202,6 +202,15 @@ class SiteInspection(OpsRecordMixin, db.Model):
     witness = db.Column(db.String(120), default="")  # attending party
     standard_code = db.Column(db.String(120), default="")  # ASTM / ACI / BS ref
     follow_up = db.Column(db.Text, default="")  # required follow-up action
+    # ---- 21pt: architectural traceability + structural QA
+    drawing_ref = db.Column(db.String(120), default="")  # مرجع المخطط
+    finish_code = db.Column(db.String(80), default="")  # رمز التشطيب
+    zone = db.Column(db.String(80), default="")  # المنطقة / الحيز
+    level = db.Column(db.String(80), default="")  # المنسوب / الطابق
+    tolerance_mm = db.Column(db.Float)  # التفاوت المسموح (مم)
+    cube_7d = db.Column(db.Float)  # مقاومة 7 أيام
+    cube_28d = db.Column(db.Float)  # مقاومة 28 يوم
+    code_clause = db.Column(db.String(120), default="")  # بند الكود
     attachments = db.Column(db.Integer, nullable=False, default=0)  # photos/docs
 
     @property
@@ -252,6 +261,7 @@ class RFI(OpsRecordMixin, db.Model):
     discipline = db.Column(db.String(80), default="")  # civil|architectural|mep|structural
     question = db.Column(db.Text, nullable=False, default="")
     drawing_ref = db.Column(db.String(200), default="")
+    boq_ref = db.Column(db.String(80), default="")  # BOQ linkage (Funder traceability)
     ball_in_court = db.Column(db.String(20), default="consultant")
     reply_due = db.Column(db.Date)
     date_replied = db.Column(db.Date)
