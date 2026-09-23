@@ -375,6 +375,14 @@ def dyn_new(template_key):
         except ValueError:
             report_date = None
         payload, errors = _collect_dynamic(tpl, request.form)
+        # geolocation auto-tag (PWA)
+        try:
+            if request.form.get("geo_lat"):
+                payload["geo_lat"] = request.form.get("geo_lat", "").strip()[:20]
+            if request.form.get("geo_lng"):
+                payload["geo_lng"] = request.form.get("geo_lng", "").strip()[:20]
+        except Exception:
+            pass
         if not project_name:
             errors.insert(0, "اسم المشروع حقل مطلوب.")
         if report_date is None:
