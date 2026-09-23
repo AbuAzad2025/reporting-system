@@ -278,6 +278,12 @@ DAILY_TABLES = [
         {"key": "photo", "label_ar": "الصورة (ارفع ملف JPG/PNG)", "type": "file", "required": False, "options": []},
         {"key": "caption", "label_ar": "التعليق", "type": "textarea", "required": False, "options": []},
     ]),
+    ("ncr_esha", "سجل عدم المطابقة (NCR) — يُنشأ تلقائياً عند فشل الاختبار", [
+        {"key": "ncr_no", "label_ar": "رقم NCR", "type": "text", "required": True, "options": []},
+        {"key": "description", "label_ar": "وصف عدم المطابقة", "type": "textarea", "required": True, "options": []},
+        {"key": "disposition", "label_ar": "التصرف (إصلاح/استبدال/قبول)", "type": "dropdown", "required": False, "options": ["إصلاح", "استبدال", "قبول مشروط", "رفض"]},
+        {"key": "closure_date", "label_ar": "تاريخ الإغلاق", "type": "date", "required": False, "options": []},
+    ]),
     ("signatures_esha", "8.11 الإعداد والتدقيق والاعتماد", [
         {"key": "entity", "label_ar": "الصفة / الجهة", "type": "dropdown", "required": True, "options": ["اعداد المقاول", "وزارة المالية / المهندس المشرف (اعتماد)"]},
         {"key": "name_title", "label_ar": "المسمى الوظيفي / الاسم", "type": "text", "required": True, "options": []},
@@ -323,6 +329,23 @@ SAFETY_TABLES = [
     ]),
 ]
 
+MONTHLY_TABLES = [
+    ("cashflow_forecast", "توقع التدفق النقدي", [
+        {"key": "period", "label_ar": "الفترة", "type": "text", "required": True, "options": []},
+        {"key": "planned_cash", "label_ar": "التدفق المخطط", "type": "number", "required": False, "options": []},
+        {"key": "actual_cash", "label_ar": "التدفق الفعلي", "type": "number", "required": False, "options": []},
+        {"key": "variance", "label_ar": "الانحراف", "type": "number", "required": False, "options": []},
+    ]),
+    ("risk_register", "سجل المخاطر", [
+        {"key": "risk", "label_ar": "الخطر", "type": "textarea", "required": True, "options": []},
+        {"key": "probability", "label_ar": "الاحتمالية", "type": "dropdown", "required": False, "options": ["منخفض", "متوسط", "عالي"]},
+        {"key": "impact", "label_ar": "التأثير", "type": "dropdown", "required": False, "options": ["منخفض", "متوسط", "عالي"]},
+        {"key": "mitigation", "label_ar": "إجراء التخفيف", "type": "textarea", "required": False, "options": []},
+        {"key": "owner", "label_ar": "المسؤول", "type": "text", "required": False, "options": []},
+        {"key": "exposure", "label_ar": "التعرض", "type": "text", "required": False, "options": []},
+    ]),
+]
+
 
 def default_fields_for(template_key):
     """Return ordered field dicts for a template key."""
@@ -356,6 +379,9 @@ def default_fields_for(template_key):
     if template_key == "safety":
         out += [_spec_to_field(k, lb, "table", False, [], cols)
                 for k, lb, cols in SAFETY_TABLES]
+    if template_key == "monthly":
+        out += [_spec_to_field(k, lb, "table", False, [], cols)
+                for k, lb, cols in MONTHLY_TABLES]
     return out
 
 
