@@ -10,12 +10,14 @@ Security posture on EVERY route:
   * Serials unique per module with DB constraint + insert retry.
 """
 from datetime import datetime
-from flask import Response, current_app, jsonify, request, send_file
+from flask import Response, current_app, jsonify, request, send_file, render_template
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 import os
 import re
 import uuid
+
+from app.ops.models import next_serial
 
 from app.ops import bp
 from app.extensions import db
@@ -24,7 +26,7 @@ from app.ops import models as M
 from app.ops.models import Attachment
 from app.ops.isolation import (is_platform_manager, scope_to_tenant,
                                get_object_or_404_tenant, tenant_create_guard,
-                               roles_required_json)
+                               roles_required_json, visible_projects)
 from app.utils.decorators import permission_required, any_permission_required
 from app.services.reference_data import (
     TEST_CATEGORIES_LIST,
@@ -251,6 +253,17 @@ def validate_input(kind: str, data: dict, partial: bool = False):
                 errors.append(f"الحقل {f} يجب أن يكون ≤ {hi}.")
                 continue
             cleaned[f] = v
+    # strict cross-field: result_value vs acceptance window (SiteInspection NCR trigger)
+    if kind == "site-inspections" and data.get("result_value") not in ("", None):
+        try:
+            from app.services.field_validation import validate_inspection_result
+            err, ncr = validate_inspection_result(
+                data.get("result_value"), data.get("acceptance_min"),
+                data.get("acceptance_max"), label="نتيجة القياس")
+            if err:
+                errors.append(err)
+        except Exception:
+            pass
     for f in schema["dates"]:
         if f in data and data[f] not in ("", None):
             v = _parse_date(data[f], f, errors)
@@ -558,6 +571,173 @@ def pdf(kind, obj_id):
     return Response(pdf_bytes, mimetype="application/pdf",
                     headers={"Content-Disposition":
                              f"inline; filename={record.serial}.pdf"})
+
+
+# ---------------------------------------------------------------- professional HTML UI (list/form/detail/timeline)
+OPS_UI_TITLES = {
+    "site-inspections": "فحوصات واختبارات الموقع",
+    "material-submittals": "اعتماد المواد",
+    "rfis": "طلبات الاستفسار (RFI)",
+    "cost-variances": "فروقات التكلفة",
+    "progress-billings": "المستخلصات",
+    "subcontractor-performances": "أداء المقاولين",
+    "daily-reports": "التقارير اليومية",
+    "variation-orders": "أوامر التغيير",
+    "safety-reports": "تقارير السلامة",
+}
+
+
+@bp.route("/ui/<kind>", methods=["GET"])
+@login_required
+def ui_list(kind):
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    q = scope_to_tenant(db.session.query(model), model, current_user)
+    status_filter = (request.args.get("status") or "").strip()
+    if status_filter:
+        q = q.filter(model.status == status_filter)
+    records = q.order_by(model.report_date.desc(), model.id.desc()).limit(200).all()
+    return render_template("ops/list.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), records=records, total=len(records), status_filter=status_filter)
+
+
+@bp.route("/ui/<kind>/new", methods=["GET", "POST"])
+@login_required
+def ui_new(kind):
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    schema = SCHEMAS[kind]
+    projects = _ui_projects(current_user)
+    if request.method == "POST":
+        data = dict(request.form or {})
+        cleaned, errors = validate_input(kind, data)
+        if errors:
+            from flask import flash, render_template as _rt
+            for e in errors:
+                flash(e, "danger")
+            return _rt("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new")
+        try:
+            cleaned = _apply_project_link(current_user, cleaned)
+        except Exception as exc:
+            from flask import flash as _fl
+            _fl(str(exc), "danger")
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new")
+        obj = model(**{k: v for k, v in cleaned.items() if hasattr(model, k)})
+        obj.signatory_name = current_user.full_name
+        obj.user_id = current_user.id
+        obj.serial = next_serial(KIND_MODEL[kind][1] if False else M.OPS_MODULES[kind][1], model)
+        db.session.add(obj)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            from flask import flash as _fl2
+            _fl2("تعذر الحفظ — سجل مكرر.", "danger")
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new")
+        from flask import flash as _fl3, redirect, url_for
+        _fl3("تم الحفظ بنجاح.", "success")
+        return redirect(url_for("ops.ui_detail", kind=kind, obj_id=obj.id))
+    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data={}, mode="new")
+
+
+@bp.route("/ui/<kind>/<int:obj_id>", methods=["GET"])
+@login_required
+def ui_detail(kind, obj_id):
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    record = get_object_or_404_tenant(model, obj_id, current_user)
+    return render_template("ops/detail.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), record=record)
+
+
+@bp.route("/ui/<kind>/<int:obj_id>/edit", methods=["GET", "POST"])
+@login_required
+def ui_edit(kind, obj_id):
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    record = get_object_or_404_tenant(model, obj_id, current_user)
+    schema = SCHEMAS[kind]
+    projects = _ui_projects(current_user)
+    if request.method == "POST":
+        data = dict(request.form or {})
+        cleaned, errors = validate_input(kind, data, partial=True)
+        if errors:
+            from flask import flash
+            for e in errors:
+                flash(e, "danger")
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="edit", record=record)
+        for k, v in cleaned.items():
+            if hasattr(record, k):
+                setattr(record, k, v)
+        db.session.commit()
+        from flask import flash as _fl, redirect, url_for
+        _fl("تم التحديث.", "success")
+        return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
+    prefill = {c.key: (getattr(record, c.key) or "") for c in model.__table__.columns}
+    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=prefill, mode="edit", record=record)
+
+
+@bp.route("/ui/<kind>/<int:obj_id>/submit", methods=["POST"])
+@login_required
+def ui_submit(kind, obj_id):
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    record = get_object_or_404_tenant(model, obj_id, current_user)
+    record.status = "submitted"
+    db.session.commit()
+    from flask import flash as _fl, redirect, url_for
+    _fl("تم التقديم للاعتماد.", "success")
+    return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
+
+
+@bp.route("/ui/<kind>/<int:obj_id>/approve", methods=["POST"])
+@login_required
+def ui_approve(kind, obj_id):
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    record = get_object_or_404_tenant(model, obj_id, current_user)
+    if not is_platform_manager(current_user):
+        from flask import abort
+        abort(403)
+    record.status = "approved"
+    record.reviewed_by_id = current_user.id
+    try:
+        from datetime import datetime as _dt
+        record.reviewed_at = _dt.now()
+    except Exception:
+        pass
+    db.session.commit()
+    from flask import flash as _fl, redirect, url_for
+    _fl("تم الاعتماد.", "success")
+    return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
+
+
+def _ui_projects(user):
+    try:
+        return visible_projects(user)
+    except Exception:
+        from app.models import Project as P
+        if is_platform_manager(user):
+            return P.query.order_by(P.name).all()
+        return []
+
+
+def _apply_project_link(user, cleaned):
+    pid = cleaned.get("project_id")
+    if pid in ("", None):
+        cleaned.pop("project_id", None)
+        return cleaned
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        raise ValueError("رقم المشروع غير صالح.")
+    tenant_create_guard(user, pid)
+    cleaned["project_id"] = pid
+    return cleaned
 
 
 # ---------------------------------------------------------------- batch export

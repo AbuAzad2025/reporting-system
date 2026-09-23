@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}إنشاء{% else %}تعديل{% endif %} {{ kind_title }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white rounded-3xl shadow p-5">
+  <h1 class="font-extrabold text-lg text-navy">{% if mode=='new' %}إنشاء{% else %}تعديل{% endif %} {{ kind_title }}</h1>
+  <form method="POST" class="space-y-4 mt-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+      <label class="font-bold text-sm">المشروع *</label>
+      <select name="project_id" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 bg-white">
+        <option value="">— اختر المشروع —</option>
+        {% for p in projects %}<option value="{{ p.id }}" {% if form_data.get('project_id')|string == p.id|string %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="font-bold text-sm">تاريخ التقرير *</label>
+      <input name="report_date" type="date" required value="{{ form_data.get('report_date','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+    </div>
+    {% for key in schema.required + schema.numbers.keys()|list + schema.enums.keys()|list %}
+      {% if key not in ['project_id','report_date'] %}
+      <div>
+        <label class="font-bold text-sm">{{ key }}</label>
+        <input name="{{ key }}" value="{{ form_data.get(key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+      </div>
+      {% endif %}
+    {% endfor %}
+    <div>
+      <label class="font-bold text-sm">ملاحظات</label>
+      <textarea name="notes" rows="3" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">{{ form_data.get('notes','') }}</textarea>
+    </div>
+    <button type="submit" class="w-full bg-teal2 text-white font-extrabold py-4 rounded-2xl">{% if mode=='new' %}حفظ{% else %}تحديث{% endif %}</button>
+  </form>
+</div>
+{% endblock %}

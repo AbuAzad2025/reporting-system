@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ kind_title }} — {{ kind }}{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-4">
+  <div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between">
+    <div>
+      <h1 class="font-extrabold text-lg text-navy">{{ kind_title }}</h1>
+      <p class="text-xs text-slate-500">{{ kind }} • {{ total }} سجل • tenant-scoped</p>
+    </div>
+    <a href="{{ url_for('ops.ui_new', kind=kind) }}" class="bg-teal2 text-white font-bold px-5 py-3 rounded-xl">＋ جديد</a>
+  </div>
+
+  <div class="bg-white rounded-3xl shadow p-5">
+    <div class="flex gap-2 mb-3">
+      <a href="?status=" class="px-3 py-2 rounded-xl text-xs font-bold {% if not status_filter %}bg-navy text-white{% else %}bg-slate-100{% endif %}">الكل</a>
+      <a href="?status=draft" class="px-3 py-2 rounded-xl text-xs font-bold {% if status_filter=='draft' %}bg-amber-500 text-white{% else %}bg-slate-100{% endif %}">مسودة</a>
+      <a href="?status=submitted" class="px-3 py-2 rounded-xl text-xs font-bold {% if status_filter=='submitted' %}bg-sky-500 text-white{% else %}bg-slate-100{% endif %}">قيد المراجعة</a>
+      <a href="?status=approved" class="px-3 py-2 rounded-xl text-xs font-bold {% if status_filter=='approved' %}bg-emerald-500 text-white{% else %}bg-slate-100{% endif %}">معتمد</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-navy text-white text-xs"><tr><th class="px-3 py-3">الرقم</th><th class="px-3 py-3">المشروع</th><th class="px-3 py-3">التاريخ</th><th class="px-3 py-3">الحالة</th><th class="px-3 py-3">إجراء</th></tr></thead>
+        <tbody>
+          {% for r in records %}
+          <tr class="border-t border-slate-100 hover:bg-slate-50">
+            <td class="px-3 py-3 font-mono text-xs">{{ r.serial }}</td>
+            <td class="px-3 py-3">{{ r.project_id }}</td>
+            <td class="px-3 py-3">{{ r.report_date }}</td>
+            <td class="px-3 py-3">
+              {% if r.status=='approved' %}<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs">معتمد</span>
+              {% elif r.status=='submitted' %}<span class="bg-sky-100 text-sky-700 px-2 py-1 rounded-full text-xs">قيد المراجعة</span>
+              {% elif r.status=='rejected' %}<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">مرفوض</span>
+              {% else %}<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs">مسودة</span>{% endif %}
+            </td>
+            <td class="px-3 py-3 flex gap-1">
+              <a href="{{ url_for('ops.ui_detail', kind=kind, obj_id=r.id) }}" class="text-teal2 font-bold text-xs">عرض</a>
+              <a href="{{ url_for('ops.ui_edit', kind=kind, obj_id=r.id) }}" class="text-navy font-bold text-xs">تعديل</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="px-3 py-8 text-center text-slate-400">لا توجد سجلات</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
