@@ -8,6 +8,7 @@
     <p class="text-sm text-slate-500">الاسم الرباعي سيظهر كموقّع رسمي على كل تقاريرك</p>
   </div>
   <form method="POST" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div>
       <label class="font-bold text-sm">الاسم الرباعي (الاسم الكامل أربعة مقاطع) *</label>
       <input name="full_name" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="مثال: محمد أحمد علي حسن">

@@ -17,6 +17,7 @@
   </div>
 
   <form method="POST" enctype="multipart/form-data" class="space-y-5" id="profileForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <!-- Avatar -->
     <div>
       <label class="font-bold text-sm">الصورة الشخصية</label>
@@ -24,6 +25,7 @@
         <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="border-2 border-slate-200 rounded-xl px-4 py-3 w-full max-w-xs" onchange="previewAvatar(this)">
         {% if current_user.avatar %}
         <form method="POST" action="{{ url_for('main.remove_avatar') }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="text-sm text-red-600 hover:underline" onclick="return confirm('حذف الصورة؟')">حذف الصورة الحالية</button>
         </form>
         {% endif %}

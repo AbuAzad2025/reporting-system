@@ -4,6 +4,7 @@
 <div class="bg-white rounded-3xl shadow p-5">
   <h1 class="font-extrabold text-lg text-navy">🏗️ إدارة المشاريع</h1>
   <form method="POST" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input name="name" required placeholder="اسم المشروع *" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
     <input name="location" placeholder="الموقع" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
     <input name="contractor" placeholder="المقاول" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
@@ -29,6 +30,7 @@
       <div class="text-xs text-slate-500">📍 {{ p.location or '—' }} • 🏢 {{ p.contractor or '—' }} • 🤝 {{ p.client or '—' }} • {{ p.submissions.count() }} تقرير</div>
     </div>
     <form method="POST" action="{{ url_for('admin.project_toggle', project_id=p.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="text-xs font-bold bg-slate-100 px-4 py-2 rounded-xl">{% if p.is_active %}أرشفة{% else %}تفعيل{% endif %}</button>
     </form>
   </div>

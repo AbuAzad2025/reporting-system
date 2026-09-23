@@ -8,6 +8,7 @@
     <p class="text-sm text-slate-500">{{ APP_NAME_AR }}</p>
   </div>
   <form method="POST" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div>
       <label class="font-bold text-sm">اسم المستخدم أو البريد الإلكتروني</label>
       <input name="username" required autocomplete="username" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="مثال: engineer">

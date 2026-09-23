@@ -12,6 +12,7 @@
       <h2 class="font-extrabold text-navy mb-2">إنشاء نسخة احتياطية كاملة</h2>
       <p class="text-sm text-slate-500 mb-4">تصدير كل قاعدة البيانات، المشاريع، القوالب، والملفات.</p>
       <form method="post" action="{{ url_for('admin.backup_export') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="w-full bg-navy text-white font-extrabold py-3 rounded-xl hover:bg-[#254a78]">تصدير الآن</button>
       </form>
     </div>
@@ -19,6 +20,7 @@
       <h2 class="font-extrabold text-navy mb-2">استعادة من نسخة احتياطية</h2>
       <p class="text-sm text-slate-500 mb-4">رفع ملف ZIP سابق واستعادة البيانات.</p>
       <form method="post" action="{{ url_for('admin.backup_import') }}" enctype="multipart/form-data" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input class="w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white" type="file" name="backup_file" accept=".zip,application/zip" required>
         <button type="submit" class="w-full bg-amber-500 text-white font-extrabold py-3 rounded-xl hover:brightness-110">استعادة الآن</button>
       </form>
@@ -38,6 +40,7 @@
             <td class="px-3 py-3 text-center flex gap-2 justify-center">
               <a href="{{ url_for('admin.backup_download', key=b) }}" class="bg-teal2 text-white text-xs font-bold px-4 py-2 rounded-xl">تنزيل</a>
               <form method="post" action="{{ url_for('admin.backup_delete', key=b) }}" onsubmit="return confirm('حذف النسخة؟');" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-xl">حذف</button>
               </form>
             </td>
