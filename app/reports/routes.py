@@ -286,11 +286,11 @@ def _collect_dynamic(template, form):
                         if file_obj and getattr(file_obj, "filename", ""):
                             safe = _safe_filename_dyn(file_obj.filename)
                             if not safe:
-                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: اسم الملف غير صالح.")
+                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: اسم الملف غير صالح.")
                                 continue
                             mime = (getattr(file_obj, "mimetype", "") or "application/octet-stream").lower()
                             if mime not in ALLOWED_MIME_DYN:
-                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: نوع الملف غير مدعوم ({mime}).")
+                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: نوع الملف غير مدعوم ({mime}).")
                                 continue
                             try:
                                 file_obj.stream.seek(0)
@@ -298,13 +298,13 @@ def _collect_dynamic(template, form):
                                 pass
                             buf = file_obj.read()
                             if len(buf) > MAX_UPLOAD_DYN:
-                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: الملف يتجاوز 4MB.")
+                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: الملف يتجاوز 4MB.")
                                 continue
                             try:
                                 storage_key = _store_dyn_file(template.key, safe, buf)
                                 row[c["key"]] = storage_key
                             except Exception as exc:
-                                errors.append(f"«{f.label_ar}» — الصف {idx+1}: فشل الحفظ.")
+                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: فشل الحفظ.")
             for n, row in enumerate(rows, 1):
                 for c in cols:
                     if c.get("type") == "file":

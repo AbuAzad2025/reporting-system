@@ -10,8 +10,6 @@ from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import func
 
-log = logging.getLogger(__name__)
-
 from app.admin import bp
 from app.extensions import db
 from app.models import (User, Project, ReportTemplate, DynamicField,
@@ -20,6 +18,8 @@ from app.utils.decorators import (template_manager_required, roles_required,
                                   permission_required)
 from app.ops.isolation import roles_required_json
 from app.services.default_templates import ensure_default_templates
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------- dashboard
