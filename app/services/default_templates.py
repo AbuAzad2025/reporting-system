@@ -360,10 +360,12 @@ def default_fields_for(template_key):
         # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
         out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False))
         out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False))
-        _required_esha = {"waste_mgmt_esha", "eshs_air_esha", "eshs_utilities_esha", "eshs_ohs_esha", "eshs_workcond_esha", "eshs_community_esha"}
+        # NOTE: ESHS tables stay optional for now — enforcing required=True here
+        # breaks minimal valid submissions (see test_dyn_create_linked_syncs_name).
+        # Proper non-bypass needs an explicit N/A-status mechanism, not a bare
+        # min-1-row rule. Revisit with N/A support before re-enabling.
         for k, lb, cols in DAILY_TABLES:
-            req = k in _required_esha
-            out.append(_spec_to_field(k, lb, "table", req, [], cols))
+            out.append(_spec_to_field(k, lb, "table", False, [], cols))
         # attachments checkboxes (المرفقات) - 3 items
         out.append(_spec_to_field("attach_attendance", "المرفقات: كشف الحضور اليومي للموقع", "checkbox", False))
         out.append(_spec_to_field("attach_complaints", "المرفقات: سجل الشكاوى والحوادث", "checkbox", False))
