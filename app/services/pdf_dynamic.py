@@ -67,16 +67,10 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         if not img1:
             img1 = _brand_logo(22)
         # if only one logo, still render header with company names
-        logo_row = None
         if img1 or img2:
-            from reportlab.platypus import Image as _Img
             # titles under logos
             left_title = Paragraph(ar("وزارة الأشغال العامة والإسكان<br/>Ministry of Public Works and Housing"), st["cell_small"])
             right_title = Paragraph(ar("شركة سمرقند للمقاولات<br/>Sumer Qand Contracting Company"), st["cell_small"])
-            # build 2-col logo table
-            logo_data = [[img1 or left_title, img2 or right_title],
-                         [left_title, right_title]]
-            # if images are None, text already placed
             # use simple table with images on top row and titles bottom
             logo_tbl = Table([[img1 or Paragraph("", st["cell"]), img2 or Paragraph("", st["cell"])],
                               [left_title, right_title]], colWidths=[95 * mm, 95 * mm])
@@ -235,6 +229,29 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         t.setStyle(TableStyle(style_cmds))
         story.append(t)
         story.append(Spacer(1, 6 * mm))
+
+    # ---- monthly EVM (PV/EV/AC/CPI/SPI) — auto if monthly
+    if template.key == "monthly":
+        try:
+            from app.ops.finance import evm_metrics
+            evm = evm_metrics(payload.get("planned_value"), payload.get("earned_value"),
+                              payload.get("actual_cost"), payload.get("budget_at_completion"))
+            evm_rows = [
+                ("القيمة المخططة PV", str(evm["pv"])),
+                ("القيمة المكتسبة EV", str(evm["ev"])),
+                ("التكلفة الفعلية AC", str(evm["ac"])),
+                ("مؤشر الأداء CPI", str(evm["cpi"])),
+                ("مؤشر الجدولة SPI", str(evm["spi"])),
+                ("انحراف التكلفة CV", str(evm["cv"])),
+                ("انحراف الجدولة SV", str(evm["sv"])),
+                ("التكلفة المتوقعة عند الإكمال EAC", str(evm["forecast_final_cost"])),
+            ]
+            story.append(_section_title("تحليل القيمة المكتسبة (EVM)", st))
+            story.append(Spacer(1, 3 * mm))
+            story.append(_kv_table(evm_rows, st))
+            story.append(Spacer(1, 6 * mm))
+        except Exception:
+            pass
 
     # ---- signatory block
     story.append(_section_title("التوقيع والاعتماد", st))
