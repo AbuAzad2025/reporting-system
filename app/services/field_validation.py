@@ -59,6 +59,37 @@ def validate_field_value(field_type: str, value, rules: dict | None,
     return None  # date/dropdown(predefined)/unknown: presence handled elsewhere
 
 
+def validate_inspection_result(result_value, acceptance_min, acceptance_max,
+                               label: str = "نتيجة القياس"):
+    """Strict range check for site-inspections/material tests.
+
+    Returns (error_msg | None, ncr_flag). NCR flag True when out of tolerance.
+    """
+    if result_value is None or str(result_value).strip() == "":
+        return None, False
+    try:
+        rv = float(result_value)
+    except (ValueError, TypeError):
+        return f"{label} يجب أن يكون رقماً.", False
+    has_min = acceptance_min is not None and str(acceptance_min).strip() != ""
+    has_max = acceptance_max is not None and str(acceptance_max).strip() != ""
+    if has_min:
+        try:
+            mn = float(acceptance_min)
+            if rv < mn:
+                return f"{label} ({rv}) أقل من الحد الأدنى للقبول ({mn}) — يتطلب تقرير عدم مطابقة (NCR).", True
+        except (ValueError, TypeError):
+            pass
+    if has_max:
+        try:
+            mx = float(acceptance_max)
+            if rv > mx:
+                return f"{label} ({rv}) أعلى من الحد الأعلى للقبول ({mx}) — يتطلب تقرير عدم مطابقة (NCR).", True
+        except (ValueError, TypeError):
+            pass
+    return None, False
+
+
 def rules_from_form(form) -> dict:
     """Build a rules dict from dashboard inputs (min/max/pattern/lengths)."""
     rules: dict = {}

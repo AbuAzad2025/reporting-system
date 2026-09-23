@@ -45,6 +45,31 @@ def billing_metrics(qty, rate, retention_pct=10.0, previously=0.0) -> dict:
             "cumulative": round(cumulative, 2)}
 
 
+def evm_metrics(planned_value, earned_value, actual_cost, budget_at_completion=None) -> dict:
+    """Earned Value Management for monthly financial pipeline.
+
+    PV = Planned Value, EV = Earned Value, AC = Actual Cost
+    Returns CPI, SPI, CV, SV, forecast_final_cost (EAC).
+    """
+    pv = _f(planned_value)
+    ev = _f(earned_value)
+    ac = _f(actual_cost)
+    bac = _f(budget_at_completion) if budget_at_completion not in (None, "") else None
+    cpi = round(ev / ac, 3) if ac else 0.0
+    spi = round(ev / pv, 3) if pv else 0.0
+    cv = round(ev - ac, 2)
+    sv = round(ev - pv, 2)
+    # EAC = BAC / CPI  (or AC + (BAC-EV) if CPI=0)
+    if bac is not None and bac > 0:
+        eac = round(ac + (bac - ev) / cpi, 2) if cpi else round(ac + (bac - ev), 2)
+    else:
+        eac = round(ac / cpi, 2) if cpi else round(ac, 2) if ac else 0.0
+    return {"pv": round(pv, 2), "ev": round(ev, 2), "ac": round(ac, 2),
+            "cpi": cpi, "spi": spi, "cv": cv, "sv": sv,
+            "bac": round(bac, 2) if bac is not None else None,
+            "forecast_final_cost": eac}
+
+
 #: weights must sum to 1.0 — quality-led, safety-weighted
 PERF_WEIGHTS = {"quality": 0.35, "schedule": 0.25,
                 "safety": 0.25, "compliance": 0.15}

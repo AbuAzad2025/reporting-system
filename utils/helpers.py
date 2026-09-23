@@ -40,6 +40,10 @@ FIELD_SPECS = {
     "monthly": [
         ("month", "الشهر / الفترة", "text"),
         ("progress_percent", "نسبة الإنجاز التراكمية (%)", "number"),
+        ("planned_value", "القيمة المخططة PV", "number"),
+        ("earned_value", "القيمة المكتسبة EV", "number"),
+        ("actual_cost", "التكلفة الفعلية AC", "number"),
+        ("budget_at_completion", "الميزانية عند الإكمال BAC", "number"),
         ("financial_overview", "الموجز المالي (التدفقات / المستخلصات / المصروفات)", "textarea"),
         ("achievements", "أبرز الإنجازات خلال الشهر", "textarea"),
         ("subcontractor_perf", "تقييم أداء المقاولين من الباطن", "textarea"),
