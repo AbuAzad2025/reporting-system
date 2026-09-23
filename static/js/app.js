@@ -10,6 +10,54 @@ document.addEventListener('click', (e) => {
   if (btn) { e.preventDefault(); window.print(); }
 });
 
+// Geolocation auto-tag for field reports — adds hidden lat/lng if granted
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  if (form.matches && form.matches('form[action*="/reports/dyn/new"], form[action*="/reports/dyn/"][action*="/edit"]')) {
+    if (navigator.geolocation && !form.querySelector('input[name="geo_lat"]')) {
+      e.preventDefault();
+      const addGeoAndSubmit = (lat, lng) => {
+        ["geo_lat", "geo_lng"].forEach((k) => {
+          let inp = form.querySelector('input[name="'+k+'"]');
+          if (!inp) { inp = document.createElement('input'); inp.type='hidden'; inp.name=k; form.appendChild(inp); }
+          inp.value = k==="geo_lat"? String(lat||"") : String(lng||"");
+        });
+        form.submit();
+      };
+      navigator.geolocation.getCurrentPosition(
+        (pos) => addGeoAndSubmit(pos.coords.latitude, pos.coords.longitude),
+        () => addGeoAndSubmit("", ""),
+        {timeout: 4000, maximumAge: 60000}
+      );
+      setTimeout(() => { if (!form.querySelector('input[name="geo_lat"]')) addGeoAndSubmit("", ""); }, 5000);
+    }
+    // offline draft queue
+    if (!navigator.onLine) {
+      try {
+        const key = "draft_" + (form.action || location.pathname) + "_" + Date.now();
+        const data = new FormData(form);
+        const obj = {}; data.forEach((v,k)=> obj[k]=v);
+        localStorage.setItem(key, JSON.stringify({ts: Date.now(), url: form.action, data: obj}));
+        alert("لا يوجد اتصال — تم حفظ المسودة محلياً وسيتم رفعها عند عودة الشبكة.");
+      } catch(e) {}
+    }
+  }
+});
+
+// Offline draft replay when back online
+window.addEventListener('online', () => {
+  try {
+    Object.keys(localStorage).forEach((k) => {
+      if (!k.startsWith('draft_')) return;
+      const item = JSON.parse(localStorage.getItem(k) || "{}");
+      if (item.url && item.data) {
+        fetch(item.url, {method: "POST", body: new URLSearchParams(item.data), headers: {"X-Offline-Replay":"1"}}).catch(()=>{});
+        localStorage.removeItem(k);
+      }
+    });
+  } catch(e) {}
+});
+
 // Line-item tables: add-row clones the last row with fresh indices;
 // delete-row removes, or clears the last remaining row.
 document.addEventListener('click', (e) => {
