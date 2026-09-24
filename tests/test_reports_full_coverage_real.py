@@ -67,13 +67,15 @@ class TestReportsRealFull:
         from app.models import ReportTemplate, ReportSubmission
         with app.app_context():
             p = __import__('app.models', fromlist=['Project']).Project(name="تعديل حقيقي", location="موقع")
-            db.session.add(p); db.session.commit()
+            db.session.add(p)
+            db.session.commit()
             tpl = ReportTemplate.query.filter_by(key="daily").first()
             sub = ReportSubmission(project_id=p.id, template_id=tpl.id,
                                    project_name=p.name, location=p.location,
                                    contractor="مقاول", report_date=date(2026, 9, 23),
                                    data={}, signatory_name="موقّع", user_id=1)
-            db.session.add(sub); db.session.commit()
+            db.session.add(sub)
+            db.session.commit()
             sid = sub.id
         login_as(client, "t_admin")
         resp = client.post(f"/reports/dyn/{sid}/edit", data={
