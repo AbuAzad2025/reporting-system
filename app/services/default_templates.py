@@ -530,10 +530,18 @@ def _cols_with_hints(template_key, cols):
     return out
 
 
+def _flat_opts(opts):
+    """EXTRA_SPECS tuples carry the option list as a single 5th element —
+    unwrap [[...]] to [...] so dropdown validation matches real values."""
+    if len(opts) == 1 and isinstance(opts[0], (list, tuple)):
+        return list(opts[0])
+    return list(opts)
+
+
 def default_fields_for(template_key):
     """Return ordered field dicts for a template key."""
     if template_key in EXTRA_SPECS:
-        return [_spec_to_field(k, lb, kd, req, opts if len(r) > 4 else [],
+        return [_spec_to_field(k, lb, kd, req, _flat_opts(opts) if len(r) > 4 else [],
                                [], (_example(template_key, k) or None))
                 for r in EXTRA_SPECS[template_key]
                 for (k, lb, kd, req, *opts) in [r]]

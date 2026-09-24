@@ -94,7 +94,7 @@
         <a href="{{ url_for('reports.dyn_view', sub_id=s.id) }}" class="bg-slate-100 py-3 rounded-xl hover:bg-slate-200">👁️ عرض</a>
         <a href="{{ url_for('reports.dyn_pdf', sub_id=s.id) }}" target="_blank" class="bg-red-50 text-red-700 py-3 rounded-xl hover:bg-red-100">📄 PDF</a>
         <a href="{{ url_for('reports.dyn_edit', sub_id=s.id) }}" class="bg-amber-50 text-amber-800 py-3 rounded-xl hover:bg-amber-100">✏️ تعديل</a>
-        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" onclick="shareArchive('dynamic', {{ s.id }}, 'DS-{{ '%05d'|format(s.id) }}', '{{ s.project_name|tojson }}', '{{ (s.template.name_ar if s.template else '—')|tojson }}')">
+        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" data-share-type="dynamic" data-share-id="{{ s.id }}" data-share-serial="DS-{{ '%05d'|format(s.id) }}" data-share-project="{{ s.project_name }}" data-share-title="{{ s.template.name_ar if s.template else '—' }}">
           📤 مشاركة
         </button>
       </div>
@@ -118,7 +118,7 @@
         <a href="{{ url_for('reports.view', report_id=r.id) }}" class="bg-slate-100 py-3 rounded-xl hover:bg-slate-200">👁️ عرض</a>
         <a href="{{ url_for('reports.pdf', report_id=r.id) }}" target="_blank" class="bg-red-50 text-red-700 py-3 rounded-xl hover:bg-red-100">📄 PDF</a>
         <a href="{{ url_for('reports.edit', report_id=r.id) }}" class="bg-amber-50 text-amber-800 py-3 rounded-xl hover:bg-amber-100">✏️ تعديل</a>
-        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" onclick="shareArchive('legacy', {{ r.id }}, 'RPT-{{ '%05d'|format(r.id) }}', '{{ r.project_name|tojson }}', '{{ r.type_ar|tojson }}')">
+        <button type="button" class="bg-teal2 text-white py-3 rounded-xl flex items-center justify-center gap-1 hover:bg-teal2/90" data-share-type="legacy" data-share-id="{{ r.id }}" data-share-serial="RPT-{{ '%05d'|format(r.id) }}" data-share-project="{{ r.project_name }}" data-share-title="{{ r.type_ar }}">
           📤 مشاركة
         </button>
       </div>
@@ -133,6 +133,14 @@
 {% endblock %}
 {% block scripts %}
 <script>
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-share-type]');
+  if (!btn) return;
+  shareArchive(btn.dataset.shareType, btn.dataset.shareId,
+               btn.dataset.shareSerial, btn.dataset.shareProject,
+               btn.dataset.shareTitle);
+});
+
 function shareArchive(reportType, reportId, serial, project, title) {
   // Use a toast to show immediate feedback
   const toast = document.createElement('div');
@@ -160,6 +168,7 @@ function showShareMenu(data, reportType, reportId, serial, project, title) {
   const existing = document.getElementById('archiveShareMenu');
   if (existing) existing.remove();
 
+  const esc = (s) => String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const menu = document.createElement('div');
   menu.id = 'archiveShareMenu';
   menu.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/30';
@@ -171,7 +180,7 @@ function showShareMenu(data, reportType, reportId, serial, project, title) {
       </div>
       <div class="text-sm text-slate-600 mb-4">${title} — ${project}</div>
       <div class="space-y-2">
-        <button onclick="shareNative('${data.url}', '${serial}', '${title}', '${project}')" class="w-full text-right px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center gap-3 text-slate-700">
+        <button onclick="shareNative('${data.url}', '${esc(serial)}', '${esc(title)}', '${esc(project)}')" class="w-full text-right px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center gap-3 text-slate-700">
           <span class="text-xl">📱</span> مشاركة النظام (Native)
         </button>
         <button onclick="window.open('${data.whatsapp_url}', '_blank'); this.closest('#archiveShareMenu').remove()" class="w-full text-right px-4 py-3 rounded-xl bg-green-50 hover:bg-green-100 flex items-center gap-3 text-green-700">

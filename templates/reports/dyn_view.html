@@ -108,8 +108,8 @@ const shareData = {
   reportType: 'dynamic',
   reportId: {{ s.id }},
   serial: 'DS-{{ '%05d'|format(s.id) }}',
-  project: '{{ s.project_name|tojson }}',
-  title: '{{ tpl.name_ar|tojson }}',
+  project: {{ s.project_name|tojson }},
+  title: {{ tpl.name_ar|tojson }},
   url: '{{ url_for("reports.dyn_view", sub_id=s.id, _external=true) }}'
 };
 

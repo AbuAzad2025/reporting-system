@@ -19,15 +19,18 @@ def build_report_share_url(report_id: int, report_type: str = "dynamic") -> str:
 
 def build_share_payload(report, report_type: str = "dynamic") -> dict:
     """Build standardized share payload for a report."""
-    serial = getattr(report, "serial", getattr(report, "id", "N/A"))
     if report_type == "legacy":
         serial = f"RPT-{report.id:05d}"
+    else:
+        # Ops records carry their own serial (SIR-…); dynamic submissions
+        # use the DS- archive serial shown across the UI.
+        serial = getattr(report, "serial", None) or f"DS-{report.id:05d}"
 
     project = getattr(report, "project_name", "مشروع غير محدد")
     report_date = getattr(report, "report_date", None)
     date_str = report_date.strftime("%Y-%m-%d") if report_date else "—"
     signatory = getattr(report, "signatory_name", "—")
-    status = getattr(report, "status_ar", getattr(report, "status", "—"))
+    status = getattr(report, "status_ar", getattr(report, "status", None)) or "نهائي"
 
     title_map = {
         "site-inspections": "تقرير فحص الموقع",
@@ -44,7 +47,12 @@ def build_share_payload(report, report_type: str = "dynamic") -> dict:
 
     kind = getattr(report, "template", None)
     kind_key = getattr(kind, "key", "legacy") if kind else "legacy"
-    report_title = title_map.get(kind_key, "تقرير")
+    # Dynamic templates carry their own Arabic name (daily/weekly/...) —
+    # never fall back to the generic word for them.
+    if kind is not None and getattr(kind, "name_ar", ""):
+        report_title = kind.name_ar
+    else:
+        report_title = title_map.get(kind_key, "تقرير")
 
     url = build_report_share_url(report.id, "legacy" if report_type == "legacy" else "dynamic")
 
