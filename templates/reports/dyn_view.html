@@ -62,9 +62,25 @@
             </tr></thead>
             <tbody>
       {% for row in rows %}
+      {# caption for photo cells: sibling caption/comment column in same row #}
+      {% set _ns = namespace(caption='') %}
+      {% for c in cols %}{% if c.type != 'file' and ('caption' in c.key or 'تعليق' in c.label_ar) and row.get(c.key,'') %}{% set _ns.caption = row.get(c.key,'') %}{% endif %}{% endfor %}
       <tr class="border-t border-slate-100">
         <td class="px-2 py-2 text-center font-bold text-slate-400 text-[11px] row-num">{{ loop.index }}</td>
-        {% for c in cols %}<td class="px-3 py-2 whitespace-pre-wrap text-[11px]">{{ row.get(c.key, '') or '—' }}</td>{% endfor %}
+        {% for c in cols %}
+        <td class="px-3 py-2 whitespace-pre-wrap text-[11px]">
+          {% if c.type == 'file' and row.get(c.key,'') %}
+          <a href="{{ url_for('reports.dyn_file', key=row.get(c.key,'')) }}" target="_blank" class="block">
+            <img src="{{ url_for('reports.dyn_file', key=row.get(c.key,'')) }}" alt="{{ _ns.caption or c.label_ar }}" loading="lazy" class="rounded-xl border max-w-full h-auto max-h-64 object-cover">
+          </a>
+          {% if _ns.caption %}<div class="mt-1 text-slate-600">📝 {{ _ns.caption }}</div>{% endif %}
+          {% elif c.type == 'checkbox' %}
+          {{ '☒' if (row.get(c.key,'') in ['yes','true','1','☒','نعم'] or row.get(c.key,'') == true) else '☐' }}
+          {% else %}
+          {{ row.get(c.key, '') or '—' }}
+          {% endif %}
+        </td>
+        {% endfor %}
       </tr>
       {% endfor %}
             </tbody>

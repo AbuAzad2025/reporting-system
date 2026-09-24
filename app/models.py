@@ -301,6 +301,7 @@ class DynamicField(db.Model):
                          "label_ar": str(c.get("label_ar") or key),
                          "type": t,
                          "required": bool(c.get("required")),
+                         "placeholder": str(c.get("placeholder") or ""),
                          "options": [str(o) for o in (c.get("options") or [])]})
         return cols
 

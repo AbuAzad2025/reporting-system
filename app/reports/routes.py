@@ -47,6 +47,46 @@ def _safe_filename_dyn(name: str) -> str:
     return base[:40]
 
 
+def _abs_dyn_file(key: str) -> str:
+    """Resolve a stored relative key to an absolute path (traversal-safe)."""
+    rel = (key or "").replace("\\", "/").strip()
+    base = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+    abs_path = os.path.abspath(os.path.join(base, rel))
+    if abs_path != base and not abs_path.startswith(base + os.sep):
+        raise ValueError("storage key escapes upload folder")
+    return abs_path
+
+
+@bp.route("/dyn/file/<path:key>")
+@login_required
+def dyn_file(key):
+    """Serve an uploaded dynamic-report file inline (images/PDF).
+
+    Tenant guard mirrors _visible_submission (author or platform manager):
+    the key must be referenced by a submission the user may view.
+    Filenames are unguessable uuid-prefixed keys; traversal is refused.
+    """
+    from flask import send_file
+    rel = (key or "").replace("\\", "/").strip()
+    if not rel.startswith("reports/") or ".." in rel.split("/"):
+        abort(404)
+    if not current_user.is_admin:
+        mine = ReportSubmission.query.filter_by(user_id=current_user.id).all()
+        if not any(rel in str((s.data or {})) for s in mine):
+            abort(404)
+    try:
+        abs_path = _abs_dyn_file(rel)
+    except ValueError:
+        abort(404)
+    if not os.path.isfile(abs_path):
+        abort(404)
+    import mimetypes
+    mime, _enc = mimetypes.guess_type(abs_path)
+    if (mime or "").lower() not in ALLOWED_MIME_DYN:
+        abort(404)
+    return send_file(abs_path, mimetype=mime)
+
+
 def _store_dyn_file(template_key: str, filename: str, buf: bytes) -> str:
     """Store under UPLOAD_FOLDER/reports/<template_key>/ ; return relative key."""
     rel = os.path.join("reports", template_key, f"{uuid.uuid4().hex[:12]}_{filename}")
@@ -200,11 +240,16 @@ def _visible_submission(sub_id: int) -> ReportSubmission:
     return s
 
 
-def _extract_table_rows(field, form):
+def _extract_table_rows(field, form, files=None, indexed=False):
     """Rebuild line-item rows from flat inputs f_<key>__<idx>__<sub>.
 
     Accepts a POST form (flat keys) or a plain dict holding lists (prefill).
     Fully-empty rows are dropped; at most 200 rows are kept.
+
+    files: optional upload multidict — uploads live in request.files, not
+           the form, so a row holding ONLY a photo counts as non-empty.
+    indexed: return [(form_idx, row)] preserving original indices so file
+             keys keep mapping correctly even when empty rows are dropped.
     """
     cols = field.sub_columns()
     if not cols:
@@ -224,12 +269,6 @@ def _extract_table_rows(field, form):
                 if isinstance(row, dict):
                     by_idx[i] = {c["key"]: str(row.get(c["key"], "") or "").strip()
                                  for c in cols}
-            rows = []
-            for i in sorted(by_idx)[:200]:
-                row = {c["key"]: by_idx[i].get(c["key"], "") for c in cols}
-                if any(v for v in row.values()):
-                    rows.append(row)
-            return rows
     else:
         keys = form.keys() if hasattr(form, "keys") else form
         for k in keys:
@@ -241,12 +280,36 @@ def _extract_table_rows(field, form):
                 continue
             by_idx.setdefault(int(idx), {})[sub] = str(
                 form.get(k, "") or "").strip()
-    rows = []
+    file_cols = {c["key"] for c in cols if c.get("type") == "file"}
+    uploads: set = set()
+    if files is not None and file_cols:
+        try:
+            fkeys = list(files.keys())
+        except Exception:
+            fkeys = []
+        for k in fkeys:
+            if not k.startswith(prefix):
+                continue
+            rest = k[len(prefix):]
+            idx, sep, sub = rest.partition("__")
+            if not sep or not idx.isdigit() or sub not in file_cols:
+                continue
+            try:
+                fobj = files.get(k)
+            except Exception:
+                fobj = None
+            if fobj is not None and getattr(fobj, "filename", ""):
+                uploads.add((int(idx), sub))
+                by_idx.setdefault(int(idx), {})
+    pairs = []
     for i in sorted(by_idx)[:200]:
         row = {c["key"]: by_idx[i].get(c["key"], "") for c in cols}
-        if any(v for v in row.values()):
-            rows.append(row)
-    return rows
+        if any(v for v in row.values()) or \
+                any((i, c) in uploads for c in file_cols):
+            pairs.append((i, row))
+    if indexed:
+        return pairs
+    return [row for _, row in pairs]
 
 
 def _display_table_rows(field, form):
@@ -273,7 +336,15 @@ def _collect_dynamic(template, form):
             if not cols:
                 payload[f.field_key] = []
                 continue
-            rows = _extract_table_rows(f, form)
+            # Indexed extraction: photo-only rows survive (uploads live in
+            # request.files, not the form) and file keys keep original
+            # indices even when empty rows are dropped.
+            try:
+                from flask import request as _req
+                _files = getattr(_req, "files", None)
+            except Exception:
+                _files = None
+            pairs = _extract_table_rows(f, form, files=_files, indexed=True)
             # Tripwire against silent data loss: if the browser submitted
             # non-empty cells under this table's prefix but zero rows were
             # parsed (or values arrived under unknown columns), refuse loudly
@@ -307,17 +378,12 @@ def _collect_dynamic(template, form):
                 errors.append(
                     f"«{f.label_ar}»: وصلت بيانات لأعمدة غير معروفة "
                     f"({', '.join(sorted(set(_unknown_nonempty)))}) — لم يُحفظ شيء. حدّث الصفحة وحاول مجدداً.")
-            elif _seen_nonempty_known and not rows:
+            elif _seen_nonempty_known and not pairs:
                 errors.append(
                     f"«{f.label_ar}»: تعذّر قراءة البنود المرسلة — لم يُحفظ شيء. حدّث الصفحة وحاول مجدداً.")
             # secure file handling for file-type columns (photos etc.)
-            try:
-                from flask import request as _req
-                _files = getattr(_req, "files", None)
-            except Exception:
-                _files = None
             if _files is not None:
-                for idx, row in enumerate(rows):
+                for idx, row in pairs:
                     for c in cols:
                         if c.get("type") != "file":
                             continue
@@ -345,6 +411,7 @@ def _collect_dynamic(template, form):
                                 row[c["key"]] = storage_key
                             except Exception as exc:
                                 errors.append(f"«{f.label_ar}» — الصف {idx + 1}: فشل الحفظ.")
+            rows = [row for _, row in pairs]
             for n, row in enumerate(rows, 1):
                 for c in cols:
                     if c.get("type") == "file":

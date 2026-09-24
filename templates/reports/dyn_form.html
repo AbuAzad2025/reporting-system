@@ -132,7 +132,7 @@
                     {% for opt in c.options %}<option {% if row.get(c.key,'')==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
                   </select>
                   {% elif c.type == 'number' %}
-                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" type="number" step="any" dir="ltr" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm text-left">
+                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" type="number" step="any" dir="ltr" value="{{ row.get(c.key,'') }}" placeholder="{{ c.placeholder }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm text-left">
                   {% elif c.type == 'date' %}
                   <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" type="date" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm">
                   {% elif c.type == 'file' %}
@@ -146,7 +146,7 @@
                     <span class="text-[11px] font-bold">☒</span>
                   </label>
                   {% else %}
-                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm" placeholder="{{ c.label_ar }}">
+                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm" placeholder="{{ c.placeholder or c.label_ar }}">
                   {% endif %}
                 </td>
                 {% endfor %}

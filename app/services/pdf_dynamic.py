@@ -21,6 +21,57 @@ import os
 log = logging.getLogger(__name__)
 
 
+def _resolve_upload_abs(key: str) -> str | None:
+    """Absolute path for a stored relative upload key (traversal-safe).
+
+    Returns None outside app context, on traversal, or when missing —
+    callers then render a placeholder instead of a raw storage link.
+    """
+    rel = (key or "").replace("\\", "/").strip()
+    if not rel or ".." in rel.split("/"):
+        return None
+    try:
+        from flask import current_app
+        base = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+    except Exception:
+        return None
+    abs_path = os.path.abspath(os.path.join(base, rel))
+    if abs_path != base and not abs_path.startswith(base + os.sep):
+        return None
+    return abs_path if os.path.isfile(abs_path) else None
+
+
+def _readable_image(abs_path: str) -> bool:
+    """True when ReportLab will actually be able to draw the file.
+
+    A corrupt/truncated upload must degrade to a placeholder note — never
+    crash the whole PDF build at draw time (when RLImage only then decodes).
+    """
+    try:
+        from PIL import Image as _PILImage
+    except Exception:
+        return True
+    try:
+        with _PILImage.open(abs_path) as im:
+            im.load()
+        return True
+    except Exception:
+        log.warning("unreadable gallery image skipped: %s", abs_path)
+        return False
+
+
+def _row_caption(cols, row) -> str:
+    """Caption sibling for photo cells (caption/comment column, same row)."""
+    for c in cols:
+        if c.get("type") == "file":
+            continue
+        if "caption" in c.get("key", "") or "تعليق" in c.get("label_ar", ""):
+            val = str(row.get(c.get("key", ""), "") or "").strip()
+            if val:
+                return val
+    return ""
+
+
 class _DynReportAdapter:
     """Duck-type shim so shared header/info helpers accept a submission."""
 
@@ -161,21 +212,30 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
 
     items = []
     tables = []  # (field label, cols, body rows) for line items — cols kept for image handling
+    gallery = []  # (abs image path, caption) for the photo gallery section
     for f in template.ordered_fields:
         val = payload.get(f.field_key, "")
         if f.field_type == "table":
             cols = f.sub_columns() if hasattr(f, "sub_columns") else []
             rows = val if isinstance(val, list) else []
             if cols and rows:
-                def _fmt_cell(c, raw):
+                def _fmt_cell(c, raw, _row=None, _cols=None):
                     if c.get("type") == "checkbox":
                         is_c = str(raw).lower() in ("1", "true", "yes", "on", "نعم", "☒", "checked")
                         return "☒" if is_c else "☐"
                     if c.get("type") == "file":
-                        # keep raw path for image embedding later
-                        return str(raw).strip() if str(raw).strip() else "—"
+                        v = str(raw or "").strip()
+                        if not v:
+                            return "—"
+                        abs_path = _resolve_upload_abs(v)
+                        if abs_path is None or not _readable_image(abs_path):
+                            return "— (الصورة غير متوفرة)"
+                        caption = _row_caption(_cols or [], _row or {})
+                        gallery.append((abs_path, caption))
+                        return f"📷 صورة {len(gallery)}"
                     return str(raw) if str(raw).strip() else "—"
-                body_rows = [[_fmt_cell(c, r.get(c["key"], "")) for c in cols]
+                body_rows = [[_fmt_cell(c, r.get(c["key"], ""), r, cols)
+                              for c in cols]
                              for r in rows if isinstance(r, dict)]
                 tables.append((f.label_ar, cols, body_rows))
             else:
@@ -199,22 +259,9 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         story.append(_section_title(f"{label} ({len(body)} بنود)", st))
         story.append(Spacer(1, 3 * mm))
         head = [Paragraph(ar(h), st["cell_h"]) for h in header]
-        # build rows: embed image if column type is file and path exists
-        grid_rows = []
-        for row in body:
-            pdf_row = []
-            for v, c in zip(row, cols):
-                if c.get("type") == "file" and v != "—" and os.path.isfile(str(v)):
-                    try:
-                        from reportlab.platypus import Image as RLImage
-                        img = RLImage(str(v), width=32 * mm, height=20 * mm, hAlign="CENTER")
-                        img.hAlign = "CENTER"
-                        pdf_row.append(img)
-                    except Exception:
-                        pdf_row.append(Paragraph(ar(v), st["cell"]))
-                else:
-                    pdf_row.append(Paragraph(ar(v), st["cell"]))
-            grid_rows.append(pdf_row)
+        # grid cells are pre-formatted text (photos live in the gallery below)
+        grid_rows = [[Paragraph(ar(v), st["cell"]) for v in row]
+                     for row in body]
         grid = [head] + grid_rows
         widths = [max(150 * mm / max(len(header), 1), 25 * mm)] * len(header)
         t = Table(grid, colWidths=widths, repeatRows=1)
@@ -237,6 +284,25 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         t.setStyle(TableStyle(style_cmds))
         story.append(t)
         story.append(Spacer(1, 6 * mm))
+
+    # ---- photo gallery: each image with its caption below it
+    if gallery:
+        from reportlab.platypus import Image as RLImage
+        story.append(_section_title(f"الصور التوثيقية ({len(gallery)})", st))
+        story.append(Spacer(1, 3 * mm))
+        for n, (abs_path, caption) in enumerate(gallery, 1):
+            try:
+                img = RLImage(abs_path, width=150 * mm, height=90 * mm,
+                              kind="proportional", hAlign="CENTER")
+                img.hAlign = "CENTER"
+                story.append(img)
+            except Exception:
+                log.warning("gallery image skipped: %s", abs_path)
+                continue
+            story.append(Spacer(1, 2 * mm))
+            story.append(Paragraph(
+                ar(f"صورة {n}" + (f" — {caption}" if caption else "")), st["cell"]))
+            story.append(Spacer(1, 5 * mm))
 
     # ---- monthly EVM (PV/EV/AC/CPI/SPI) — auto if monthly
     if template.key == "monthly":

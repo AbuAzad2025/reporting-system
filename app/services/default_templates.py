@@ -139,12 +139,179 @@ _KIND_MAP = {"text": "text", "textarea": "textarea", "number": "number",
 
 
 def _spec_to_field(key, label, kind, required=False, options=None,
-                   columns=None):
+                   columns=None, placeholder=None):
+    if placeholder is None:
+        placeholder = f"اكتب {label}..." if _KIND_MAP.get(kind) in ("text", "textarea") else ""
     return {"key": key, "label_ar": label,
             "type": _KIND_MAP.get(kind, "text"),
             "required": required, "options": options or [],
             "columns": columns or [],
-            "placeholder": f"اكتب {label}..." if _KIND_MAP.get(kind) in ("text", "textarea") else ""}
+            "placeholder": placeholder}
+
+
+#: In-field guidance examples — shown as placeholder inside each input so
+#: the field engineer understands how to fill it. Keyed (template, field);
+#: ("*", key) applies to every template using that key.
+FIELD_EXAMPLES = {
+    ("daily", "eshs_desc_81"): "مثال: حدادة وتسليح سقف الدور الثاني + صب أعمدة المحور C",
+    ("daily", "eshs_location_82"): "مثال: القاعة الرئيسية — المحور C-D / الدور الأرضي",
+    ("weekly", "week_no"): "مثال: الأسبوع 12 (1/9 – 7/9)",
+    ("weekly", "progress_percent"): "مثال: 64.5",
+    ("weekly", "milestones"): "مثال: إنجاز صب سقف الدور الثاني",
+    ("weekly", "manpower_summary"): "مثال: 28 عاملاً + خلاطتان + رافعة",
+    ("weekly", "look_ahead"): "مثال: حدادة جسور الدور الثالث",
+    ("weekly", "challenges"): "مثال: تأخر توريد الحديد يومين",
+    ("weekly", "decisions_needed"): "مثال: اعتماد عينة البلاط",
+    ("weekly", "weekly_summary_12"): "مثال: 1) صب الأعمدة 2) ...",
+    ("weekly", "weekly_extra_challenges"): "مثال: أعمال إضافية + التحديات الفنية",
+    ("weekly", "weekly_next_plan"): "مثال: 1) فك الطوبار 2) ...",
+    ("weekly", "weekly_conclusion"): "مثال: تقدم مطابق للبرنامج",
+    ("monthly", "month"): "مثال: أيلول 2026",
+    ("monthly", "progress_percent"): "مثال: 64.5",
+    ("monthly", "planned_value"): "مثال: 1250000",
+    ("monthly", "earned_value"): "مثال: 1100000",
+    ("monthly", "actual_cost"): "مثال: 1150000",
+    ("monthly", "budget_at_completion"): "مثال: 8000000",
+    ("monthly", "financial_overview"): "مثال: صُرف المستخلص 5 + مصروفات المواد...",
+    ("monthly", "achievements"): "مثال: إنجاز الهيكل الخرساني",
+    ("monthly", "subcontractor_perf"): "مثال: مقاول الكهرباء: التزام جيد",
+    ("monthly", "risks"): "مثال: تأخر التوريد — المعالجة: مورد بديل",
+    ("monthly", "next_month_plan"): "مثال: أعمال التشطيبات",
+    ("monthly", "management_signoff"): "مثال: الاسم والتوقيع",
+    ("safety", "inspection_area"): "مثال: الدور الثالث — الواجهة",
+    ("safety", "ppe_compliance"): "مثال: التزام 95% — مخالفة واحدة",
+    ("safety", "toolbox_talks"): "مثال: محاضرة السقالات لـ 20 عاملاً",
+    ("safety", "near_miss"): "مثال: سقوط عدة من ارتفاع دون إصابة",
+    ("safety", "hazards"): "مثال: فتحة مصعد بلا حاجز",
+    ("safety", "corrective_actions"): "مثال: تركيب حاجز اليوم قبل المغادرة",
+    ("safety", "responsible"): "مثال: مشرف السلامة",
+    ("site-inspections", "test_type"): "مثال: مكعبات خرسانة 7 أيام",
+    ("site-inspections", "location_detail"): "مثال: عمود C4 — الدور الثاني",
+    ("site-inspections", "spec_reference"): "مثال: ACI 318 / بند العقد",
+    ("site-inspections", "result_value"): "مثال: 28.5",
+    ("site-inspections", "lab_name"): "مثال: المختبر المركزي",
+    ("site-inspections", "pour_permit_no"): "مثال: PP-2026-031",
+    ("site-inspections", "tolerance_mm"): "مثال: 5",
+    ("site-inspections", "cube_7d"): "مثال: 21",
+    ("site-inspections", "cube_28d"): "مثال: 30",
+    ("material-submittals", "material_name"): "مثال: حديد تسليح 12 ملم",
+    ("material-submittals", "spec_section"): "مثال: 03 20 00",
+    ("material-submittals", "submittal_no"): "مثال: MSR-014",
+    ("material-submittals", "supplier"): "مثال: شركة ...",
+    ("material-submittals", "quantity"): "مثال: 40",
+    ("material-submittals", "unit"): "مثال: طن",
+    ("rfis", "subject"): "مثال: تعارض دكت التكييف مع الجسر",
+    ("rfis", "question"): "مثال: هل يمكن خفض الدكت 10 سم؟",
+    ("rfis", "reply_summary"): "مثال: الرد: معتمد مع ملاحظة...",
+    ("cost-variances", "boq_item"): "مثال: خرسانة مسلحة للأسقف",
+    ("cost-variances", "budgeted_qty"): "مثال: 100",
+    ("cost-variances", "budgeted_rate"): "مثال: 300",
+    ("cost-variances", "actual_qty"): "مثال: 110",
+    ("cost-variances", "actual_rate"): "مثال: 310",
+    ("cost-variances", "reason"): "مثال: زيادة السماكة حسب المخطط المعدل",
+    ("progress-billings", "cert_no"): "مثال: مستخلص رقم 5",
+    ("progress-billings", "work_item"): "مثال: بلاطة الدور الثاني",
+    ("progress-billings", "qty_completed"): "مثال: 120",
+    ("progress-billings", "rate"): "مثال: 1000",
+    ("progress-billings", "retention_pct"): "مثال: 10",
+    ("subcontractor-performances", "subcontractor"): "مثال: شركة ... للكهرباء",
+    ("subcontractor-performances", "trade"): "مثال: كهرباء",
+    ("subcontractor-performances", "quality_score"): "مثال: 85",
+    ("subcontractor-performances", "schedule_score"): "مثال: 80",
+    ("subcontractor-performances", "safety_score"): "مثال: 90",
+    ("subcontractor-performances", "compliance_score"): "مثال: 85",
+    ("subcontractor-performances", "remarks"): "مثال: التزام جيد — يُوصى بالاستمرار",
+    ("variation", "vo_no"): "مثال: VO-007",
+    ("variation", "subject"): "مثال: تعميق أساسات المحور D",
+    ("variation", "affected_drawing_rev"): "مثال: S-09 Rev 2",
+    ("variation", "cost_impact"): "مثال: 45000",
+    ("variation", "time_impact"): "مثال: 6",
+    ("variation", "attachments"): "مثال: صور + مخطط معدل",
+    ("variation", "recommendation"): "مثال: أوصي بالقبول",
+}
+
+#: Column-level guidance for table cells. ("*", key) is the shared default.
+COLUMN_EXAMPLES = {
+    ("*", "temp"): "مثال: 18-26",
+    ("*", "eq_name"): "مثال: خلاطة باطون 500 لتر",
+    ("*", "hours_work"): "مثال: 8",
+    ("*", "hours_stop"): "مثال: 1.5",
+    ("*", "hours_total"): "مثال: 9.5",
+    ("*", "role"): "مثال: حداد تسليح",
+    ("*", "name"): "مثال: الاسم الكامل",
+    ("*", "hours"): "مثال: 8",
+    ("*", "activity"): "مثال: صب أعمدة المحور C — 12 م³",
+    ("*", "drawing_ref"): "مثال: A-12 Rev 3",
+    ("*", "finish_code"): "مثال: F-01",
+    ("*", "zone"): "مثال: القاعة الرئيسية",
+    ("*", "level"): "مثال: الدور الثاني",
+    ("*", "grid_axis"): "مثال: C-D / 4-5",
+    ("*", "code_clause"): "مثال: ACI 318",
+    ("*", "qty"): "مثال: 12 م³",
+    ("*", "notes"): "مثال: دون ملاحظات",
+    ("*", "element_name"): "مثال: عينة بلاط 60×60",
+    ("*", "drawing_rev"): "مثال: ID-04 Rev 1",
+    ("*", "mat_type"): "مثال: إسمنت بورتلاندي",
+    ("*", "unit"): "مثال: كيس / طن / م³",
+    ("*", "qty_supplied"): "مثال: 200",
+    ("*", "qty_used"): "مثال: 150",
+    ("*", "qty_remain"): "مثال: 50",
+    ("*", "qc_notes"): "مثال: مطابق — تخزين مغطى",
+    ("*", "activity_next"): "مثال: فك الطوبار + حديد الجسور",
+    ("*", "qty_next"): "مثال: 8 أعمدة",
+    ("*", "safety_next"): "مثال: حواجز حول الفتحات",
+    ("*", "m_type"): "مثال: اجتماع تنسيق",
+    ("*", "m_attendees"): "مثال: المقاول + الاستشاري",
+    ("*", "m_summary"): "مثال: اعتماد برنامج الأسبوع",
+    ("*", "w_type"): "مثال: ردميات وحجارة",
+    ("*", "w_qty"): "مثال: 3",
+    ("*", "w_unit"): "مثال: نقلة",
+    ("*", "w_dest"): "مثال: المكب المعتمد",
+    ("*", "w_mitigation"): "مثال: تغطية الشاحنات",
+    ("*", "proc"): "مثال: رش المياه قبل الكنس",
+    ("*", "purpose"): "مثال: إخطار بتحويلة مرورية",
+    ("*", "audience"): "مثال: سكان الحي المجاور",
+    ("*", "platform"): "مثال: لافتات + مكبرات",
+    ("*", "result"): "مثال: التزام كامل",
+    ("*", "action"): "مثال: إيقاف العمل + إسعاف أولي",
+    ("*", "details"): "مثال: انزلاق دون إصابة",
+    ("*", "lost_time_days"): "مثال: 0",
+    ("*", "act_desc"): "مثال: لقاء تعريفي بالمشروع",
+    ("*", "stakeholders"): "مثال: البلدية",
+    ("*", "action_taken"): "مثال: توزيع نشرات",
+    ("*", "category"): "مثال: غبار وضوضاء",
+    ("*", "desc"): "مثال: شكوى من ساعات العمل",
+    ("*", "complainant"): "مثال: الاسم + 059XXXXXXX",
+    ("*", "solution"): "مثال: رش دوري",
+    ("*", "ncr_no"): "مثال: NCR-2026-014",
+    ("*", "description"): "مثال: تعشيش في عمود C4",
+    ("*", "name_title"): "مثال: م. فلان — مهندس الموقع",
+    ("*", "signature"): "مثال: التوقيع أو الاسم",
+    ("*", "caption"): "مثال: صب أعمدة المحور C قبل الإغلاق",
+    ("*", "wp_code"): "مثال: BOQ-03",
+    ("*", "wp_name"): "مثال: الخرسانة المسلحة",
+    ("*", "wp_field"): "مثال: تقدم 70% دون معوقات",
+    ("*", "issue"): "مثال: كسر ماسورة مياه",
+    ("*", "impact"): "مثال: توقف ساعتين",
+    ("*", "period"): "مثال: تشرين الأول 2026",
+    ("*", "risk"): "مثال: تأخر التوريد",
+    ("*", "mitigation"): "مثال: مورد بديل",
+    ("*", "owner"): "مثال: مدير المشروع",
+    ("*", "exposure"): "مثال: متوسط",
+    ("*", "topic"): "مثال: مخاطر السقالات",
+    ("*", "trainer"): "مثال: مشرف السلامة",
+    ("*", "attendees_count"): "مثال: 20",
+}
+
+
+def _example(template_key, field_key):
+    return (FIELD_EXAMPLES.get((template_key, field_key))
+            or FIELD_EXAMPLES.get(("*", field_key)) or "")
+
+
+def _colexample(template_key, col_key):
+    return (COLUMN_EXAMPLES.get((template_key, col_key))
+            or COLUMN_EXAMPLES.get(("*", col_key)) or "")
 
 
 #: Comprehensive ESHS Daily Report — matches استراحة أريحا model (11 sections + 8.1-8.11).
@@ -353,44 +520,66 @@ MONTHLY_TABLES = [
 ]
 
 
+def _cols_with_hints(template_key, cols):
+    """Copy table columns with in-field guidance examples injected."""
+    out = []
+    for c in cols or []:
+        c = dict(c)
+        c["placeholder"] = _colexample(template_key, c.get("key", ""))
+        out.append(c)
+    return out
+
+
 def default_fields_for(template_key):
     """Return ordered field dicts for a template key."""
     if template_key in EXTRA_SPECS:
-        return [_spec_to_field(k, lb, kd, req, opts if len(r) > 4 else [])
+        return [_spec_to_field(k, lb, kd, req, opts if len(r) > 4 else [],
+                               [], (_example(template_key, k) or None))
                 for r in EXTRA_SPECS[template_key]
                 for (k, lb, kd, req, *opts) in [r]]
     out = []
     if template_key != "daily":
         for k, label, kind in FIELD_SPECS.get(template_key, []):
-            out.append(_spec_to_field(k, label, kind, False))
+            out.append(_spec_to_field(k, label, kind, False, [],
+                                      [], (_example(template_key, k) or None)))
     if template_key == "daily":
         # daily uses ONLY the ESHS model (legacy FIELD_SPECS дублировали weather/manpower)
         # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
-        out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False))
-        out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False))
+        out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False,
+                                  [], (_example(template_key, "eshs_desc_81") or None)))
+        out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False,
+                                  [], (_example(template_key, "eshs_location_82") or None)))
         # NOTE: ESHS tables stay optional for now — enforcing required=True here
         # breaks minimal valid submissions (see test_dyn_create_linked_syncs_name).
         # Proper non-bypass needs an explicit N/A-status mechanism, not a bare
         # min-1-row rule. Revisit with N/A support before re-enabling.
         for k, lb, cols in DAILY_TABLES:
-            out.append(_spec_to_field(k, lb, "table", False, [], cols))
+            out.append(_spec_to_field(k, lb, "table", False, [],
+                                      _cols_with_hints(template_key, cols)))
         # attachments checkboxes (المرفقات) - 3 items
         out.append(_spec_to_field("attach_attendance", "المرفقات: كشف الحضور اليومي للموقع", "checkbox", False))
         out.append(_spec_to_field("attach_complaints", "المرفقات: سجل الشكاوى والحوادث", "checkbox", False))
         out.append(_spec_to_field("attach_scaffolding", "المرفقات: قائمة فحص وتدقيق السقالات والمعدات", "checkbox", False))
     if template_key == "weekly":
         # weekly summary (12 items) + attachments + WP tables
-        out.append(_spec_to_field("weekly_summary_12", "ملخص التقدم التنفيذي (12 بند)", "textarea", False))
-        out.append(_spec_to_field("weekly_extra_challenges", "الأعمال الإضافية والتحديات الفنية", "textarea", False))
-        out += [_spec_to_field(k, lb, "table", False, [], cols)
+        out.append(_spec_to_field("weekly_summary_12", "ملخص التقدم التنفيذي (12 بند)", "textarea", False,
+                                  [], (_example(template_key, "weekly_summary_12") or None)))
+        out.append(_spec_to_field("weekly_extra_challenges", "الأعمال الإضافية والتحديات الفنية", "textarea", False,
+                                  [], (_example(template_key, "weekly_extra_challenges") or None)))
+        out += [_spec_to_field(k, lb, "table", False, [],
+                               _cols_with_hints(template_key, cols))
                 for k, lb, cols in WEEKLY_TABLES]
-        out.append(_spec_to_field("weekly_next_plan", "الأعمال المخطط لها الأسبوع القادم (7 بنود)", "textarea", False))
-        out.append(_spec_to_field("weekly_conclusion", "الخلاصة", "textarea", False))
+        out.append(_spec_to_field("weekly_next_plan", "الأعمال المخطط لها الأسبوع القادم (7 بنود)", "textarea", False,
+                                  [], (_example(template_key, "weekly_next_plan") or None)))
+        out.append(_spec_to_field("weekly_conclusion", "الخلاصة", "textarea", False,
+                                  [], (_example(template_key, "weekly_conclusion") or None)))
     if template_key == "safety":
-        out += [_spec_to_field(k, lb, "table", False, [], cols)
+        out += [_spec_to_field(k, lb, "table", False, [],
+                               _cols_with_hints(template_key, cols))
                 for k, lb, cols in SAFETY_TABLES]
     if template_key == "monthly":
-        out += [_spec_to_field(k, lb, "table", False, [], cols)
+        out += [_spec_to_field(k, lb, "table", False, [],
+                               _cols_with_hints(template_key, cols))
                 for k, lb, cols in MONTHLY_TABLES]
     return out
 
@@ -446,6 +635,8 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                 if f["type"] != "table" and (row.options or []) != (f["options"] or []):
                     # only auto-sync when stored value matches a known stale set
                     row.options = f["options"]
+                if (f.get("placeholder") or "") and row.placeholder != f["placeholder"]:
+                    row.placeholder = f["placeholder"]
                 if row.field_type != f["type"] and f["key"] in ("weekly_photos",):
                     # file-vs-text consistency fix (photo upload)
                     pass  # type migration handled below via sub_fields only
