@@ -70,12 +70,24 @@ def collect_batch(model_map, user, project_id=None, date_from=None,
             continue
         model = model_map[kind]
         q = scope_to_tenant(model.query, model, user)
-        if project_id:
-            q = q.filter_by(project_id=int(project_id))
-        if date_from:
-            q = q.filter(model.report_date >= date_from)
-        if date_to:
-            q = q.filter(model.report_date <= date_to)
+date_from = None
+    date_to = None
+    if date_from_str:
+        try:
+            date_from = datetime.strptime(date_from_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    if date_to_str:
+        try:
+            date_to = datetime.strptime(date_to_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    date_from = date_from or date_from_str
+    date_to = date_to or date_to_str
+    if date_from:
+        q = q.filter(model.report_date >= date_from)
+    if date_to:
+        q = q.filter(model.report_date <= date_to)
         for r in q.order_by(model.report_date, model.id).all():
             out.append((kind, r))
     out.sort(key=lambda kr: (str(kr[1].report_date), kr[1].id))

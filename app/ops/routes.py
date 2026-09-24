@@ -905,8 +905,8 @@ def batch_export():
         project_id = int(project_id) if project_id not in ("", None) else None
     except (TypeError, ValueError):
         return jsonify({"error": "project_id must be an integer"}), 422
-    date_from = (data.get("from") or "").strip() or None
-    date_to = (data.get("to") or "").strip() or None
+    date_from_str = (data.get("from") or "").strip() or None
+    date_to_str = (data.get("to") or "").strip() or None
     if request.is_json:
         kinds = data.get("types") or data.get("type")
         if isinstance(kinds, str):
@@ -917,7 +917,7 @@ def batch_export():
     if project_id is not None:
         tenant_create_guard(current_user, project_id)  # 404 if out of scope
     records = collect_batch(KIND_MODEL, current_user, project_id,
-                            date_from, date_to, kinds)
+                            date_from_str, date_to_str, kinds)
     project = db.session.get(Project, project_id) if project_id else None
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     pdf_bytes = build_batch_pdf(
