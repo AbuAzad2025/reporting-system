@@ -13,7 +13,8 @@ from sqlalchemy import func
 from app.admin import bp
 from app.extensions import db
 from app.models import (User, Project, ReportTemplate, DynamicField,
-                        ReportSubmission, Report, ROLES, FIELD_TYPES)
+                        ReportSubmission, Report, ROLES, FIELD_TYPES,
+                        TenantBranding, TenantTemplateOverride)
 from app.utils.decorators import (template_manager_required, roles_required,
                                   permission_required)
 from app.ops.isolation import roles_required_json
@@ -58,8 +59,10 @@ def templates():
     tpl_list = ReportTemplate.query.order_by(ReportTemplate.id).all()
     # ---- branding customization (per-tenant / per-project identity)
     # Admin may edit company names, logos and custom header/footer per project.
-    tpl_branding = (db.session.query(app.models.TenantBranding)
-                    .filter_by(project_id=tpl.id, is_active=True).first())
+    tpl_branding = None
+    if tpl_list:
+        tpl_branding = (db.session.query(TenantBranding)
+                        .filter_by(project_id=tpl_list[0].id, is_active=True).first())
     return render_template("admin/templates.html", templates=tpl_list,
                            tpl_branding=tpl_branding)
 
