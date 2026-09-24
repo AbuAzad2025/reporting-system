@@ -4,6 +4,7 @@ Used by seed + 'reset to defaults' admin action. Field dicts:
   key / label_ar / type / required / options / placeholder
 """
 from utils.helpers import FIELD_SPECS
+from app.models import TenantBranding, TenantTemplateOverride
 
 DEFAULT_TEMPLATES = [
     {"key": "daily", "name_ar": "التقرير اليومي", "name_en": "Daily Progress Report",

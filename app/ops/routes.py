@@ -922,7 +922,7 @@ def batch_export():
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     pdf_bytes = build_batch_pdf(
         records, project_name=project.name if project else "",
-        date_from=date_from or "", date_to=date_to or "",
+        date_from=date_from_str or "", date_to=date_to_str or "",
         generated_by=current_user.full_name, generated_at=stamp)
     return Response(pdf_bytes, mimetype="application/pdf",
                     headers={"Content-Disposition":
