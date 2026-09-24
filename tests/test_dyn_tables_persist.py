@@ -47,3 +47,50 @@ def test_contradictory_checklist_rejected(client, app):
         from app.models import ReportSubmission
         assert ReportSubmission.query.filter_by(
             project_name="Contradiction Check").first() is None
+
+
+def test_edit_prefills_saved_data(client, app):
+    """Edit form must show previously saved simple + table data."""
+    from app.models import ReportSubmission
+    login_as(client, "t_admin")
+    client.post("/reports/dyn/new/daily", data={
+        "project_name": "Prefill Check",
+        "report_date": "2026-09-24",
+        "location": "موقع الحفظ",
+        "f_eshs_desc_81": "وصف محفوظ للاختبار",
+        "f_waste_mgmt_esha__0__proc": "فرز النفايات",
+        "f_waste_mgmt_esha__0__done": "yes",
+        "f_equipment_esha__0__eq_name": "خلاطة",
+    }, follow_redirects=True)
+    with app.app_context():
+        s = ReportSubmission.query.filter_by(
+            project_name="Prefill Check").first()
+        assert s is not None
+        sid = s.id
+    html = client.get(f"/reports/dyn/{sid}/edit").get_data(as_text=True)
+    for expected in ("وصف محفوظ للاختبار", "فرز النفايات",
+                     "خلاطة", "موقع الحفظ"):
+        assert expected in html
+
+
+def test_edit_opens_sections_with_data(client, app):
+    """Sections holding saved rows auto-open even past the first three."""
+    from app.models import ReportSubmission
+    login_as(client, "t_admin")
+    client.post("/reports/dyn/new/daily", data={
+        "project_name": "Open Check",
+        "report_date": "2026-09-24",
+        "f_waste_mgmt_esha__0__proc": "فرز النفايات",
+        "f_waste_mgmt_esha__0__done": "yes",
+    }, follow_redirects=True)
+    with app.app_context():
+        s = ReportSubmission.query.filter_by(
+            project_name="Open Check").first()
+        sid = s.id
+    html = client.get(f"/reports/dyn/{sid}/edit").get_data(as_text=True)
+    assert "فرز النفايات" in html
+    idx = html.find("waste_mgmt_esha")
+    assert idx != -1
+    details_start = html.rfind("<details", 0, idx)
+    tag = html[details_start:html.find(">", details_start) + 1]
+    assert "open" in tag

@@ -97,7 +97,10 @@
     {% set cols = f.sub_columns() %}
     {% set rows = table_rows.get(f.field_key, [{}]) %}
     {% set req_cols = cols | selectattr('required') | list | length %}
-    <details class="report-section" {% if loop.index <= 3 %}open{% endif %}>
+    {# Professional UX: sections with saved content always open in edit mode;
+       empty sections stay collapsed except the first three. #}
+    {% set has_data = (rows|length > 1) or (rows[0].values()|select|list|length > 0) %}
+    <details class="report-section" {% if loop.index <= 3 or has_data %}open{% endif %}>
       <summary>
         <span>📊 {{ f.label_ar }}
           {% if f.required %}<span class="badge badge-required">إجباري</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}
