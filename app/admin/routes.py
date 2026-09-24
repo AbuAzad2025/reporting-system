@@ -35,13 +35,13 @@ def dashboard():
         "submissions": ReportSubmission.query.count(),
         "legacy": Report.query.count(),
     }
-    # submissions per day (last 14 days)
+# submissions per day (last 14 days)
     since = date.today() - timedelta(days=13)
     rows = (db.session.query(ReportSubmission.report_date,
                              func.count(ReportSubmission.id))
-            .filter(ReportSubmission.created_at >= since.strftime("%Y-%m-%d"))
-            .group_by(ReportSubmission.report_date)
-            .order_by(ReportSubmission.report_date).all())
+        .filter(ReportSubmission.created_at >= since)
+        .group_by(ReportSubmission.report_date)
+        .order_by(ReportSubmission.report_date).all())
     chart = [{"d": str(d), "c": c} for d, c in rows]
     per_template = (db.session.query(ReportTemplate.name_ar,
                                      func.count(ReportSubmission.id))
