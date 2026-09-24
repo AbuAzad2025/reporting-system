@@ -139,13 +139,14 @@ _KIND_MAP = {"text": "text", "textarea": "textarea", "number": "number",
 
 
 def _spec_to_field(key, label, kind, required=False, options=None,
-                   columns=None, placeholder=None):
+                   columns=None, placeholder=None, rules=None):
     if placeholder is None:
         placeholder = f"اكتب {label}..." if _KIND_MAP.get(kind) in ("text", "textarea") else ""
     return {"key": key, "label_ar": label,
             "type": _KIND_MAP.get(kind, "text"),
             "required": required, "options": options or [],
             "columns": columns or [],
+            "rules": rules or {},
             "placeholder": placeholder}
 
 
@@ -178,6 +179,12 @@ FIELD_EXAMPLES = {
     ("monthly", "risks"): "مثال: تأخر التوريد — المعالجة: مورد بديل",
     ("monthly", "next_month_plan"): "مثال: أعمال التشطيبات",
     ("monthly", "management_signoff"): "مثال: الاسم والتوقيع",
+    ("monthly", "total_work_hours"): "مثال: 5200",
+    ("monthly", "incidents_month"): "مثال: 1",
+    ("monthly", "lti_month"): "مثال: 0",
+    ("monthly", "ppe_pct"): "مثال: 95",
+    ("monthly", "training_sessions"): "مثال: 4",
+    ("monthly", "workers_trained"): "مثال: 60",
     ("safety", "inspection_area"): "مثال: الدور الثالث — الواجهة",
     ("safety", "ppe_compliance"): "مثال: التزام 95% — مخالفة واحدة",
     ("safety", "toolbox_talks"): "مثال: محاضرة السقالات لـ 20 عاملاً",
@@ -301,6 +308,15 @@ COLUMN_EXAMPLES = {
     ("*", "topic"): "مثال: مخاطر السقالات",
     ("*", "trainer"): "مثال: مشرف السلامة",
     ("*", "attendees_count"): "مثال: 20",
+    ("*", "learned_time"): "مثال: 14:30",
+    ("*", "cap_action"): "مثال: تركيب حاجز + تدريب",
+    ("*", "cap_owner"): "مثال: مشرف السلامة",
+    ("*", "worker_name"): "مثال: الاسم الرباعي للعامل",
+    ("*", "trade"): "مثال: حداد / نجار / كهربائي",
+    ("*", "contract_no"): "مثال: عقد 123",
+    ("*", "planned_cash"): "مثال: 400000",
+    ("*", "actual_cash"): "مثال: 380000",
+    ("*", "variance"): "مثال: -20000",
 }
 
 
@@ -427,9 +443,18 @@ DAILY_TABLES = [
         {"key": "incident_severity", "label_ar": "خطورة الحادث (1-5)", "type": "dropdown", "required": False, "options": ["1", "2", "3", "4", "5"]},
         {"key": "lost_time_days", "label_ar": "أيام العمل المفقودة", "type": "number", "required": False, "options": []},
         {"key": "level", "label_ar": "مستوى الحادث", "type": "text", "required": False, "options": []},
+        {"key": "learned_date", "label_ar": "تاريخ العلم بالحادث", "type": "date", "required": False, "options": []},
+        {"key": "learned_time", "label_ar": "ساعة العلم (HH:MM)", "type": "text", "required": False, "options": []},
         {"key": "action", "label_ar": "الإجراء المتخذ في الموقع", "type": "textarea", "required": False, "options": []},
         {"key": "details", "label_ar": "تفاصيل إضافية", "type": "text", "required": False, "options": []},
         {"key": "notes", "label_ar": "ملاحظات", "type": "text", "required": False, "options": []},
+    ]),
+    ("cap_esha", "8.6 ب خطة الإجراءات التصحيحية (CAP)", [
+        {"key": "cap_action", "label_ar": "الإجراء التصحيحي", "type": "textarea", "required": True, "options": []},
+        {"key": "cap_owner", "label_ar": "المسؤول عن التنفيذ", "type": "text", "required": True, "options": []},
+        {"key": "due_date", "label_ar": "الموعد المستهدف", "type": "date", "required": True, "options": []},
+        {"key": "closure_date", "label_ar": "تاريخ الإغلاق", "type": "date", "required": False, "options": []},
+        {"key": "cap_status", "label_ar": "الحالة", "type": "dropdown", "required": False, "options": ["مفتوحة", "قيد التنفيذ", "مغلقة"]},
     ]),
     ("stakeholder_activities_esha", "8.7 أنشطة مشاركة أصحاب المصلحة", [
         {"key": "act_desc", "label_ar": "وصف النشاط", "type": "textarea", "required": True, "options": []},
@@ -517,6 +542,14 @@ MONTHLY_TABLES = [
         {"key": "owner", "label_ar": "المسؤول", "type": "text", "required": False, "options": []},
         {"key": "exposure", "label_ar": "التعرض", "type": "text", "required": False, "options": []},
     ]),
+    ("workforce_registry", "سجل العمالة والتحقق العمري ومدونة السلوك (شهري)", [
+        {"key": "worker_name", "label_ar": "اسم العامل (رباعي)", "type": "text", "required": True, "options": []},
+        {"key": "birth_date", "label_ar": "تاريخ الميلاد", "type": "date", "required": True, "options": []},
+        {"key": "trade", "label_ar": "المهنة", "type": "text", "required": False, "options": []},
+        {"key": "contract_no", "label_ar": "رقم العقد", "type": "text", "required": False, "options": []},
+        {"key": "coc_signed", "label_ar": "وقّع مدونة السلوك", "type": "checkbox", "required": True, "options": []},
+        {"key": "verified_date", "label_ar": "تاريخ التحقق", "type": "date", "required": False, "options": []},
+    ]),
 ]
 
 
@@ -542,7 +575,8 @@ def default_fields_for(template_key):
     """Return ordered field dicts for a template key."""
     if template_key in EXTRA_SPECS:
         return [_spec_to_field(k, lb, kd, req, _flat_opts(opts) if len(r) > 4 else [],
-                               [], (_example(template_key, k) or None))
+                               [], (_example(template_key, k) or None),
+                               _rules_for(template_key, k))
                 for r in EXTRA_SPECS[template_key]
                 for (k, lb, kd, req, *opts) in [r]]
     out = []
@@ -586,10 +620,40 @@ def default_fields_for(template_key):
                                _cols_with_hints(template_key, cols))
                 for k, lb, cols in SAFETY_TABLES]
     if template_key == "monthly":
+        # ESHS numeric indicators for the Bank (auto-summarized in the PDF)
+        for _k, _lb in (("total_work_hours", "إجمالي ساعات العمل الشهرية"),
+                        ("incidents_month", "حوادث الشهر"),
+                        ("lti_month", "إصابات الوقت الضائع"),
+                        ("ppe_pct", "الالتزام بمعدات الوقاية (%)"),
+                        ("training_sessions", "جلسات التوعية المنفذة"),
+                        ("workers_trained", "العمال المدرّبون")):
+            out.append(_spec_to_field(_k, _lb, "number", False, [],
+                                      [], (_example(template_key, _k) or None),
+                                      _rules_for(template_key, _k)))
         out += [_spec_to_field(k, lb, "table", False, [],
                                _cols_with_hints(template_key, cols))
                 for k, lb, cols in MONTHLY_TABLES]
     return out
+
+
+#: Server-side numeric rules keyed (template, field) — enforced by
+#: field_validation without per-field code. Syncs to existing DB rows.
+FIELD_RULES = {
+    ("monthly", "total_work_hours"): {"min": 0},
+    ("monthly", "incidents_month"): {"min": 0},
+    ("monthly", "lti_month"): {"min": 0},
+    ("monthly", "ppe_pct"): {"min": 0, "max": 100},
+    ("monthly", "training_sessions"): {"min": 0},
+    ("monthly", "workers_trained"): {"min": 0},
+    ("subcontractor-performances", "quality_score"): {"min": 0, "max": 100},
+    ("subcontractor-performances", "schedule_score"): {"min": 0, "max": 100},
+    ("subcontractor-performances", "safety_score"): {"min": 0, "max": 100},
+    ("subcontractor-performances", "compliance_score"): {"min": 0, "max": 100},
+}
+
+
+def _rules_for(template_key, field_key):
+    return dict(FIELD_RULES.get((template_key, field_key), {}))
 
 
 #: obsolete daily keys from older specs (legacy FIELD_SPECS + UNRWA tables).
@@ -631,7 +695,8 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                     template_id=tpl.id, field_key=f["key"],
                     label_ar=f["label_ar"], field_type=f["type"],
                     options=f["options"], required=f["required"],
-                    rules={}, sub_fields=f.get("columns") or [],
+                    rules=f.get("rules") or {},
+                    sub_fields=f.get("columns") or [],
                     position=pos, placeholder=f["placeholder"]))
             else:
                 # sync: repair stale duplicated option lists / types without
@@ -645,6 +710,8 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                     row.options = f["options"]
                 if (f.get("placeholder") or "") and row.placeholder != f["placeholder"]:
                     row.placeholder = f["placeholder"]
+                if (f.get("rules") or {}) != (row.rules or {}):
+                    row.rules = f.get("rules") or {}
                 if row.field_type != f["type"] and f["key"] in ("weekly_photos",):
                     # file-vs-text consistency fix (photo upload)
                     pass  # type migration handled below via sub_fields only

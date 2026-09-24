@@ -377,3 +377,50 @@ class Report(db.Model):
 
     def get(self, key, default=""):
         return (self.data or {}).get(key, default)
+
+# ---------------------------------------------------------------- branding (tenant-scoped customization)
+
+class TenantBranding(db.Model):
+    __tablename__ = "tenant_branding"
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), index=True)
+    company_name_ar = db.Column(db.String(200), default="")
+    company_name_en = db.Column(db.String(200), default="")
+    logo_path = db.Column(db.String(500), default="")
+    logo2_path = db.Column(db.String(500), default="")
+    primary_color = db.Column(db.String(7), default="#1e3a5f")
+    secondary_color = db.Column(db.String(7), default="#c9a227")
+    custom_header_text_ar = db.Column(db.Text, default="")
+    custom_header_text_en = db.Column(db.Text, default="")
+    custom_footer_notes = db.Column(db.Text, default="")
+    disclaimer_text = db.Column(db.Text, default="")
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (db.Index("ix_branding_project_id", "project_id"),)
+
+    def __repr__(self):
+        return f"<TenantBranding {self.id} proj={self.project_id}>"
+
+
+class TenantTemplateOverride(db.Model):
+    __tablename__ = "tenant_template_overrides"
+    id = db.Column(db.Integer, primary_key=True)
+    template_key = db.Column(db.String(60), nullable=False, index=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+    is_active = db.Column(db.Boolean, default=True)
+    fields_config = db.Column(db.JSON, default=dict)
+    deleted_fields = db.Column(db.JSON, default=list)
+    added_fields = db.Column(db.JSON, default=list)
+    reordered_fields = db.Column(db.JSON, default=list)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint("template_key", "tenant_id",
+                            name="uq_tenant_tpl_tenant"),
+    )
+
+    def __repr__(self):
+        return f"<TenantTemplateOverride {self.template_key}:{self.tenant_id}>"
