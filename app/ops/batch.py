@@ -62,7 +62,7 @@ def collect_batch(model_map, user, project_id=None, date_from=None,
                   date_to=None, kinds=None):
     """Tenant-scoped collection across modules, oldest first. Pure query
     helper shared by the endpoint and tests."""
-from app.ops.isolation import scope_to_tenant
+    from app.ops.isolation import scope_to_tenant
     kinds = kinds or list(model_map)
     out = []
     for kind in kinds:
