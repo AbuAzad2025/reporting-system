@@ -5,3 +5,9 @@ fonts/*.ttf
 .env
 venv/
 .venv/
+# test-generated backup artifacts (BACKUP_LOCAL_DIR default)
+app/backups/
+uploads/
+htmlcov/
+coverage.xml
+bandit-security-report.*
