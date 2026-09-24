@@ -668,6 +668,79 @@ OBSOLETE_DAILY_KEYS = {
 }
 
 
+def apply_tenant_branding(tpl, branding: "TenantBranding") -> None:
+    """Apply tenant branding to a ReportTemplate (in memory for PDF/DocX).
+
+    Called by pdf_dynamic and docx_exporter before rendering;
+    does NOT persist to DB (so original system template stays intact).
+    """
+    if branding is None:
+        return
+    if branding.gradient and branding.primary_color:
+        # Custom gradient from primary -> secondary
+        tpl.gradient = f"from-[{branding.primary_color.lstrip('#')}] to-[{branding.secondary_color.lstrip('#')}]"
+    else:
+        # Only update text/icon if explicitly customized
+        pass
+    if branding.custom_header_text_ar:
+        tpl.name_ar = branding.custom_header_text_ar[:200]
+
+
+def build_tenant_fields(tpl, override: "TenantTemplateOverride") -> list:
+    """Build ordered DynamicField dicts honoring override rules.
+
+    Returns new field objects (not DB-inserted) that pdf_dynamic can use.
+    """
+    if override is None:
+        return default_fields_for(tpl.key)
+    if not override.is_active:
+        return default_fields_for(tpl.key)
+
+    base_fields = default_fields_for(tpl.key)
+    # Apply fields_config rules: change type/required/options per field key
+    result = []
+    deleted = set(override.deleted_fields or [])
+    added = override.added_fields or []
+    reordered = override.reordered_fields or []
+    rules_cfg = (override.fields_config or {})
+
+    # Rebuild base with rules applied
+    for f in base_fields:
+        if f["key"] in deleted:
+            continue
+        fk = f["key"]
+        if fk in rules_cfg:
+            cfg = rules_cfg[fk]
+            # Apply overrides without destroying structure
+            new_f = dict(f)
+            if "type" in cfg:
+                new_f["type"] = cfg["type"]
+            if "required" in cfg:
+                new_f["required"] = bool(cfg["required"])
+            if "label_ar" in cfg:
+                new_f["label_ar"] = str(cfg["label_ar"])
+            if "options" in cfg:
+                new_f["options"] = list(cfg["options"])
+            if "placeholder" in cfg:
+                new_f["placeholder"] = str(cfg["placeholder"])
+            result.append(new_f)
+        else:
+            result.append(f)
+
+    # Add custom fields
+    for add_f in added:
+        result.append({
+            "key": add_f.get("key"),
+            "label_ar": add_f.get("label_ar", add_f.get("key", "")),
+            "type": add_f.get("type", "text"),
+            "required": bool(add_f.get("required", False)),
+            "options": list(add_f.get("options", [])),
+            "columns": add_f.get("columns", []),
+            "placeholder": add_f.get("placeholder", ""),
+        })
+    return result
+
+
 def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
     """Idempotent: create missing system templates + their fields."""
     for t in DEFAULT_TEMPLATES:
