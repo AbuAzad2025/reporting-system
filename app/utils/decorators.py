@@ -44,10 +44,17 @@ def _is_json_request() -> bool:
 
 
 def _deny(message: str, code: int):
-    """Unified denial response: JSON for API, flash+redirect for pages."""
+    """Unified denial response: JSON for API, flash+redirect for pages.
+
+    JSON keeps stable English codes (machine contract, asserted by tests);
+    page flashes are Arabic (human UI language).
+    """
     if _is_json_request():
         return jsonify({"error": message}), code
-    flash(message, "danger")
+    if code == 401:
+        flash("يرجى تسجيل الدخول أولاً للوصول إلى هذه الصفحة.", "warning")
+    else:
+        flash("لا تملك صلاحية الوصول إلى هذه الصفحة.", "danger")
     return redirect(url_for("main.dashboard"))
 
 

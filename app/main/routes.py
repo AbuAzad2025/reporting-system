@@ -448,7 +448,9 @@ def project_backup(project_id):
     try:
         storage_upload(data, filename)
     except Exception as exc:
-        flash(f"فشل حفظ النسخة الاحتياطية: {exc}", "danger")
+        import logging as _logging
+        _logging.getLogger(__name__).exception("project backup failed")
+        flash("فشل حفظ النسخة الاحتياطية. تحقق من التخزين ثم أعد المحاولة.", "danger")
         return redirect(url_for("main.project_detail", project_id=project_id))
     flash(f"تم إنشاء نسخة احتياطية للمشروع «{project.name}».", "success")
     return redirect(url_for("main.project_detail", project_id=project_id))
@@ -481,7 +483,9 @@ def project_backup_import(project_id):
     try:
         counts = restore_backup(data, project_id=project_id, replace=True)
     except Exception as exc:
-        flash(f"فشل الاستعادة: {exc}", "danger")
+        import logging as _logging
+        _logging.getLogger(__name__).exception("project restore failed")
+        flash("فشل الاستعادة. تأكد من سلامة الملف وأعد المحاولة.", "danger")
         return redirect(url_for("main.project_detail", project_id=project_id))
     summary = ", ".join(f"{k}: {v}" for k, v in counts.items())
     flash(f"تم استعادة المشروع «{project.name}» — {summary}", "success")

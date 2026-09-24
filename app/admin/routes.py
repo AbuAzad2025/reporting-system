@@ -419,7 +419,8 @@ def backup_index():
         from app.services.storage import list_backups
         backups = list_backups()
     except Exception as exc:
-        flash(f"تعذر جلب قائمة النسخ: {exc}", "danger")
+        logging.getLogger(__name__).exception("backup list failed")
+        flash("تعذر جلب قائمة النسخ الاحتياطية. حدّث الصفحة أو تحقق من إعدادات التخزين.", "danger")
     return render_template("admin/backup.html", backups=backups)
 
 
@@ -438,7 +439,8 @@ def backup_export():
     try:
         storage_upload(data, filename)
     except Exception as exc:
-        flash(f"فشل الرفع إلى التخزين: {exc}", "danger")
+        logging.getLogger(__name__).exception("backup upload failed")
+        flash("فشل الرفع إلى التخزين. تحقق من الاتصال وإعدادات التخزين ثم أعد المحاولة.", "danger")
         return redirect(url_for("admin.backup_index"))
     flash(f"تم إنشاء نسخة احتياطية كاملة: {filename}", "success")
     return redirect(url_for("admin.backup_index"))
@@ -464,7 +466,8 @@ def backup_import():
     try:
         counts = restore_backup(data)
     except Exception as exc:
-        flash(f"فشل الاستعادة: {exc}", "danger")
+        logging.getLogger(__name__).exception("backup restore failed")
+        flash("فشل الاستعادة. تأكد من سلامة الملف وأعد المحاولة.", "danger")
         return redirect(url_for("admin.backup_index"))
     summary = ", ".join(f"{k}: {v}" for k, v in counts.items())
     flash(f"تم استعادة النسخة بنجاح — {summary}", "success")
@@ -481,7 +484,8 @@ def backup_download(key):
     try:
         data = storage_download(key)
     except Exception as exc:
-        flash(f"تعذر تنزيل النسخة: {exc}", "danger")
+        logging.getLogger(__name__).exception("backup download failed")
+        flash("تعذر تنزيل النسخة. أعد المحاولة.", "danger")
         return redirect(url_for("admin.backup_index"))
     buf = io.BytesIO(data)
     fname = key.rsplit("/", 1)[-1] if "/" in key else key
@@ -499,7 +503,8 @@ def backup_delete(key):
         storage_delete(key)
         flash(f"تم حذف النسخة: {key}", "info")
     except Exception as exc:
-        flash(f"تعذر حذف النسخة: {exc}", "danger")
+        logging.getLogger(__name__).exception("backup delete failed")
+        flash("تعذر حذف النسخة. أعد المحاولة.", "danger")
     return redirect(url_for("admin.backup_index"))
 
 

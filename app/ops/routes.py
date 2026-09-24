@@ -140,6 +140,115 @@ SCHEMAS = {
     },
 }
 
+#: Arabic UI labels for schema keys — validation errors and the UI form
+#: must never expose raw English keys (e.g. project_id) to field engineers.
+FIELD_LABELS_AR = {
+    "project_id": "المشروع", "report_date": "تاريخ التقرير",
+    "test_category": "فئة الاختبار", "test_type": "نوع الاختبار",
+    "result_value": "نتيجة القياس", "result_unit": "وحدة النتيجة",
+    "acceptance_min": "الحد الأدنى للقبول",
+    "acceptance_max": "الحد الأعلى للقبول",
+    "verdict": "الحكم", "lab_name": "المختبر", "slump": "الهبوط",
+    "attachments": "المرفقات", "witness": "الشاهد",
+    "sample_location": "موقع العينة", "location_detail": "موقع العينة",
+    "spec_reference": "المرجع / المواصفة", "spec_ref": "المرجع",
+    "spec_section": "بند المواصفة", "standard_code": "الكود المعتمد",
+    "drawing_ref": "مرجع المخطط", "code_clause": "بند الكود",
+    "level": "المنسوب / الطابق", "zone": "المنطقة / الحيز",
+    "element": "العنصر", "axes": "المحاور",
+    "material_name": "اسم المادة", "manufacturer": "الشركة المصنعة",
+    "origin_country": "بلد المنشأ", "submittal_no": "رقم التقديم",
+    "supplier": "المورّد", "quantity": "الكمية", "unit": "الوحدة",
+    "revision": "المراجعة", "consultant_action": "إجراء الاستشاري",
+    "resubmit_due": "تاريخ إعادة التقديم",
+    "subject": "الموضوع", "question": "نص الاستفسار",
+    "discipline": "التخصص", "ball_in_court": "الكرة في ملعب",
+    "priority": "الأولوية", "cost_impact": "الأثر المالي",
+    "reply_due": "تاريخ الرد المطلوب", "date_replied": "تاريخ الرد",
+    "reply_summary": "ملخص الرد", "response_action": "الإجراء",
+    "delay_days": "أيام التأخير",
+    "boq_item": "بند جدول الكميات", "boq_ref": "مرجع البند",
+    "budgeted_qty": "الكمية المعتمدة", "budgeted_rate": "السعر المعتمد",
+    "actual_qty": "الكمية الفعلية", "actual_rate": "السعر الفعلي",
+    "reestimated_qty": "الكمية المعاد تقديرها",
+    "reestimated_rate": "السعر المعاد تقديره",
+    "schedule_impact_days": "الأثر الزمني (أيام)", "reason": "السبب",
+    "work_item": "بند الأعمال", "qty_completed": "الكمية المنجزة",
+    "rate": "السعر", "retention_pct": "نسبة المحجوز (%)",
+    "previously_certified": "المعتمد سابقاً",
+    "progress_pct": "نسبة الإنجاز (%)",
+    "period_from": "بداية الفترة", "period_to": "نهاية الفترة",
+    "period": "الفترة", "cert_no": "رقم المستخلص",
+    "currency": "العملة",
+    "subcontractor": "المقاول من الباطن", "trade": "التخصص",
+    "quality_score": "الجودة", "schedule_score": "الالتزام الزمني",
+    "safety_score": "السلامة", "compliance_score": "الالتزام التعاقدي",
+    "recommended_payment": "الدفعة الموصى بها", "penalty": "الغرامة",
+    "incidents": "الحوادث", "remarks": "ملاحظات التقييم",
+    "recommendation": "التوصية",
+    "weather": "حالة الطقس", "temp_c": "درجة الحرارة (°م)",
+    "work_hours": "ساعات العمل", "engineers_count": "عدد المهندسين",
+    "technicians_count": "عدد الفنيين", "labor_count": "عدد العمال",
+    "labor_table": "جدول العمالة", "equipment_table": "جدول المعدات",
+    "work_fronts": "جبهات العمل",
+    "title": "العنوان", "category": "الفئة", "description": "الوصف",
+    "time_impact_days": "الأثر الزمني (أيام)",
+    "area": "المنطقة", "hazard": "الخطر",
+    "inspection_type": "نوع التفتيش", "risk_level": "مستوى الخطر",
+    "responsible": "المسؤول", "corrective_action": "الإجراء التصحيحي",
+    "follow_up": "المتابعة",
+    "incidents_count": "عدد الحوادث",
+    "lost_time_injuries": "إصابات الوقت الضائع",
+    "toolbox_talks": "محاضرات التوعية",
+    "ppe_compliance": "الالتزام بمعدات الوقاية (%)",
+    "target_date": "التاريخ المستهدف", "closure_date": "تاريخ الإغلاق",
+    "notes": "ملاحظات",
+    "pour_permit_ref": "رقم إذن الصب", "cube_7d": "مقاومة 7 أيام",
+    "cube_28d": "مقاومة 28 يوماً", "cube_ids": "أرقام المكعبات",
+    "tolerance_mm": "التفاوت المسموح (مم)",
+    "finish_code": "رمز التشطيب", "concrete_class": "رتبة الخرسانة",
+    "measurement_ref": "مرجع القياس", "test_report_ref": "مرجع تقرير الفحص",
+    "vo_no": "رقم أمر التغيير", "vo_ref": "مرجع الأمر",
+    "certificates": "الشهادات",
+}
+
+
+def flabel(key: str) -> str:
+    """Arabic UI label for a schema key (falls back to the key itself)."""
+    return FIELD_LABELS_AR.get(key, key)
+
+
+#: long free-text keys rendered as textareas in the UI form
+LONG_TEXT_FIELDS = {"question", "description", "reply_summary", "review_notes",
+                    "remarks", "hazard", "corrective_action", "follow_up",
+                    "response_action", "reason"}
+
+#: columns never rendered as inputs (handled separately or system-managed)
+SYSTEM_COLS = {"id", "serial", "status", "signatory_name", "user_id",
+               "reviewed_by_id", "reviewed_at", "created_at", "updated_at",
+               "project_id", "report_date", "notes"}
+
+
+def ui_fields(kind: str, model) -> list:
+    """Ordered UI field keys: schema fields first, then remaining text
+    columns (so optional text like supplier/description is fillable too).
+    JSON workflow tables and system columns are excluded."""
+    schema = SCHEMAS[kind]
+    table_keys = set(TABLE_SPECS.get(kind, {}))
+    ordered: list = []
+    for key in (list(schema["required"]) + list(schema["numbers"])
+                + list(schema["enums"]) + list(schema["dates"])):
+        if key not in ordered and key not in SYSTEM_COLS:
+            ordered.append(key)
+    for col in model.__table__.columns:
+        key = col.key
+        if key in ordered or key in SYSTEM_COLS or key in PROTECTED \
+                or key in table_keys:
+            continue
+        ordered.append(key)
+    return ordered
+
+
 #: mass-assignment guard — never client-settable
 PROTECTED = {"id", "serial", "status", "signatory_name", "user_id",
              "reviewed_by_id", "reviewed_at", "created_at", "updated_at"}
@@ -164,44 +273,48 @@ TABLE_SPECS = {
 
 def _validate_table(table: str, spec: list, raw, errors: list):
     """Validate one list-of-dicts workflow table. Returns cleaned list."""
+    tlabel = flabel(table)
     if not isinstance(raw, list):
-        errors.append(f"الحقل {table} يجب أن يكون قائمة.")
+        errors.append(f"«{tlabel}» يجب أن يكون قائمة بنود.")
         return None
     if len(raw) > M.MAX_TABLE_ROWS:
-        errors.append(f"الحقل {table} يتجاوز الحد ({M.MAX_TABLE_ROWS} صفاً).")
+        errors.append(f"«{tlabel}» يتجاوز الحد ({M.MAX_TABLE_ROWS} صفاً).")
         return None
     cleaned_rows = []
     for i, row in enumerate(raw):
         if not isinstance(row, dict):
-            errors.append(f"الصف {i + 1} في {table} غير صالح.")
+            errors.append(f"الصف {i + 1} في «{tlabel}» غير صالح.")
             return None
         cleaned_row = {}
         for key, typ, required, rule in spec:
+            klabel = flabel(key)
             val = row.get(key)
             if val in ("", None):
                 if required:
-                    errors.append(f"الصف {i + 1} في {table}: {key} مطلوب.")
+                    errors.append(f"الصف {i + 1} في «{tlabel}»: «{klabel}» مطلوب.")
                     return None
                 continue
             if typ == "text":
                 if not isinstance(val, str):
-                    errors.append(f"الصف {i + 1} في {table}: {key} نصي.")
+                    errors.append(f"الصف {i + 1} في «{tlabel}»: «{klabel}» يجب أن يكون نصاً.")
                     return None
                 cleaned_row[key] = val.strip()[:200]
             elif typ == "number":
                 try:
                     v = float(val)
                 except (TypeError, ValueError):
-                    errors.append(f"الصف {i + 1} في {table}: {key} رقمي.")
+                    errors.append(f"الصف {i + 1} في «{tlabel}»: «{klabel}» يجب أن يكون رقماً.")
                     return None
                 lo, hi = rule
                 if (lo is not None and v < lo) or (hi is not None and v > hi):
-                    errors.append(f"الصف {i + 1} في {table}: {key} خارج النطاق.")
+                    errors.append(f"الصف {i + 1} في «{tlabel}»: «{klabel}» خارج النطاق المسموح.")
                     return None
                 cleaned_row[key] = v
             elif typ == "enum":
                 if str(val).strip() not in rule:
-                    errors.append(f"الصف {i + 1} في {table}: {key} غير صالح.")
+                    errors.append(
+                        f"الصف {i + 1} في «{tlabel}»: قيمة غير مسموحة في «{klabel}» — "
+                        f"المسموح: {'، '.join(rule)}.")
                     return None
                 cleaned_row[key] = str(val).strip()
         cleaned_rows.append(cleaned_row)
@@ -221,7 +334,7 @@ def _parse_date(raw, field, errors):
     try:
         return datetime.strptime(str(raw)[:10], "%Y-%m-%d").date()
     except ValueError:
-        errors.append(f"التاريخ غير صالح في حقل {field} (YYYY-MM-DD).")
+        errors.append(f"التاريخ غير صالح في «{flabel(field)}» — الصيغة المطلوبة YYYY-MM-DD.")
         return None
 
 
@@ -232,11 +345,13 @@ def validate_input(kind: str, data: dict, partial: bool = False):
     if not partial:
         for f in schema["required"]:
             if data.get(f) in ("", None):
-                errors.append(f"الحقل {f} مطلوب.")
+                errors.append(f"«{flabel(f)}» حقل مطلوب.")
     for f, allowed in schema["enums"].items():
         if f in data and data[f] not in ("", None):
             if str(data[f]).strip() not in allowed:
-                errors.append(f"قيمة غير صالحة للحقل {f}.")
+                errors.append(
+                    f"قيمة غير مسموحة في «{flabel(f)}» — المسموح: "
+                    f"{'، '.join(allowed)}.")
             else:
                 cleaned[f] = str(data[f]).strip()
     for f, (lo, hi) in schema["numbers"].items():
@@ -244,13 +359,13 @@ def validate_input(kind: str, data: dict, partial: bool = False):
             try:
                 v = float(data[f])
             except (TypeError, ValueError):
-                errors.append(f"الحقل {f} يجب أن يكون رقماً.")
+                errors.append(f"«{flabel(f)}» يجب أن يكون رقماً.")
                 continue
             if lo is not None and v < lo:
-                errors.append(f"الحقل {f} يجب أن يكون ≥ {lo}.")
+                errors.append(f"«{flabel(f)}» يجب أن يكون ≥ {lo}.")
                 continue
             if hi is not None and v > hi:
-                errors.append(f"الحقل {f} يجب أن يكون ≤ {hi}.")
+                errors.append(f"«{flabel(f)}» يجب أن يكون ≤ {hi}.")
                 continue
             cleaned[f] = v
     # strict cross-field: result_value vs acceptance window (SiteInspection NCR trigger)
@@ -287,7 +402,7 @@ def validate_input(kind: str, data: dict, partial: bool = False):
             try:
                 cleaned[k] = int(v)
             except (TypeError, ValueError):
-                errors.append("الحقل project_id يجب أن يكون رقم مشروع صالح.")
+                errors.append("«المشروع» يجب أن يكون رقم مشروع صالح — اختره من القائمة.")
             continue
         if k in model_cols and isinstance(v, str):
             cleaned[k] = v.strip()
@@ -616,13 +731,15 @@ def ui_new(kind):
             from flask import flash, render_template as _rt
             for e in errors:
                 flash(e, "danger")
-            return _rt("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new")
+            return _rt("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new",
+                       fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         try:
             cleaned = _apply_project_link(current_user, cleaned)
         except Exception as exc:
             from flask import flash as _fl
             _fl(str(exc), "danger")
-            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new")
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new",
+                                   fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         obj = model(**{k: v for k, v in cleaned.items() if hasattr(model, k)})
         obj.signatory_name = current_user.full_name
         obj.user_id = current_user.id
@@ -634,11 +751,13 @@ def ui_new(kind):
             db.session.rollback()
             from flask import flash as _fl2
             _fl2("تعذر الحفظ — سجل مكرر.", "danger")
-            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new")
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new",
+                                   fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         from flask import flash as _fl3, redirect, url_for
         _fl3("تم الحفظ بنجاح.", "success")
         return redirect(url_for("ops.ui_detail", kind=kind, obj_id=obj.id))
-    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data={}, mode="new")
+    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data={}, mode="new",
+                           fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
 
 
 @bp.route("/ui/<kind>/<int:obj_id>", methods=["GET"])
@@ -667,7 +786,8 @@ def ui_edit(kind, obj_id):
             from flask import flash
             for e in errors:
                 flash(e, "danger")
-            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="edit", record=record)
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="edit", record=record,
+                                   fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         for k, v in cleaned.items():
             if hasattr(record, k):
                 setattr(record, k, v)
@@ -676,7 +796,8 @@ def ui_edit(kind, obj_id):
         _fl("تم التحديث.", "success")
         return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
     prefill = {c.key: (getattr(record, c.key) or "") for c in model.__table__.columns}
-    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=prefill, mode="edit", record=record)
+    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=prefill, mode="edit", record=record,
+                           fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
 
 
 @bp.route("/ui/<kind>/<int:obj_id>/submit", methods=["POST"])
