@@ -58,8 +58,8 @@ def _fmt(v) -> str:
     return s if s else "—"
 
 
-def collect_batch(model_map, user, project_id=None, date_from=None,
-                  date_to=None, kinds=None):
+def collect_batch(model_map, user, project_id=None, date_from_str=None,
+                  date_to_str=None, kinds=None):
     """Tenant-scoped collection across modules, oldest first. Pure query
     helper shared by the endpoint and tests."""
     from app.ops.isolation import scope_to_tenant
