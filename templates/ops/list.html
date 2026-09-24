@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ kind_title }} — {{ kind }}{% endblock %}
+{% block title %}{{ kind_title }}{% endblock %}
 {% block content %}
 <div class="max-w-6xl mx-auto space-y-4">
   <div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between">
     <div>
       <h1 class="font-extrabold text-lg text-navy">{{ kind_title }}</h1>
-      <p class="text-xs text-slate-500">{{ kind }} • {{ total }} سجل • tenant-scoped</p>
+      <p class="text-xs text-slate-500">{{ total }} سجل • مشاريعك فقط</p>
     </div>
     <a href="{{ url_for('ops.ui_new', kind=kind) }}" class="bg-teal2 text-white font-bold px-5 py-3 rounded-xl">＋ جديد</a>
   </div>
@@ -24,7 +24,7 @@
           {% for r in records %}
           <tr class="border-t border-slate-100 hover:bg-slate-50">
             <td class="px-3 py-3 font-mono text-xs">{{ r.serial }}</td>
-            <td class="px-3 py-3">{{ r.project_id }}</td>
+            <td class="px-3 py-3">{{ project_names.get(r.project_id, '—') }}</td>
             <td class="px-3 py-3">{{ r.report_date }}</td>
             <td class="px-3 py-3">
               {% if r.status=='approved' %}<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs">معتمد</span>

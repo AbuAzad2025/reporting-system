@@ -4,35 +4,40 @@
 <div class="max-w-3xl mx-auto space-y-4">
   <div class="bg-white rounded-3xl shadow p-5">
     <h1 class="font-extrabold text-lg text-navy">{{ kind_title }} — {{ record.serial }}</h1>
-    <p class="text-xs text-slate-500">المشروع #{{ record.project_id }} • {{ record.report_date }} • {{ record.status_ar if record.status_ar else record.status }}</p>
-    <div class="flex gap-2 mt-3">
-      <a href="{{ url_for('ops.ui_edit', kind=kind, obj_id=record.id) }}" class="bg-navy text-white text-xs font-bold px-4 py-2 rounded-xl">تعديل</a>
+    <p class="text-xs text-slate-500">🏗️ {{ project_name }} • 📅 {{ record.report_date }} • <span class="badge">{{ record.status_ar }}</span></p>
+    <div class="flex gap-2 mt-3 flex-wrap">
+      <a href="{{ url_for('ops.ui_edit', kind=kind, obj_id=record.id) }}" class="bg-navy text-white text-xs font-bold px-4 py-2 rounded-xl">✏️ تعديل</a>
       <form method="POST" action="{{ url_for('ops.ui_submit', kind=kind, obj_id=record.id) }}" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="bg-sky-500 text-white text-xs font-bold px-4 py-2 rounded-xl">تقديم للاعتماد</button>
+        <button class="bg-sky-500 text-white text-xs font-bold px-4 py-2 rounded-xl">📤 تقديم للاعتماد</button>
       </form>
       <form method="POST" action="{{ url_for('ops.ui_approve', kind=kind, obj_id=record.id) }}" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl">اعتماد</button>
+        <button class="bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl">✅ اعتماد</button>
       </form>
     </div>
   </div>
 
   <div class="bg-white rounded-3xl shadow p-5">
     <h2 class="font-bold text-navy mb-2">البيانات</h2>
+    {% if items %}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-      {% for k,v in record.to_dict().items() %}
-      <div class="flex justify-between border-b border-slate-100 py-2"><span class="font-bold">{{ k }}</span><span class="text-slate-600">{{ v }}</span></div>
+      {% for label, v in items %}
+      <div class="flex justify-between gap-3 border-b border-slate-100 py-2"><span class="font-bold shrink-0">{{ label }}</span><span class="text-slate-600 text-left break-words">{{ v }}</span></div>
       {% endfor %}
     </div>
+    {% else %}
+    <p class="text-sm text-slate-400">لا توجد بيانات إضافية مدخلة.</p>
+    {% endif %}
+    <p class="text-[11px] text-slate-400 mt-3">✍️ الموقّع: {{ record.signatory_name }}</p>
   </div>
 
   <div class="bg-white rounded-3xl shadow p-5">
-    <h2 class="font-bold text-navy mb-2">السجل الزمني (Timeline)</h2>
+    <h2 class="font-bold text-navy mb-2">السجل الزمني</h2>
     <div class="space-y-2 text-sm">
       <div>✓ إنشاء — {{ record.created_at }}</div>
-      <div>✓ تقديم — {{ record.status }}</div>
-      {% if record.reviewed_at %}<div>✓ مراجعة — {{ record.reviewed_at }} ({{ record.review_notes or '' }})</div>{% endif %}
+      <div>✓ الحالة الحالية — {{ record.status_ar }}</div>
+      {% if record.reviewed_at %}<div>✓ مراجعة — {{ record.reviewed_at }}{% if record.review_notes %} ({{ record.review_notes }}){% endif %}</div>{% endif %}
     </div>
   </div>
 </div>

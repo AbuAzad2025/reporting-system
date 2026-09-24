@@ -713,7 +713,12 @@ def ui_list(kind):
     if status_filter:
         q = q.filter(model.status == status_filter)
     records = q.order_by(model.report_date.desc(), model.id.desc()).limit(200).all()
-    return render_template("ops/list.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), records=records, total=len(records), status_filter=status_filter)
+    _pnames = {}
+    _pids = {r.project_id for r in records}
+    if _pids:
+        for _p in db.session.query(Project).filter(Project.id.in_(_pids)).all():
+            _pnames[_p.id] = _p.name
+    return render_template("ops/list.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), records=records, total=len(records), status_filter=status_filter, project_names=_pnames)
 
 
 @bp.route("/ui/<kind>/new", methods=["GET", "POST"])
@@ -767,7 +772,15 @@ def ui_detail(kind, obj_id):
     if err:
         return err
     record = get_object_or_404_tenant(model, obj_id, current_user)
-    return render_template("ops/detail.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), record=record)
+    project = db.session.get(Project, record.project_id)
+    hide = {"id", "project_id", "user_id", "reviewed_by_id", "root_id",
+            "supersedes_id", "version", "status", "status_ar",
+            "created_at", "updated_at"}
+    items = [(flabel(k), v) for k, v in record.to_dict().items()
+             if k not in hide and v not in ("", None, [])]
+    return render_template("ops/detail.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), record=record,
+                           project_name=project.name if project else "—",
+                           items=items, flabel=flabel)
 
 
 @bp.route("/ui/<kind>/<int:obj_id>/edit", methods=["GET", "POST"])

@@ -25,3 +25,24 @@ def test_ops_validation_arabic(client):
     html = r.get_data(as_text=True)
     assert "«المشروع» حقل مطلوب" in html
     assert "الحقل project_id" not in html
+
+
+def test_ops_detail_arabic(client, app):
+    from app.ops.models import RFI
+    login_as(client, "t_eng")
+    with app.app_context():
+        rec = RFI.query.filter_by(serial="RFI-000001").first()
+        rid = rec.id
+    html = client.get(f"/ops/ui/rfis/{rid}").get_data(as_text=True)
+    assert "Alpha Tower" in html  # project name, not numeric id
+    assert "الكرة في ملعب" in html
+    assert ">ball_in_court<" not in html
+    assert ">test_category<" not in html
+    assert "user_id" not in html
+
+
+def test_ops_list_names(client):
+    login_as(client, "t_eng")
+    html = client.get("/ops/ui/rfis").get_data(as_text=True)
+    assert "Alpha Tower" in html
+    assert "tenant-scoped" not in html
