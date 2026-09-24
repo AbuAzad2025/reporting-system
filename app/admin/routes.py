@@ -37,11 +37,13 @@ def dashboard():
     }
 # submissions per day (last 14 days)
     since = date.today() - timedelta(days=13)
-    rows = (db.session.query(ReportSubmission.report_date,
-                             func.count(ReportSubmission.id))
+    rows = (
+        db.session.query(ReportSubmission.report_date,
+                         func.count(ReportSubmission.id))
         .filter(ReportSubmission.created_at >= since)
         .group_by(ReportSubmission.report_date)
-        .order_by(ReportSubmission.report_date).all())
+        .order_by(ReportSubmission.report_date).all()
+    )
     chart = [{"d": str(d), "c": c} for d, c in rows]
     per_template = (db.session.query(ReportTemplate.name_ar,
                                      func.count(ReportSubmission.id))
