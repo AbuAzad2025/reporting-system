@@ -7,7 +7,7 @@ Initializes: SQLAlchemy, Login, Migrate. Seeds default dynamic templates.
 import os
 from datetime import date
 import click
-from flask import Flask
+from flask import Flask, render_template
 
 from flask_wtf.csrf import CSRFProtect
 
@@ -31,31 +31,35 @@ def create_app(config_class=Config):
     if app.config.get("TESTING"):
         app.config["WTF_CSRF_ENABLED"] = False
 
-    # Auto-seed admin / owner with date-based password and clean session
-    try:
-        with app.app_context():
-            from app.models import User, Project
-            from datetime import datetime
-            today = datetime.utcnow()
-            pw = f"Azad@1983@{today.year}@{today.month}@{today.day}"
-            from app.ops.models import ProjectMember
-            for uname, email, full, role in [
-                ("admin", "admin@azadexa.com", "مدير المنصة الرئيسي", "superadmin"),
-                ("owner", "owner@azadexa.com", "مالك المنصة الرئيسي", "project_manager"),
-            ]:
-                if not User.query.filter_by(username=uname).first():
-                    u = User(username=uname, email=email, full_name=full,
-                             role=role, company="شركة أزاد للأنظمة الذكية")
-                    u.set_password(pw)
-                    db.session.add(u)
-            # Create a sample project for owner reference (optional seed)
-            proj = Project.query.filter_by(name="مشروع برج النخيل السكني").first()
-            if proj:
-                for member in ProjectMember.query.filter_by(project_id=proj.id).all():
-                    pass
-            db.session.commit()
-    except Exception:
-        pass
+    # NOTE (professional posture): no silent user seeding on boot.
+    # Demo accounts are created explicitly via `flask seed` only.
+
+    # ---- production trust guards (no new dependencies)
+    _secret = str(app.config.get("SECRET_KEY") or "")
+    _is_prod = (
+        os.environ.get("FLASK_ENV") == "production"
+        or os.environ.get("USE_CLOUD_DB") == "1"
+        or any(os.environ.get(m) for m in (
+            "RENDER", "RAILWAY_ENVIRONMENT", "HEROKU_APP_NAME", "DYNO"))
+    )
+    if (_is_prod and not app.config.get("TESTING")
+            and _secret in ("dev-secret-change-in-production", "", "pytest-secret")):
+        app.logger.error(
+            "Refusing boot: SECRET_KEY must be set in production "
+            "(default dev secret detected).")
+        raise RuntimeError("SECRET_KEY must be set in production.")
+    # Cookie hardening: Secure only in production (local HTTP stays working).
+    app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
+    app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
+    if _is_prod:
+        app.config["SESSION_COOKIE_SECURE"] = True
+
+    @app.after_request
+    def _security_headers(resp):
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return resp
 
     # Fail-closed API posture: unauthenticated /ops/* (and other JSON
     # callers) get a machine-readable 401 instead of a 302 login redirect,
@@ -83,6 +87,23 @@ def create_app(config_class=Config):
     app.register_blueprint(reports_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(ops_bp)
+
+    # ---- professional error pages + health check
+    @app.route("/healthz")
+    def healthz():
+        return {"status": "ok"}, 200
+
+    @app.errorhandler(403)
+    def _forbidden(_e):
+        return render_template("errors/403.html"), 403
+
+    @app.errorhandler(404)
+    def _not_found(_e):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(500)
+    def _server_error(_e):
+        return render_template("errors/500.html"), 500
 
     # ---- template globals
     from app.models import REPORT_TYPES, ROLES

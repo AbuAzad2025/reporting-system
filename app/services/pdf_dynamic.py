@@ -68,9 +68,15 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             img1 = _brand_logo(22)
         # if only one logo, still render header with company names
         if img1 or img2:
-            # titles under logos — shape each language separately so <br/> survives ar()
-            left_title = Paragraph(ar("وزارة الأشغال العامة والإسكان") + "<br/>" + "Ministry of Public Works and Housing", st["cell_small"])
-            right_title = Paragraph(ar("شركة سمرقند للمقاولات") + "<br/>" + "Sumer Qand Contracting Company", st["cell_small"])
+            # Professional header: client/owner (right) + contractor (left),
+            # sourced from the project record — never hardcoded to one vendor.
+            from flask import current_app as _cap
+            _cfg = _cap.config if _cap else {}
+            _company_ar = str(_cfg.get("COMPANY_NAME_AR") or "جهة الإشراف / المالك")
+            _company_en = str(_cfg.get("COMPANY_NAME_EN") or "")
+            _contractor = (submission.contractor or payload.get("contractor") or "").strip() or "المقاول المنفذ"
+            left_title = Paragraph(ar(_company_ar) + ("<br/>" + _company_en if _company_en else ""), st["cell_small"])
+            right_title = Paragraph(ar(_contractor), st["cell_small"])
             # use simple table with images on top row and titles bottom
             logo_tbl = Table([[img1 or Paragraph("", st["cell"]), img2 or Paragraph("", st["cell"])],
                               [left_title, right_title]], colWidths=[95 * mm, 95 * mm])
@@ -119,21 +125,23 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         story.append(Paragraph(ar("بيانات المشروع العامة" if is_daily else "البيانات التعريفية والتعاقدية للمشروع"), st["cell_h"]))
         story.append(Spacer(1, 2 * mm))
         # 7 rows for daily, 9 rows for weekly (adds engineers + date/type)
+        # Professional default: empty (—) when no project data — never invent
+        # a specific site/contractor inside a generic platform renderer.
         proj_rows = [
-            ("اسم المشروع", submission.project_name or payload.get("project_name", "إعادة تأهيل وصيانة صالة القادمين في استراحة أريحا")),
-            ("رقم المناقصة / العقد", payload.get("contract_no", "CTD/2026/021-WB/MOF")),
-            ("مصدر التمويل", payload.get("funding_source", "البنك الدولي - مشروع التعافي الاجتماعي والوظائف")),
-            ("الجهة المنفذة", payload.get("implementing_entity", "وزارة المالية / CTD/MOF")),
-            ("الجهة المستفيدة", payload.get("beneficiary_entity", "الإدارة العامة للمعابر والحدود (GABC)")),
-            ("المقاول المنفذ", submission.contractor or payload.get("contractor", "شركة سمرقند للمقاولات")),
-            ("الموقع", submission.location or payload.get("project_location", "استراحة أريحا - معبر الكرامة، أريحا")),
+            ("اسم المشروع", submission.project_name or payload.get("project_name", "—")),
+            ("رقم المناقصة / العقد", payload.get("contract_no", "—")),
+            ("مصدر التمويل", payload.get("funding_source", "—")),
+            ("الجهة المنفذة", payload.get("implementing_entity", "—")),
+            ("الجهة المستفيدة", payload.get("beneficiary_entity", "—")),
+            ("المقاول المنفذ", submission.contractor or payload.get("contractor", "—")),
+            ("الموقع", submission.location or payload.get("project_location", "—")),
         ]
         if not is_daily:
             proj_rows += [
-                ("مهندس المقاول / مدير المشروع", payload.get("pm_name", "م. محمد نسيم عرار")),
-                ("مهندس السلامة", payload.get("safety_eng", "م. محمد قباجه")),
+                ("مهندس المقاول / مدير المشروع", payload.get("pm_name", "—")),
+                ("مهندس السلامة", payload.get("safety_eng", "—")),
                 ("تاريخ التقرير", str(submission.report_date or "")),
-                ("نوع التقرير", payload.get("report_type_label", "تقرير تقدم عمل أسبوعي شامل")),
+                ("نوع التقرير", payload.get("report_type_label", template.name_ar)),
             ]
         proj_body = [[Paragraph(ar(v), st["cell"]), Paragraph(ar(k), st["cell_h"])] for k, v in proj_rows]
         proj_tbl = Table(proj_body, colWidths=[140 * mm, 50 * mm])

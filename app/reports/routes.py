@@ -211,7 +211,11 @@ def _extract_table_rows(field, form):
         return []
     prefix = f"f_{field.field_key}__"
     by_idx: dict = {}
-    if isinstance(form, dict):
+    # NOTE: request.form (ImmutableMultiDict) subclasses dict in Werkzeug,
+    # so dispatch on getlist (multidict API), not isinstance dict — otherwise
+    # every real HTML submission falls into the prefill branch and all
+    # line-item rows are silently dropped (critical data-loss bug).
+    if isinstance(form, dict) and not hasattr(form, "getlist"):
         pre = form.get(field.field_key)
         if pre is None:
             pre = form.get(f"f_{field.field_key}")
@@ -320,6 +324,18 @@ def _collect_dynamic(template, form):
                         label=f"«{f.label_ar}» — الصف {n} «{c['label_ar']}»")
                     if err:
                         errors.append(err)
+                # ESHS checklist integrity: done/not_done are mutually exclusive.
+                # Old submissions stay readable; new contradictory rows are rejected.
+                _col_keys = {c["key"] for c in cols}
+                if "done" in _col_keys and "not_done" in _col_keys:
+                    def _is_yes(v):
+                        if v is True:
+                            return True
+                        return str(v or "").strip().lower() in (
+                            "1", "true", "yes", "on", "checked", "نعم", "☒")
+                    if _is_yes(row.get("done")) and _is_yes(row.get("not_done")):
+                        errors.append(
+                            f"«{f.label_ar}» — الصف {n}: لا يمكن تحديد «تم» و«لم يتم» معاً — اختر واحداً فقط.")
             if f.required and not rows:
                 errors.append(f"«{f.label_ar}» يتطلب بنداً واحداً على الأقل.")
             payload[f.field_key] = rows
@@ -346,7 +362,14 @@ def _collect_dynamic(template, form):
 def dyn_list():
     templates = ReportTemplate.query.filter_by(is_active=True).order_by(
         ReportTemplate.id).all()
-    return render_template("reports/dyn_list.html", templates=templates)
+    counts = {}
+    for t in templates:
+        q = ReportSubmission.query.filter_by(template_id=t.id)
+        if not current_user.is_admin:
+            q = q.filter_by(user_id=current_user.id)
+        counts[t.key] = q.count()
+    return render_template("reports/dyn_list.html", templates=templates,
+                           counts=counts)
 
 
 @bp.route("/dyn/new/<template_key>", methods=["GET", "POST"])

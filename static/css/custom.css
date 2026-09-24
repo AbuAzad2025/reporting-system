@@ -1,18 +1,145 @@
-/* Field-site extras: bigger touch targets, prevent zoom on inputs (iOS). */
-input, select, textarea { font-size: 16px; }
-.field-auto { min-height: 88px; }
+/* ============================================================
+   Azadexa Professional Design System
+   Mobile-first RTL · accessible focus · clean print
+   ============================================================ */
+:root {
+  --navy: #1e3a5f;
+  --teal: #0e7c7b;
+  --gold: #c9a227;
+  --ink: #1e293b;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --card-radius: 1rem;
+}
 
-/* RTL safeguards: long serials / latin strings must wrap, never overlap. */
+/* Base */
+input, select, textarea { font-size: 16px; } /* prevent iOS zoom */
+.field-auto { min-height: 88px; }
 bdi { overflow-wrap: anywhere; word-break: break-word; }
 .truncate { overflow-wrap: anywhere; }
 
+/* Accessibility */
+.skip-link {
+  position: absolute; right: 1rem; top: -3rem; z-index: 100;
+  background: var(--navy); color: #fff; padding: .6rem 1rem;
+  border-radius: .75rem; font-weight: 700; transition: top .15s ease;
+}
+.skip-link:focus { top: .5rem; }
+:focus-visible {
+  outline: 3px solid rgba(14,124,123,.55);
+  outline-offset: 2px;
+  border-radius: .5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* Header */
+.app-header {
+  background: linear-gradient(to left, #1a1610, #2a2318, #1a1610);
+  color: #fff;
+}
+
+/* Professional components */
+.page-header {
+  background: #fff; border-radius: 1.5rem;
+  box-shadow: 0 1px 3px rgba(15,23,42,.08);
+  padding: 1.25rem;
+}
+.page-header h1 { color: var(--navy); font-weight: 800; font-size: 1.125rem; }
+.page-header p { color: var(--muted); font-size: .8rem; margin-top: .25rem; }
+
+.card {
+  background: #fff; border-radius: var(--card-radius);
+  box-shadow: 0 1px 3px rgba(15,23,42,.08);
+  border: 1px solid rgba(226,232,240,.7);
+}
+.badge {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: 11px; font-weight: 700;
+  padding: .25rem .6rem; border-radius: 999px;
+  background: #f1f5f9; color: #475569;
+}
+.badge-required { background: #fef3c7; color: #92400e; }
+.badge-optional { background: #f1f5f9; color: #64748b; }
+.badge-count { background: rgba(255,255,255,.2); color: #fff; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  font-weight: 800; border-radius: 1rem;
+  padding: .9rem 1.25rem; min-height: 52px;
+  transition: filter .15s ease, transform .05s ease;
+}
+.btn:active { transform: scale(.99); }
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-navy { background: var(--navy); color: #fff; }
+.btn-ghost { background: #f1f5f9; color: var(--ink); }
+
+.form-label { font-weight: 700; font-size: .875rem; color: var(--ink); }
+.form-hint { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+.form-control {
+  margin-top: .25rem; width: 100%;
+  border: 2px solid var(--line); border-radius: .9rem;
+  padding: .85rem 1rem; background: #fff;
+}
+.form-control:focus { border-color: var(--teal); outline: none; }
+.form-control[aria-invalid="true"] { border-color: #ef4444; background: #fef2f2; }
+
+/* Collapsible report sections */
+.report-section {
+  background: #fff; border: 1px solid rgba(226,232,240,.9);
+  border-radius: 1.25rem; overflow: hidden;
+}
+.report-section > summary {
+  cursor: pointer; list-style: none;
+  padding: 1rem 1.25rem; font-weight: 800; font-size: .9rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+}
+.report-section > summary::-webkit-details-marker { display: none; }
+.report-section > summary:hover { background: #f8fafc; }
+.report-section .section-body { padding: 0 1.25rem 1.25rem; }
+.report-section .chev { transition: transform .15s ease; color: var(--muted); }
+.report-section[open] .chev { transform: rotate(180deg); }
+
+/* Flash + toast */
+.flash-msg button { line-height: 1; font-size: 1.1rem; }
+#toast-root {
+  position: fixed; bottom: 6rem; left: 50%; transform: translateX(-50%);
+  z-index: 60; display: flex; flex-direction: column; gap: .5rem; align-items: center;
+  pointer-events: none; width: max-content; max-width: 92vw;
+}
+.toast {
+  background: var(--navy); color: #fff;
+  padding: .6rem 1rem; border-radius: .9rem;
+  font-size: .85rem; font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0,0,0,.25);
+}
+
+/* Tables on small screens */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-field th, .table-field td { vertical-align: top; }
+
+/* Empty state */
+.empty-state {
+  background: #fff; border: 1.5px dashed var(--line);
+  border-radius: 1.25rem; padding: 2rem 1.5rem;
+  text-align: center; color: var(--muted); font-size: .875rem;
+}
+
+/* Error pages */
+.error-hero { text-align: center; padding: 3rem 1rem; }
+.error-code {
+  font-size: 4rem; font-weight: 800; color: var(--navy); line-height: 1;
+}
+
 /* Print: official A4 output — hide all chrome, keep clean report card. */
 @media print {
-  header, nav, .no-print { display: none !important; }
+  header, nav, .no-print, #toast-root { display: none !important; }
   body { background: #fff !important; padding-bottom: 0 !important; }
   main { max-width: none !important; margin: 0 !important; padding: 0 !important; }
-  .shadow, .shadow-lg { box-shadow: none !important; }
-  .bg-navy, .bg-slate-100 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .shadow, .shadow-lg, .card, .page-header { box-shadow: none !important; }
   a { text-decoration: none !important; color: inherit !important; }
+  .report-section { break-inside: avoid; }
   @page { size: A4; margin: 12mm; }
 }

@@ -3,6 +3,8 @@ from datetime import date
 
 class TestReportsRealFull:
     def test_new_legacy_daily_post_real(self, client):
+        from tests.conftest import login_as
+        login_as(client, "t_admin")
         r = client.post("/reports/new/daily", data={
             "project_name": "مشروع PDF حقيقي",
             "location": "موقع اختبار",
@@ -104,6 +106,8 @@ class TestReportsRealFull:
             assert resp.status_code in (200, 404, 500)
 
     def test_share_report_exists(self, client):
+        from tests.conftest import login_as
+        login_as(client, "t_admin")
         resp = client.get("/reports/share/legacy/1")
         assert resp.status_code in (200, 302, 404)
 

@@ -17,7 +17,7 @@ def test_daily_esha_fields_count():
     assert "eshs_ohs_esha" in keys
     assert "photos_esha" in keys
     assert "signatures_esha" in keys
-    assert len(fields) >= 30
+    assert len(fields) >= 27  # 2 desc + 23 ESHS tables + 3 attach checkboxes = 28
 
 
 def test_weekly_esha_fields_count():

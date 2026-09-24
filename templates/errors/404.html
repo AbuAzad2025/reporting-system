@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}الصفحة غير موجودة (404){% endblock %}
+{% block content %}
+<div class="card error-hero">
+  <div class="error-code">404</div>
+  <h1 class="font-extrabold text-navy text-lg mt-2">الصفحة غير موجودة</h1>
+  <p class="text-sm text-slate-500 mt-2">الرابط الذي طلبته غير متوفر أو تم نقله. تحقق من العنوان أو عُد للوحة التحكم.</p>
+  <div class="flex gap-2 justify-center mt-5 flex-wrap">
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-navy text-sm">🏠 لوحة التحكم</a>
+    <a href="{{ url_for('main.archive') }}" class="btn btn-ghost text-sm">📁 الأرشيف</a>
+  </div>
+</div>
+{% endblock %}

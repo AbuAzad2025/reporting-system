@@ -10,7 +10,10 @@ class TestStorageServiceReal:
     def test_storage_image_functions_exist(self):
         import importlib
         storage_mod = importlib.import_module('app.services.storage')
-        assert hasattr(storage_mod, 'StorageService')
+        # module exposes a functional API (no StorageService class):
+        # assert the real public functions instead of a phantom class.
+        for fn in ("upload_image", "upload", "download"):
+            assert hasattr(storage_mod, fn), f"missing storage API: {fn}"
 
 
 class TestBackupServiceReal:

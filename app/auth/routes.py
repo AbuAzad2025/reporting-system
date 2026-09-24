@@ -26,8 +26,9 @@ def _is_safe_next(target: str) -> bool:
         return False
     return True
 
-# Roles a self-registering user may pick (superadmin never self-assignable)
-SELF_REGISTER_ROLES = ["site_engineer", "safety_officer", "project_manager", "admin"]
+# Roles a self-registering user may pick (superadmin/admin never self-assignable;
+# admin accounts are created by the platform owner from the dashboard only).
+SELF_REGISTER_ROLES = ["site_engineer", "safety_officer", "project_manager"]
 
 
 @bp.route("/login", methods=["GET", "POST"])

@@ -34,7 +34,7 @@ Structure:
 import io
 import json
 import zipfile
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from app.extensions import db
@@ -132,7 +132,7 @@ def build_backup(project_id: Optional[int] = None) -> bytes:
             "version": BACKUP_VERSION,
             "scope": scope,
             "project_id": project_id,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "generator": "Azadexa Cloud Backup Service",
         }
         _write_json(buf, archive, "metadata.json", meta)
@@ -244,7 +244,7 @@ def restore_backup(data: bytes, project_id: Optional[int] = None,
             _load_json(archive, "project.json")
         if project_id is not None and meta.get("scope") == "project":
             # Restore into the existing target project (update in place).
-            target = Project.query.get(project_id)
+            target = db.session.get(Project, project_id)
             if target is None:
                 raise ValueError("Target project not found.")
             for row in projects:
@@ -372,7 +372,7 @@ def restore_backup(data: bytes, project_id: Optional[int] = None,
 
 def backup_filename(project_id: Optional[int] = None) -> str:
     """Generate a safe, descriptive backup filename."""
-    stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y%m%d-%H%M%S")
     if project_id is None:
         return f"azadexa-platform-{stamp}.zip"
     return f"azadexa-project-{project_id}-{stamp}.zip"

@@ -9,11 +9,16 @@ Tables:
   report_submissions — field answers (JSON) + auto-sign audit trail
   reports            — LEGACY static table (kept read/write compatible)
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.extensions import db, login_manager
+
+
+def _utcnow():
+    """Naive UTC now (DB-compatible) — avoids datetime.utcnow() deprecation."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # ---------------------------------------------------------------- constants
 #: legacy static types (kept for old /reports/new/<type> flow)
@@ -120,7 +125,7 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(40), default="")
     company = db.Column(db.String(120), default="")
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
     #: Advanced profile fields
     avatar = db.Column(db.String(260), default="")  # storage key for uploaded avatar
     job_title = db.Column(db.String(120), default="")  # المسمى الوظيفي
@@ -187,7 +192,7 @@ class User(UserMixin, db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # ---------------------------------------------------------------- project
 
@@ -206,7 +211,7 @@ class Project(db.Model):
     funding_source = db.Column(db.String(200), default="")  # World Bank IPF
     currency = db.Column(db.String(10), default="ILS")  # ILS/USD
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
     submissions = db.relationship("ReportSubmission", backref="project",
                                   lazy="dynamic")
@@ -230,7 +235,7 @@ class ReportTemplate(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     is_system = db.Column(db.Boolean, default=False)
     created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
     fields = db.relationship("DynamicField", backref="template", lazy="dynamic",
                              cascade="all, delete-orphan",
@@ -279,8 +284,9 @@ class DynamicField(db.Model):
     def options_list(self):
         return self.options or []
 
-    #: allowed cell types inside table fields (file for image upload)
-    CELL_TYPES = ("text", "number", "dropdown", "date", "file")
+    #: allowed cell types inside table fields (checkbox for ESHS checklists,
+    #: file for image upload)
+    CELL_TYPES = ("text", "textarea", "number", "dropdown", "date", "checkbox", "file")
 
     def sub_columns(self):
         cols = []
@@ -327,9 +333,9 @@ class ReportSubmission(db.Model):
     #: auto-sign snapshot (immutable audit trail)
     signatory_name = db.Column(db.String(200), nullable=False, default="")
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
-                           onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    updated_at = db.Column(db.DateTime, default=_utcnow,
+                           onupdate=_utcnow)
 
     def get(self, key, default=""):
         return (self.data or {}).get(key, default)
@@ -360,9 +366,9 @@ class Report(db.Model):
     data = db.Column(db.JSON, nullable=False, default=dict)
     signatory_name = db.Column(db.String(200), nullable=False, default="")
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
-                           onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    updated_at = db.Column(db.DateTime, default=_utcnow,
+                           onupdate=_utcnow)
 
     @property
     def type_ar(self) -> str:

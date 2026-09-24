@@ -15,7 +15,7 @@ Configuration is read from environment variables at import time:
 """
 import io
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -204,9 +204,9 @@ def _local_download(key: str) -> bytes:
 
 def upload_image(project_name: str, filename: str, data: bytes) -> str:
     """Upload image organized by project / date / sequential number."""
-    from datetime import datetime
+    from datetime import datetime, timezone
     safe_project = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(project_name))
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     base_dir = os.path.join(BACKUP_LOCAL_DIR, "images", safe_project, today)
     os.makedirs(base_dir, exist_ok=True)
     # Sequential naming to avoid repeats
@@ -226,7 +226,7 @@ def upload_image(project_name: str, filename: str, data: bytes) -> str:
 def upload(data: bytes, key: str) -> str:
     """Upload backup data to the configured storage backend."""
     data = _to_bytes(data)
-    stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     if not key:
         key = f"backup-{stamp}.zip"
     backend = _storage_type()

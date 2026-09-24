@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}غير مصرح (403){% endblock %}
+{% block content %}
+<div class="card error-hero">
+  <div class="error-code">403</div>
+  <h1 class="font-extrabold text-navy text-lg mt-2">لا تملك صلاحية الوصول</h1>
+  <p class="text-sm text-slate-500 mt-2">هذه الصفحة مخصصة لدور مختلف. إذا كنت تحتاج الوصول، تواصل مع مدير المنصة.</p>
+  <div class="flex gap-2 justify-center mt-5 flex-wrap">
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-navy text-sm">🏠 لوحة التحكم</a>
+    <a href="{{ url_for('main.profile') }}" class="btn btn-ghost text-sm">👤 حسابي</a>
+  </div>
+</div>
+{% endblock %}

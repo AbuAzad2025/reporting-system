@@ -1,65 +1,114 @@
 {% extends "base.html" %}
 {% if mode == 'new' %}{% set pagetitle = 'تعبئة ' + tpl.name_ar %}{% else %}{% set pagetitle = 'تعديل ' + tpl.name_ar %}{% endif %}
 {% block title %}{{ pagetitle }}{% endblock %}
+{% block page_header %}
+<div class="page-header flex items-center justify-between gap-3 flex-wrap">
+  <div class="min-w-0">
+    <h1>{{ tpl.icon }} {{ pagetitle }}</h1>
+    <p>{{ tpl.description }} — الحقول المميزة <span class="badge badge-required">*</span> إجبارية، والباقي اختياري.</p>
+  </div>
+  <a href="{{ url_for('reports.dyn_list') }}" class="btn btn-ghost text-xs !min-h-0 !py-2">→ رجوع للقوالب</a>
+</div>
+{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
-  <div class="bg-navy text-white rounded-3xl p-5 shadow flex items-center justify-between">
-    <div>
-      <h1 class="font-extrabold text-lg">{{ tpl.icon }} {{ pagetitle }}</h1>
-      <p class="text-xs text-slate-300">{{ tpl.description }}</p>
-    </div>
-    <a href="{{ url_for('reports.dyn_list') }}" class="text-xs bg-white/15 px-3 py-2 rounded-xl font-bold">→ رجوع</a>
-  </div>
-
-  <form method="POST" enctype="multipart/form-data" class="bg-white rounded-3xl shadow p-5 mt-3 space-y-4">
+  <form method="POST" enctype="multipart/form-data" class="space-y-4 mt-3" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div class="sm:col-span-2">
-        <label class="font-bold text-sm">اسم المشروع *</label>
-        {% if projects and mode == 'new' %}
-        <input name="project_name" id="project_name" list="project-list" required value="{{ form_data.get('project_name','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="اختر أو اكتب اسم المشروع">
-        <datalist id="project-list">{% for p in projects %}<option value="{{ p.name }}">{% endfor %}</datalist>
-        {% else %}
-        <input name="project_name" required value="{{ form_data.get('project_name','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+
+    <section class="card p-5" aria-labelledby="sec-basic">
+      <h2 id="sec-basic" class="font-extrabold text-navy text-sm mb-3">🏗️ بيانات التقرير الأساسية</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="sm:col-span-2">
+          <label class="form-label" for="project_name">اسم المشروع <span class="badge badge-required">*</span></label>
+          {% if projects and mode == 'new' %}
+          <input name="project_name" id="project_name" list="project-list" required value="{{ form_data.get('project_name','') }}" class="form-control" placeholder="اختر أو اكتب اسم المشروع">
+          <datalist id="project-list">{% for p in projects %}<option value="{{ p.name }}">{% endfor %}</datalist>
+          {% else %}
+          <input name="project_name" id="project_name" required value="{{ form_data.get('project_name','') }}" class="form-control">
+          {% endif %}
+        </div>
+        {% if projects %}
+        <div class="sm:col-span-2">
+          <label class="form-label" for="project_id">ربط بسجل مشروع <span class="badge badge-optional">اختياري</span></label>
+          <select id="project_id" name="project_id" class="form-control bg-white">
+            <option value="">— بدون ربط —</option>
+            {% for p in projects %}
+            <option value="{{ p.id }}" {% if form_data.get('project_id')|string == p.id|string %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
         {% endif %}
+        <div>
+          <label class="form-label" for="report_date">تاريخ التقرير <span class="badge badge-required">*</span></label>
+          <input id="report_date" name="report_date" type="date" required value="{{ form_data.get('report_date', today) }}" class="form-control">
+        </div>
+        <div>
+          <label class="form-label" for="location">الموقع <span class="badge badge-optional">اختياري</span></label>
+          <input id="location" name="location" value="{{ form_data.get('location','') }}" class="form-control">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="form-label" for="contractor">المقاول <span class="badge badge-optional">اختياري</span></label>
+          <input id="contractor" name="contractor" value="{{ form_data.get('contractor','') }}" class="form-control">
+        </div>
       </div>
-      {% if projects %}
-      <div class="sm:col-span-2">
-        <label class="font-bold text-sm">ربط بسجل مشروع (اختياري)</label>
-        <select name="project_id" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 bg-white">
-          <option value="">— بدون ربط —</option>
-          {% for p in projects %}
-          <option value="{{ p.id }}" {% if form_data.get('project_id')|string == p.id|string %}selected{% endif %}>{{ p.name }}</option>
+    </section>
+
+    {# simple (non-table) dynamic fields #}
+    {% set ns = namespace(has_simple=false) %}
+    {% for f in tpl.ordered_fields %}{% if f.field_type != 'table' %}{% set ns.has_simple = true %}{% endif %}{% endfor %}
+    {% if ns.has_simple %}
+    <section class="card p-5" aria-label="حقول إضافية">
+      <h2 class="font-extrabold text-navy text-sm mb-3">📝 الحقول الإضافية للقالب</h2>
+      <div class="space-y-4">
+      {% for f in tpl.ordered_fields %}
+      {% if f.field_type != 'table' %}
+      <div>
+        <label class="form-label" for="f_{{ f.field_key }}">{{ f.label_ar }} {% if f.required %}<span class="badge badge-required">*</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}</label>
+        {% if f.field_type == 'textarea' %}
+        <textarea id="f_{{ f.field_key }}" name="f_{{ f.field_key }}" rows="3" {% if f.required %}required{% endif %} class="form-control field-auto" placeholder="{{ f.placeholder }}">{{ form_data.get('f_' + f.field_key,'') }}</textarea>
+        {% elif f.field_type == 'number' %}
+        <input id="f_{{ f.field_key }}" name="f_{{ f.field_key }}" type="number" step="any" dir="ltr" {% if f.required %}required{% endif %} value="{{ form_data.get('f_' + f.field_key,'') }}" class="form-control text-left" placeholder="{{ f.placeholder }}">
+        {% elif f.field_type == 'dropdown' %}
+        <select id="f_{{ f.field_key }}" name="f_{{ f.field_key }}" {% if f.required %}required{% endif %} class="form-control bg-white">
+          <option value="">— اختر —</option>
+          {% for opt in f.options_list() %}
+          <option {% if form_data.get('f_' + f.field_key,'') == opt %}selected{% endif %}>{{ opt }}</option>
           {% endfor %}
         </select>
+        {% elif f.field_type == 'date' %}
+        <input id="f_{{ f.field_key }}" name="f_{{ f.field_key }}" type="date" {% if f.required %}required{% endif %} value="{{ form_data.get('f_' + f.field_key,'') }}" class="form-control">
+        {% elif f.field_type == 'checkbox' %}
+        <label class="mt-1 flex items-center gap-2 bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold cursor-pointer">
+          <input type="checkbox" id="f_{{ f.field_key }}" name="f_{{ f.field_key }}" value="yes" {% if form_data.get('f_' + f.field_key,'') in ['yes','نعم','1','true','on'] %}checked{% endif %} class="w-5 h-5"> نعم
+        </label>
+        {% else %}
+        <input id="f_{{ f.field_key }}" name="f_{{ f.field_key }}" {% if f.required %}required{% endif %} value="{{ form_data.get('f_' + f.field_key,'') }}" class="form-control" placeholder="{{ f.placeholder }}">
+        {% endif %}
       </div>
       {% endif %}
-      <div>
-        <label class="font-bold text-sm">تاريخ التقرير *</label>
-        <input name="report_date" type="date" required value="{{ form_data.get('report_date', today) }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+      {% endfor %}
       </div>
-      <div>
-        <label class="font-bold text-sm">الموقع</label>
-        <input name="location" value="{{ form_data.get('location','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
-      </div>
-      <div class="sm:col-span-2">
-        <label class="font-bold text-sm">المقاول</label>
-        <input name="contractor" value="{{ form_data.get('contractor','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
-      </div>
-    </div>
+    </section>
+    {% endif %}
 
-    <hr class="border-slate-100">
-
-    {# dynamic fields rendered from DB schema #}
+    {# table sections as collapsible professional groups #}
     {% for f in tpl.ordered_fields %}
     {% if f.field_type == 'table' %}
-    <div>
-      <label class="font-bold text-sm">📊 {{ f.label_ar }}{% if f.required %} *{% endif %}</label>
-      {% set cols = f.sub_columns() %}
-      {% set rows = table_rows.get(f.field_key, [{}]) %}
+    {% set cols = f.sub_columns() %}
+    {% set rows = table_rows.get(f.field_key, [{}]) %}
+    {% set req_cols = cols | selectattr('required') | list | length %}
+    <details class="report-section" {% if loop.index <= 3 %}open{% endif %}>
+      <summary>
+        <span>📊 {{ f.label_ar }}
+          {% if f.required %}<span class="badge badge-required">إجباري</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}
+          {% if req_cols %}<span class="badge">{{ req_cols }} عمود إجباري</span>{% endif %}
+        </span>
+        <span class="chev">▾</span>
+      </summary>
+      <div class="section-body">
       {% if cols %}
       <div class="mt-1 border-2 border-slate-200 rounded-xl overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="table-wrap">
           <table class="w-full text-sm table-field" data-field="{{ f.field_key }}" data-next="{{ rows|length }}">
             <thead>
               <tr class="bg-navy text-white text-xs">
@@ -75,30 +124,30 @@
                 {% for c in cols %}
                 <td class="p-1 min-w-[110px]">
                   {% if c.type == 'dropdown' %}
-                  <select name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 bg-white text-sm">
+                  <select name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 bg-white text-sm">
                     <option value="">—</option>
                     {% for opt in c.options %}<option {% if row.get(c.key,'')==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
                   </select>
                   {% elif c.type == 'number' %}
-                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" type="number" step="any" dir="ltr" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm text-left">
+                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" type="number" step="any" dir="ltr" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm text-left">
                   {% elif c.type == 'date' %}
-                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" type="date" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm">
+                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" type="date" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm">
                   {% elif c.type == 'file' %}
                   <div class="space-y-1">
-                    <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" type="file" accept="image/*,.pdf,.jpg,.jpeg,.png" class="w-full border border-slate-200 rounded-lg px-2 py-2 text-xs bg-white">
+                    <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" type="file" accept="image/*,.pdf,.jpg,.jpeg,.png" class="w-full border border-slate-200 rounded-lg px-2 py-2 text-xs bg-white">
                     {% if row.get(c.key) %}<div class="text-[10px] text-emerald-600 truncate">✓ {{ row.get(c.key).split('/')[-1] }}</div><input type="hidden" name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" value="{{ row.get(c.key) }}">{% endif %}
                   </div>
                   {% elif c.type == 'checkbox' %}
                   <label class="flex items-center justify-center gap-1">
-                    <input type="checkbox" name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" value="yes" {% if row.get(c.key) in ['yes','true','1','☒','نعم'] %}checked{% endif %} class="w-5 h-5 accent-teal-600">
+                    <input type="checkbox" name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" value="yes" {% if row.get(c.key) in ['yes','true','1','☒','نعم'] %}checked{% endif %} class="w-5 h-5 accent-teal-600">
                     <span class="text-[11px] font-bold">☒</span>
                   </label>
                   {% else %}
-                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm" placeholder="{{ c.label_ar }}">
+                  <input name="f_{{ f.field_key }}__{{ ri }}__{{ c.key }}" aria-label="{{ c.label_ar }}" value="{{ row.get(c.key,'') }}" class="w-full border border-slate-200 rounded-lg px-2 py-3 text-sm" placeholder="{{ c.label_ar }}">
                   {% endif %}
                 </td>
                 {% endfor %}
-                <td class="p-1 text-center no-print"><button type="button" data-del-row class="text-red-500 font-bold px-3 py-3">✕</button></td>
+                <td class="p-1 text-center no-print"><button type="button" data-del-row aria-label="حذف الصف" class="text-red-500 font-bold px-3 py-3">✕</button></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -109,31 +158,8 @@
       {% else %}
       <p class="text-xs text-amber-600 font-bold mt-1">⚠️ هذا الجدول بلا أعمدة بعد — تواصل مع مدير المنصة.</p>
       {% endif %}
-    </div>
-    {% else %}
-    <div>
-      <label class="font-bold text-sm">{{ f.label_ar }}{% if f.required %} *{% endif %}</label>
-      {% if f.field_type == 'textarea' %}
-      <textarea name="f_{{ f.field_key }}" rows="3" {% if f.required %}required{% endif %} class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none field-auto" placeholder="{{ f.placeholder }}">{{ form_data.get('f_' + f.field_key,'') }}</textarea>
-      {% elif f.field_type == 'number' %}
-      <input name="f_{{ f.field_key }}" type="number" step="any" dir="ltr" {% if f.required %}required{% endif %} value="{{ form_data.get('f_' + f.field_key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-left" placeholder="{{ f.placeholder }}">
-      {% elif f.field_type == 'dropdown' %}
-      <select name="f_{{ f.field_key }}" {% if f.required %}required{% endif %} class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 bg-white">
-        <option value="">— اختر —</option>
-        {% for opt in f.options_list() %}
-        <option {% if form_data.get('f_' + f.field_key,'') == opt %}selected{% endif %}>{{ opt }}</option>
-        {% endfor %}
-      </select>
-      {% elif f.field_type == 'date' %}
-      <input name="f_{{ f.field_key }}" type="date" {% if f.required %}required{% endif %} value="{{ form_data.get('f_' + f.field_key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
-      {% elif f.field_type == 'checkbox' %}
-      <label class="mt-1 flex items-center gap-2 bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold">
-        <input type="checkbox" name="f_{{ f.field_key }}" value="yes" {% if form_data.get('f_' + f.field_key,'') in ['yes','نعم','1','true','on'] %}checked{% endif %} class="w-5 h-5"> نعم
-      </label>
-      {% else %}
-      <input name="f_{{ f.field_key }}" {% if f.required %}required{% endif %} value="{{ form_data.get('f_' + f.field_key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3" placeholder="{{ f.placeholder }}">
-      {% endif %}
-    </div>
+      </div>
+    </details>
     {% endif %}
     {% endfor %}
 
@@ -141,7 +167,7 @@
       ⚠️ <b>منع التكرار:</b> قالب واحد لنفس المشروع والتاريخ مرة واحدة فقط.<br>
       ✍️ سيُختم تلقائياً باسمك الرباعي: <b>{{ current_user.full_name }}</b>
     </div>
-    <button class="w-full bg-teal2 text-white font-extrabold py-4 rounded-2xl text-lg hover:brightness-110 sticky bottom-20 md:bottom-4 z-30 shadow-xl min-h-[56px]">💾 {% if mode=='new' %}حفظ التقرير{% else %}حفظ التعديلات{% endif %}</button>
+    <button class="btn btn-primary w-full text-lg sticky bottom-20 md:bottom-4 z-30 shadow-xl">💾 {% if mode=='new' %}حفظ التقرير{% else %}حفظ التعديلات{% endif %}</button>
   </form>
 </div>
 {% endblock %}

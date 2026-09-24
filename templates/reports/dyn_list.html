@@ -1,23 +1,30 @@
 {% extends "base.html" %}
 {% block title %}التقارير الديناميكية{% endblock %}
-{% block content %}
-<div class="bg-white rounded-3xl shadow p-5">
-  <h1 class="font-extrabold text-lg text-navy">📋 التقارير الديناميكية</h1>
-  <p class="text-xs text-slate-500">قوالب يصممها مدير المنصة — اختر القالب وعبّئه من الموقع</p>
+{% block page_header %}
+<div class="page-header">
+  <h1>📋 التقارير الديناميكية</h1>
+  <p>قوالب معتمدة من مدير المنصة — اختر القالب وعبّئه من الموقع. كل بطاقة تعرض عدد الحقول وتقاريرك الحالية.</p>
 </div>
+{% endblock %}
+{% block content %}
+{% if templates %}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
   {% for t in templates %}
-  <a href="{{ url_for('reports.dyn_new', template_key=t.key) }}" class="bg-gradient-to-br {{ t.gradient }} text-white rounded-3xl p-5 shadow-lg hover:scale-[1.01] transition">
-    <div class="flex items-start justify-between">
-      <div class="text-4xl">{{ t.icon }}</div>
-      <span class="bg-white/20 text-xs font-bold px-3 py-1 rounded-full">{{ t.fields.count() }} حقل</span>
+  <a href="{{ url_for('reports.dyn_new', template_key=t.key) }}" class="bg-gradient-to-br {{ t.gradient }} text-white rounded-3xl p-5 shadow-lg hover:scale-[1.01] transition block">
+    <div class="flex items-start justify-between gap-2">
+      <div class="text-4xl" aria-hidden="true">{{ t.icon }}</div>
+      <div class="flex gap-1 flex-wrap justify-end">
+        <span class="badge badge-count">{{ t.fields.count() }} حقل</span>
+        <span class="badge badge-count">{{ counts.get(t.key, 0) }} تقرير</span>
+      </div>
     </div>
     <div class="font-extrabold text-lg mt-2">{{ t.name_ar }}</div>
     <div class="text-white/85 text-xs mt-1 leading-5">{{ t.description or t.name_en }}</div>
     <div class="mt-3 bg-white text-navy font-extrabold text-center py-3 rounded-2xl">➕ تعبئة التقرير</div>
   </a>
-  {% else %}
-  <div class="bg-white rounded-2xl shadow p-8 text-center text-sm text-slate-500 col-span-2">لا توجد قوالب مفعّلة.</div>
   {% endfor %}
 </div>
+{% else %}
+<div class="empty-state mt-3">لا توجد قوالب مفعّلة حالياً — تواصل مع مدير المنصة لاعتماد قالب.</div>
+{% endif %}
 {% endblock %}

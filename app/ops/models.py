@@ -24,10 +24,15 @@ Tenant rule: every record belongs to exactly one project. Access is granted
 by (a) platform-manager global roles, or (b) a ProjectMember row. No row is
 ever visible without one of those — enforced in app/ops/isolation.py.
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from sqlalchemy import func
 
 from app.extensions import db
+
+
+def _utcnow():
+    """Naive UTC now (DB-compatible) — avoids datetime.utcnow() deprecation."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # ---------------------------------------------------------------- constants
 #: approval workflow states shared by all nine modules.
@@ -131,7 +136,7 @@ class ProjectMember(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("projects.id"),
                            nullable=False)
     role_in_project = db.Column(db.String(30), default="member")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
 
 # ---------------------------------------------------------------- base mixin
@@ -157,9 +162,9 @@ class OpsRecordMixin:
     reviewed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     reviewed_at = db.Column(db.DateTime)
     review_notes = db.Column(db.Text, default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
-                           onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    updated_at = db.Column(db.DateTime, default=_utcnow,
+                           onupdate=_utcnow)
 
     @property
     def status_ar(self) -> str:
@@ -558,7 +563,7 @@ class Attachment(db.Model):
     byte_size = db.Column(db.Integer, nullable=False, default=0)
     uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"),
                             nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
     def __repr__(self):
         return f"<Attachment {self.storage_key} ({self.record_kind}/{self.record_id})>"
@@ -594,7 +599,7 @@ class OpsRecordComment(db.Model):
     author_name = db.Column(db.String(200), nullable=False, default="")
     author_role = db.Column(db.String(30), nullable=False, default="")
     body = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
     @property
     def party(self) -> str:

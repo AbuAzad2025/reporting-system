@@ -151,7 +151,7 @@ class TestAdminFieldsReal:
             db.session.commit()
             fid = f.id
         login_as(client, "t_admin")
-        r = client.post(f"/fields/{fid}/delete", follow_redirects=True)
+        r = client.post(f"/admin/fields/{fid}/delete", follow_redirects=True)
         assert r.status_code == 200
 
 

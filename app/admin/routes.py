@@ -511,7 +511,7 @@ def _ops_analytics() -> dict:
     per-module and per-project views; DSR manpower and open-RFI queues
     are aggregated in Python over the 30-day window.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
     from app.ops.routes import KIND_MODEL
     from app.ops.models import OPS_MODULES, OpsRecordComment
 
@@ -548,7 +548,7 @@ def _ops_analytics() -> dict:
 
     # DSR manpower, last 30 days (scalar tiers in SQL, tables in Python)
     from app.ops.models import DailySiteReport
-    since = datetime.utcnow() - timedelta(days=30)
+    since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
     dsrs = DailySiteReport.query.filter(
         DailySiteReport.report_date >= since.date()).all()
     manpower = {"reports": len(dsrs), "engineers": 0, "technicians": 0,
@@ -575,7 +575,7 @@ def _ops_analytics() -> dict:
     return {"by_kind": by_kind, "by_project": projects,
             "dsr_manpower_30d": manpower, "open_rfis": open_rfis,
             "comments_30d": comments_30d,
-            "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M")}
+            "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M")}
 
 
 @bp.route("/api/analytics")

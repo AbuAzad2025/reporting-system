@@ -9,6 +9,7 @@ class ImageStorageTests(unittest.TestCase):
         data = b"fake_image_bytes"
         result = upload_image("Alpha Tower", "photo.jpg", data)
         self.assertTrue(os.path.exists(result))
-        self.assertIn("images/Alpha_Tower/", result)
+        # cross-platform: the service builds paths with os.path.join
+        self.assertIn("images/Alpha_Tower/", result.replace(os.sep, "/"))
         if os.path.exists(result):
             os.remove(result)

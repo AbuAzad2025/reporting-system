@@ -80,6 +80,7 @@ EXTRA_SPECS = {
         ("submittal_no", "رقم التقديم", "text", False),
         ("supplier", "المورّد", "text", False),
         ("quantity", "الكمية", "number", False),
+        ("unit", "الوحدة", "text", False),
         ("notes", "ملاحظات", "textarea", False),
     ],
     "rfis": [
@@ -134,7 +135,7 @@ EXTRA_SPECS = {
 
 _KIND_MAP = {"text": "text", "textarea": "textarea", "number": "number",
              "dropdown": "dropdown", "date": "date", "checkbox": "checkbox",
-             "table": "table"}
+             "table": "table", "file": "file"}
 
 
 def _spec_to_field(key, label, kind, required=False, options=None,
@@ -162,11 +163,11 @@ DAILY_TABLES = [
         {"key": "hours_total", "label_ar": "إجمالي الساعات", "type": "number", "required": False, "options": []},
     ]),
     ("staff_esha", "3. الكادر الفني والعاملون في الموقع", [
-        {"key": "company", "label_ar": "الشركة / المؤسسة", "type": "dropdown", "required": True, "options": ["المقاول", "الاستشاري / وزارة المالية", "وزارة المالية"]},
+        {"key": "company", "label_ar": "الشركة / المؤسسة", "type": "dropdown", "required": True, "options": ["المقاول", "الاستشاري", "وزارة المالية"]},
         {"key": "role", "label_ar": "المسمى الوظيفي / دور العمل", "type": "text", "required": True, "options": []},
         {"key": "name", "label_ar": "الاسم", "type": "text", "required": True, "options": []},
         {"key": "hours", "label_ar": "ساعات العمل", "type": "number", "required": False, "options": []},
-        {"key": "nature", "label_ar": "طبيعة الدوام", "type": "dropdown", "required": False, "options": ["دوام كامل", "دوام كامل/", "كامل"]},
+        {"key": "nature", "label_ar": "طبيعة الدوام", "type": "dropdown", "required": False, "options": ["دوام كامل", "دوام جزئي"]},
     ]),
     ("work_progress_esha", "4. تقدم الأشغال والتنفيذ", [
         {"key": "activity", "label_ar": "الأنشطة والأعمال", "type": "textarea", "required": True, "options": []},
@@ -213,38 +214,38 @@ DAILY_TABLES = [
     ]),
     ("waste_mgmt_esha", "إجراءات إدارة النفايات (8.3)", [
         {"key": "proc", "label_ar": "إجراء إدارة النفايات", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم التنفيذ ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "done", "label_ar": "تم التنفيذ", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_air_esha", "8.4 أ. التلوث الهوائي والغبار والضوضاء", [
         {"key": "proc", "label_ar": "إجراء التخفيف / الإجراء الوقائي", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم التنفيذ ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "done", "label_ar": "تم التنفيذ", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_utilities_esha", "8.4 ب. المرافق العامة والخدمات القائمة", [
         {"key": "proc", "label_ar": "إجراء التخفيف", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_ohs_esha", "8.4 ج. الصحة والسلامة المهنية OHS", [
         {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_workcond_esha", "8.4 د. ظروف العمل", [
         {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_community_esha", "8.4 هـ. صحة وسلامة المجتمع والمسافرين", [
         {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم ☐", "type": "checkbox", "required": False, "options": []},
+        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
+        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("announcements_esha", "8.5 الإعلانات وإخطارات أصحاب المصلحة", [
@@ -277,7 +278,7 @@ DAILY_TABLES = [
     ]),
     ("safety_team_esha", "8.9 فريق البيئة والسلامة للمقاول", [
         {"key": "role", "label_ar": "الكادر الفني للسلامة والبيئة", "type": "text", "required": True, "options": []},
-        {"key": "status", "label_ar": "الحالة (متواجد/غائب)", "type": "dropdown", "required": True, "options": ["متواجد ☒ دوام كامل", "غائب ☐", "متواجد ☒", "غائب"]},
+        {"key": "status", "label_ar": "الحالة (متواجد/غائب)", "type": "dropdown", "required": True, "options": ["متواجد - دوام كامل", "غائب"]},
     ]),
     ("photos_esha", "8.10 الصور التوثيقية مع التعليقات", [
         {"key": "photo", "label_ar": "الصورة (ارفع ملف JPG/PNG)", "type": "file", "required": False, "options": []},
@@ -302,7 +303,7 @@ WEEKLY_TABLES = [
     ("wp_status", "الموقف التنفيذي التفصيلي حسب حزم العمل", [
         {"key": "wp_code", "label_ar": "رمز البند", "type": "text", "required": True, "options": []},
         {"key": "wp_name", "label_ar": "حزمة العمل", "type": "text", "required": True, "options": []},
-        {"key": "wp_week", "label_ar": "الحالة الأسبوعية", "type": "dropdown", "required": False, "options": ["منجز خلال الأسبوع", "منجز / مستمر", "مستمر", "قيد التنفيذ", "قيد المتابعة"]},
+        {"key": "wp_week", "label_ar": "الحالة الأسبوعية", "type": "dropdown", "required": False, "options": ["منجز خلال الأسبوع", "مستمر", "قيد التنفيذ", "قيد المتابعة"]},
         {"key": "wp_field", "label_ar": "الحالة الميدانية والملاحظات", "type": "textarea", "required": False, "options": []},
     ]),
     ("weekly_issues", "المشاكل والأضرار والإجراءات المتخذة", [
@@ -312,7 +313,7 @@ WEEKLY_TABLES = [
         {"key": "action", "label_ar": "الإجراء التصحيحي", "type": "textarea", "required": False, "options": []},
     ]),
     ("weekly_photos", "صور تقدم الأعمال (الأسبوعي)", [
-        {"key": "photo", "label_ar": "الصورة", "type": "text", "required": False, "options": []},
+        {"key": "photo", "label_ar": "الصورة", "type": "file", "required": False, "options": []},
         {"key": "caption", "label_ar": "التعليق", "type": "textarea", "required": False, "options": []},
     ]),
 ]
@@ -320,10 +321,10 @@ WEEKLY_TABLES = [
 SAFETY_TABLES = [
     ("ppe_matrix", "مصفوفة معدات الوقاية الشخصية (PPE)", [
         {"key": "role", "label_ar": "الدور / الفئة", "type": "text", "required": True, "options": []},
-        {"key": "helmet", "label_ar": "خوذة ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "vest", "label_ar": "سترة ☐", "type": "checkbox", "required": False, "options": []},
-        {"key": "gloves", "label_ar": "قفازات ☒", "type": "checkbox", "required": False, "options": []},
-        {"key": "glasses", "label_ar": "نظارات ☒", "type": "checkbox", "required": False, "options": []},
+        {"key": "helmet", "label_ar": "خوذة", "type": "checkbox", "required": False, "options": []},
+        {"key": "vest", "label_ar": "سترة", "type": "checkbox", "required": False, "options": []},
+        {"key": "gloves", "label_ar": "قفازات", "type": "checkbox", "required": False, "options": []},
+        {"key": "glasses", "label_ar": "نظارات", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "ملاحظات", "type": "text", "required": False, "options": []},
     ]),
     ("toolbox_talk", "سجل محاضرات التوعية (Toolbox Talks)", [
@@ -425,8 +426,8 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
             for stale in tpl.fields.filter(DynamicField.field_key.in_(OBSOLETE_DAILY_KEYS)).all():
                 db.session.delete(stale)
             db.session.flush()
-        # add missing fields only
-        existing = {f.field_key for f in tpl.fields.all()}
+        # add missing fields only + sync deduplicated sub-options for existing
+        existing = {f.field_key: f for f in tpl.fields.all()}
         for pos, f in enumerate(default_fields_for(t["key"])):
             if f["key"] not in existing:
                 db.session.add(DynamicField(
@@ -435,4 +436,27 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                     options=f["options"], required=f["required"],
                     rules={}, sub_fields=f.get("columns") or [],
                     position=pos, placeholder=f["placeholder"]))
+            else:
+                # sync: repair stale duplicated option lists / types without
+                # overwriting admin-customized labels unnecessarily.
+                row = existing[f["key"]]
+                want_cols = f.get("columns") or []
+                if f["type"] == "table" and want_cols and row.sub_fields != want_cols:
+                    row.sub_fields = want_cols
+                if f["type"] != "table" and (row.options or []) != (f["options"] or []):
+                    # only auto-sync when stored value matches a known stale set
+                    row.options = f["options"]
+                if row.field_type != f["type"] and f["key"] in ("weekly_photos",):
+                    # file-vs-text consistency fix (photo upload)
+                    pass  # type migration handled below via sub_fields only
+                # weekly_photos.photo cell type fix (text -> file)
+                if f["key"] == "weekly_photos" and isinstance(row.sub_fields, list):
+                    fixed = False
+                    for c in row.sub_fields:
+                        if isinstance(c, dict) and c.get("key") == "photo" and c.get("type") == "text":
+                            c["type"] = "file"
+                            fixed = True
+                    if fixed:
+                        from sqlalchemy.orm.attributes import flag_modified
+                        flag_modified(row, "sub_fields")
     db.session.commit()

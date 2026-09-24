@@ -33,6 +33,7 @@ def _invite(client, pid, username, as_user="t_pm"):
 # ---- creation belongs to the manager --------------------------------------------
 
 def test_pm_creates_project_and_becomes_owner(client):
+    from app.extensions import db
     from app.models import Project, User
     from app.ops.models import ProjectMember
     pid = _pm_project_id(client, name="مشروع الواحة")
@@ -42,7 +43,7 @@ def test_pm_creates_project_and_becomes_owner(client):
             user_id=pm.id, project_id=pid).first()
         assert row is not None
         assert row.role_in_project == "owner"
-        assert Project.query.get(pid).name == "مشروع الواحة"
+        assert db.session.get(Project, pid).name == "مشروع الواحة"
 
 
 def test_engineer_cannot_create_project(client):

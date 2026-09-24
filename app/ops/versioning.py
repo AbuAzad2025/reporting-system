@@ -8,7 +8,7 @@ Locked (approved) rows are read-only: PUT auto-spawns a linked amendment
 draft (version+1) instead of mutating history; DELETE on locked rows is 423.
 Legacy 'pending' rows are treated as 'submitted' everywhere.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 DRAFT = "draft"
 SUBMITTED = "submitted"
@@ -115,7 +115,7 @@ def apply_decision(record, decision: str, reviewer, notes: str = ""):
     else:
         return "decision must be approve or reject"
     record.reviewed_by_id = reviewer.id
-    record.reviewed_at = datetime.utcnow()
+    record.reviewed_at = datetime.now(timezone.utc).replace(tzinfo=None)
     record.review_notes = (notes or "").strip()[:2000]
     # an approved amendment retires the version it supersedes (trail kept)
     if record.status == APPROVED and record.supersedes_id:

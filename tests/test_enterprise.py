@@ -213,9 +213,10 @@ def test_legacy_user_role_maps_to_site_engineer(app):
 
 def test_build_share_payload_dynamic(app):
     """build_share_payload creates correct payload for dynamic reports."""
+    from app.extensions import db
     s_id = _make_submission(app)
     with app.test_request_context():
-        s = ReportSubmission.query.get(s_id)
+        s = db.session.get(ReportSubmission, s_id)
         payload = build_share_payload(s, "dynamic")
         assert "serial" in payload
         assert "title" in payload
@@ -240,7 +241,7 @@ def test_build_share_payload_legacy(app):
         db.session.commit()
         r_id = r.id
     with app.test_request_context():
-        r = Report.query.get(r_id)
+        r = db.session.get(Report, r_id)
         payload = build_share_payload(r, "legacy")
         assert payload["serial"].startswith("RPT-")
         assert payload["url"].startswith("http")
@@ -308,9 +309,10 @@ def _make_submission(app):
 
 def test_get_share_data_dynamic(app):
     """get_share_data returns all URLs for dynamic report."""
+    from app.extensions import db
     s_id = _make_submission(app)
     with app.test_request_context():
-        s = ReportSubmission.query.get(s_id)
+        s = db.session.get(ReportSubmission, s_id)
         data = get_share_data(s, "dynamic")
         assert "payload" in data
         assert "url" in data

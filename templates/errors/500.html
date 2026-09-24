@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}خطأ داخلي (500){% endblock %}
+{% block content %}
+<div class="card error-hero">
+  <div class="error-code">500</div>
+  <h1 class="font-extrabold text-navy text-lg mt-2">حدث خطأ غير متوقع</h1>
+  <p class="text-sm text-slate-500 mt-2">تم تسجيل الخطأ لدى فريق المنصة. حاول مجدداً، وإذا تكرر تواصل مع الإدارة مع ذكر الوقت.</p>
+  <div class="flex gap-2 justify-center mt-5 flex-wrap">
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-navy text-sm">🏠 لوحة التحكم</a>
+    <a href="{{ url_for('main.archive') }}" class="btn btn-ghost text-sm">📁 الأرشيف</a>
+  </div>
+</div>
+{% endblock %}
