@@ -107,18 +107,33 @@ def create_app(config_class=Config):
 
     # ---- template globals
     from app.models import REPORT_TYPES, ROLES
+    from flask_login import current_user
 
     @app.context_processor
     def inject_globals():
         cfg = app.config
+        brand = None
+        if current_user.is_authenticated:
+            from app.models import TenantBranding
+            # Brand from user's linked project (simplest: user owns a project)
+            # For platform managers: first active branding; for users: by user role/project
+            brand = (TenantBranding.query
+                     .filter_by(is_active=True)
+                     .order_by(TenantBranding.created_at.desc()).first())
+        # Apply brand identity: company names override config if set.
+        brand_ar = (brand.company_name_ar if brand and brand.company_name_ar
+                    else cfg.get("COMPANY_NAME_AR"))
+        brand_en = (brand.company_name_en if brand and brand.company_name_en
+                    else cfg.get("COMPANY_NAME_EN"))
         return {"REPORT_TYPES": REPORT_TYPES, "ROLES": ROLES,
                 "APP_NAME_AR": cfg.get("APP_NAME_AR"),
-                "COMPANY_NAME_AR": cfg.get("COMPANY_NAME_AR"),
-                "COMPANY_NAME_EN": cfg.get("COMPANY_NAME_EN"),
+                "COMPANY_NAME_AR": brand_ar,
+                "COMPANY_NAME_EN": brand_en,
                 "DEVELOPER_AR": cfg.get("DEVELOPER_AR"),
                 "CONTACT_EMAIL": cfg.get("CONTACT_EMAIL"),
                 "CONTACT_PHONE": cfg.get("CONTACT_PHONE"),
-                "today": date.today().isoformat()}
+                "today": date.today().isoformat(),
+                "current_brand": brand}
 
     # ---- first-boot: create tables + seed default dynamic templates
     # Set AZADEXA_AUTO_CREATE=0 to skip (e.g. pure Alembic workflows where

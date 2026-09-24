@@ -6,9 +6,10 @@
     <h1 class="font-extrabold text-lg text-navy">🧩 منشئ النماذج — قوالب التقارير</h1>
     <p class="text-xs text-slate-500">عرّف الأنواع (يومي/أسبوعي/شهري/سلامة/أوامر تغيير...) ثم أضف الحقول لكل قالب</p>
   </div>
-  <div class="flex gap-2">
+  <div class="flex gap-2 flex-wrap">
     <a href="{{ url_for('admin.template_new') }}" class="bg-teal2 text-white text-sm font-extrabold px-4 py-3 rounded-xl">➕ قالب جديد</a>
     <a href="{{ url_for('admin.dashboard') }}" class="bg-slate-100 text-sm font-bold px-4 py-3 rounded-xl">→ اللوحة</a>
+    <a href="{{ url_for('admin.branding', template_id=templates[0].id if templates else 0) }}" class="bg-[#a67c00] text-[#1a1610] text-sm font-extrabold px-4 py-3 rounded-xl">🎨 تخصيص المظهر</a>
   </div>
 </div>
 

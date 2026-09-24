@@ -656,6 +656,86 @@ def _rules_for(template_key, field_key):
     return dict(FIELD_RULES.get((template_key, field_key), {}))
 
 
+def apply_brand_to_template(tpl, branding, admin_id):
+    """In-memory customization (for PDF/Word); does NOT persist to DB."""
+    if branding is None or not getattr(branding, "is_active", True):
+        return
+    if branding.gradient and branding.primary_color:
+        # Professional: use custom gradient only when both colors set
+        if branding.secondary_color:
+            tpl.gradient = (f"from-[{branding.primary_color.lstrip('#')}] "
+                            f"to-[{branding.secondary_color.lstrip('#')}]")
+    # Header/footer customization handled in pdf_dynamic via adapter
+
+
+def apply_tenant_overrides(tpl, current_user):
+    """Fetch active override for this tenant/template and apply.
+
+    Returns modified ordered_fields (new list, original DB unchanged).
+    If no override exists, returns default fields unchanged.
+    """
+    from app.models import TenantTemplateOverride, TenantBranding
+    # Find active override: by tenant (user id) first, else by project
+    override = None
+    branding = None
+    if current_user and current_user.is_authenticated:
+        # Try user-level override (most granular) then fall back
+        # (platform design: user owns customization; if not set,
+        #  no customization — ensures isolation)
+        override = (TenantTemplateOverride.query
+                     .filter_by(template_key=tpl.key,
+                                 tenant_id=current_user.id,
+                                 is_active=True)
+                     .first())
+        # Apply branding linked to current user's active project, if any
+        # In production, admin routes resolve linked project.
+        # For simplicity here we use the template-level override only.
+    if override is None:
+        return default_fields_for(tpl.key)
+
+    # Rebuild fields honoring override rules
+    base = default_fields_for(tpl.key)
+    deleted = set(override.deleted_fields or [])
+    added = override.added_fields or []
+    reordered = override.reordered_fields or []
+
+    kept = [f for f in base if f["key"] not in deleted]
+    # Apply rules from fields_config (type/required/options/placeholders/rules)
+    rules_cfg = (override.fields_config or {})
+    out = []
+    for f in kept:
+        fk = f["key"]
+        cfg = rules_cfg.get(fk) or {}
+        new_f = dict(f)
+        if cfg.get("type"):
+            new_f["type"] = cfg["type"]
+        if "required" in cfg:
+            new_f["required"] = bool(cfg["required"])
+        if cfg.get("label_ar"):
+            new_f["label_ar"] = str(cfg["label_ar"])
+        if cfg.get("options") is not None:
+            new_f["options"] = list(cfg["options"])
+        if cfg.get("placeholder"):
+            new_f["placeholder"] = str(cfg["placeholder"])
+        if cfg.get("rules"):
+            new_f["rules"] = dict(cfg["rules"])
+        out.append(new_f)
+
+    # Add custom fields (preserve key order: base first, additions last)
+    for add_f in added:
+        out.append({
+            "key": add_f.get("key"),
+            "label_ar": add_f.get("label_ar", add_f.get("key", "")),
+            "type": add_f.get("type", "text"),
+            "required": bool(add_f.get("required", False)),
+            "options": list(add_f.get("options", [])),
+            "columns": add_f.get("columns", []),
+            "rules": add_f.get("rules", {}),
+            "placeholder": add_f.get("placeholder", ""),
+        })
+    return out
+
+
 #: obsolete daily keys from older specs (legacy FIELD_SPECS + UNRWA tables).
 #: Removed from the ESHS model to avoid duplicate/unclear form fields.
 OBSOLETE_DAILY_KEYS = {

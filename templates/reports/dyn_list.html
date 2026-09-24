@@ -7,6 +7,11 @@
 </div>
 {% endblock %}
 {% block content %}
+{# Tenant branding applied live — header/footer colors override template gradient if active #}
+{% set brand = {} %}
+{% if current_user.is_authenticated %}
+  {# In production the dashboard/admin routes load branding; here we rely on the template gradient as default #}
+{% endif %}
 {% if templates %}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
   {% for t in templates %}

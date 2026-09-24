@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}تخصيص المظهر — {{ tpl.name_ar }}{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <h1>🎨 تخصيص المظهر للمشروع</h1>
+  <p>تغيير الشعار والألوان والترويسة والذيل. التعديلات تُطبَّق فوراً على تقارير هذا المشروع.</p>
+</div>
+{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto mt-3">
+  <form method="POST" class="card p-5 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+      <label class="form-label" for="company_name_ar">اسم الشركة / المشروع (عربي)</label>
+      <input id="company_name_ar" name="company_name_ar" value="{{ brand.company_name_ar }}" class="form-control">
+    </div>
+    <div>
+      <label class="form-label" for="company_name_en">اسم الشركة (إنجليزي)</label>
+      <input id="company_name_en" name="company_name_en" value="{{ brand.company_name_en }}" class="form-control" dir="ltr">
+    </div>
+    <div>
+      <label class="form-label" for="primary_color">اللون الأساسي (HEX)</label>
+      <input id="primary_color" name="primary_color" type="text" value="{{ brand.primary_color }}" class="form-control font-mono">
+    </div>
+    <div>
+      <label class="form-label" for="secondary_color">اللون الثانوي (HEX)</label>
+      <input id="secondary_color" name="secondary_color" type="text" value="{{ brand.secondary_color }}" class="form-control font-mono">
+    </div>
+    <div>
+      <label class="form-label" for="logo_path">رابط الشعار (اختياري)</label>
+      <input id="logo_path" name="logo_path" value="{{ brand.logo_path }}" class="form-control">
+    </div>
+    <div>
+      <label class="form-label" for="custom_header_text_ar">نص الترويسة (عربي)</label>
+      <textarea id="custom_header_text_ar" name="custom_header_text_ar" rows="2" class="form-control">{{ brand.custom_header_text_ar }}</textarea>
+    </div>
+    <div>
+      <label class="form-label" for="custom_footer_notes">ملاحظات الذيل</label>
+      <textarea id="custom_footer_notes" name="custom_footer_notes" rows="2" class="form-control">{{ brand.custom_footer_notes }}</textarea>
+    </div>
+    <button class="btn btn-primary w-full">💾 حفظ التخصيص</button>
+  </form>
+  <p class="text-[11px] text-slate-400 mt-3">⚠️ التخصيص يطبَّق فوراً على جميع تقارير المشروع (PDF + عرض الويب). لا تُغيَّر القوالب الافتراضية للمنصة.</p>
+</div>
+{% endblock %}

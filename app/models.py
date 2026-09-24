@@ -189,6 +189,27 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f"<User {self.username} ({self.role})>"
 
+    def get_brand(self):
+        """Return the active TenantBranding for this user's project."""
+        if not self.is_authenticated:
+            return None
+        from app.models import TenantBranding
+        # Find branding linked to any project this user has access to
+        # For platform managers: first active branding
+        # For regular users: brandings from projects they are members of
+        from app.ops.models import ProjectMember
+        project_ids = [pm.project_id for pm in ProjectMember.query.filter_by(user_id=self.id).all()]
+        if not project_ids:
+            # Fallback: platform managers see first active branding
+            if self.norm_role in {"superadmin", "admin", "project_manager", "project_director"}:
+                return TenantBranding.query.filter_by(is_active=True).first()
+            return None
+        return (TenantBranding.query
+                .filter(TenantBranding.project_id.in_(project_ids))
+                .filter_by(is_active=True)
+                .order_by(TenantBranding.created_at.desc())
+                .first())
+
 
 @login_manager.user_loader
 def load_user(user_id):

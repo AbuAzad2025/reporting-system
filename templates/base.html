@@ -26,6 +26,14 @@ tailwind.config = { theme: { extend: {
 <body class="bg-slate-100 min-h-screen text-slate-800 pb-24 md:pb-10">
 <a href="#main-content" class="skip-link">تخطَّ إلى المحتوى</a>
 
+<!-- Brand customization (tenant-level identity applied in routes) -->
+{% set brand = current_user.get_brand() if current_user.is_authenticated else None %}
+{% if brand and brand.is_active %}
+  <style>
+    .app-header { background: linear-gradient(to left, {{ brand.primary_color }}80, {{ brand.secondary_color }}80, {{ brand.primary_color }}80) !important; }
+  </style>
+{% endif %}
+
 <!-- Top bar -->
 <header class="app-header sticky top-0 z-40 shadow-xl">
   <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -35,6 +43,7 @@ tailwind.config = { theme: { extend: {
         <div class="font-bold text-sm md:text-base leading-tight truncate">{{ APP_NAME_AR }}</div>
         <div class="text-[11px] opacity-70 truncate">{{ COMPANY_NAME_AR }}</div>
       </div>
+    </a>
     </a>
     {% if current_user.is_authenticated %}
     <div class="flex items-center gap-2 shrink-0">

@@ -56,7 +56,12 @@ def dashboard():
 @template_manager_required
 def templates():
     tpl_list = ReportTemplate.query.order_by(ReportTemplate.id).all()
-    return render_template("admin/templates.html", templates=tpl_list)
+    # ---- branding customization (per-tenant / per-project identity)
+    # Admin may edit company names, logos and custom header/footer per project.
+    tpl_branding = (db.session.query(app.models.TenantBranding)
+                    .filter_by(project_id=tpl.id, is_active=True).first())
+    return render_template("admin/templates.html", templates=tpl_list,
+                           tpl_branding=tpl_branding)
 
 
 @bp.route("/templates/new", methods=["GET", "POST"])
@@ -591,6 +596,35 @@ def api_analytics():
     """Machine-readable cross-tenant ops rollup (superadmin only)."""
     from flask import jsonify
     return jsonify(_ops_analytics())
+
+
+@bp.route("/branding/<int:template_id>", methods=["GET", "POST"])
+@login_required
+@template_manager_required
+def branding(template_id):
+    """Tenant branding customization for the report identity."""
+    tpl = ReportTemplate.query.get_or_404(template_id)
+    from app.models import TenantBranding
+    brand = (db.session.query(TenantBranding)
+             .filter_by(project_id=tpl.id, is_active=True).first())
+    # Initialize brand row if missing (idempotent for demo)
+    if brand is None:
+        brand = TenantBranding(project_id=tpl.id, is_active=True)
+        db.session.add(brand)
+        db.session.commit()
+    if request.method == "POST":
+        brand.company_name_ar = request.form.get("company_name_ar", "").strip()
+        brand.company_name_en = request.form.get("company_name_en", "").strip()
+        brand.logo_path = request.form.get("logo_path", "").strip()
+        brand.primary_color = request.form.get("primary_color", "#1e3a5f").strip() or "#1e3a5f"
+        brand.secondary_color = request.form.get("secondary_color", "#c9a227").strip() or "#c9a227"
+        brand.custom_header_text_ar = request.form.get("custom_header_text_ar", "").strip()
+        brand.custom_footer_notes = request.form.get("custom_footer_notes", "").strip()
+        brand.disclaimer_text = request.form.get("disclaimer_text", "").strip()
+        db.session.commit()
+        flash("تم حفظ تخصيص المظهر للمشروع.", "success")
+        return redirect(url_for("admin.templates"))
+    return render_template("admin/branding.html", tpl=tpl, brand=brand)
 
 
 @bp.route("/analytics")
