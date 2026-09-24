@@ -274,6 +274,42 @@ def _collect_dynamic(template, form):
                 payload[f.field_key] = []
                 continue
             rows = _extract_table_rows(f, form)
+            # Tripwire against silent data loss: if the browser submitted
+            # non-empty cells under this table's prefix but zero rows were
+            # parsed (or values arrived under unknown columns), refuse loudly
+            # instead of saving an empty table.
+            try:
+                _form_keys = list(form.keys()) if hasattr(form, "keys") else []
+            except Exception:
+                _form_keys = []
+            _prefix = f"f_{f.field_key}__"
+            _col_keys = {c["key"] for c in cols}
+            _seen_nonempty_known = False
+            _unknown_nonempty = []
+            for _k in _form_keys:
+                if not _k.startswith(_prefix):
+                    continue
+                _rest = _k[len(_prefix):]
+                _idx, _sep, _sub = _rest.partition("__")
+                if not _sep or not _idx.isdigit():
+                    continue
+                try:
+                    _v = str(form.get(_k, "") or "").strip()
+                except Exception:
+                    _v = ""
+                if not _v:
+                    continue
+                if _sub in _col_keys:
+                    _seen_nonempty_known = True
+                else:
+                    _unknown_nonempty.append(_sub)
+            if _unknown_nonempty:
+                errors.append(
+                    f"«{f.label_ar}»: وصلت بيانات لأعمدة غير معروفة "
+                    f"({', '.join(sorted(set(_unknown_nonempty)))}) — لم يُحفظ شيء. حدّث الصفحة وحاول مجدداً.")
+            elif _seen_nonempty_known and not rows:
+                errors.append(
+                    f"«{f.label_ar}»: تعذّر قراءة البنود المرسلة — لم يُحفظ شيء. حدّث الصفحة وحاول مجدداً.")
             # secure file handling for file-type columns (photos etc.)
             try:
                 from flask import request as _req

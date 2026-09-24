@@ -94,3 +94,21 @@ def test_edit_opens_sections_with_data(client, app):
     details_start = html.rfind("<details", 0, idx)
     tag = html[details_start:html.find(">", details_start) + 1]
     assert "open" in tag
+
+
+def test_unknown_table_column_refuses_loudly(client, app):
+    """Tripwire: values under unknown columns must block the save loudly,
+    never be silently dropped."""
+    from app.models import ReportSubmission
+    login_as(client, "t_admin")
+    r = client.post("/reports/dyn/new/daily", data={
+        "project_name": "Tripwire Check",
+        "report_date": "2026-09-24",
+        "f_waste_mgmt_esha__0__proc": "فرز النفايات",
+        "f_waste_mgmt_esha__0__no_such_col": "قيمة دخيلة",
+    }, follow_redirects=True)
+    assert r.status_code == 200
+    assert "غير معروفة" in r.get_data(as_text=True)
+    with app.app_context():
+        assert ReportSubmission.query.filter_by(
+            project_name="Tripwire Check").first() is None
