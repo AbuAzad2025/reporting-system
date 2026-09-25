@@ -140,13 +140,18 @@ class TestFloatColumnValidation:
 
     def test_float_column_survives_a_round_trip_update(self, app, client):
         from app.ops.models import SiteInspection
+        with app.app_context():
+            rid = SiteInspection.query.filter_by(
+                serial="SIR-000001").one().id
         login_as(client, "t_eng")
-        rid = SiteInspection.query.filter_by(
-            serial="SIR-000001").one().id
         r = client.put(f"/ops/site-inspections/{rid}",
                        json={"cube_28d": "31.75"})
         assert r.status_code == 200, r.get_json()
         assert r.get_json()["cube_28d"] == pytest.approx(31.75)
+        with app.app_context():
+            row = SiteInspection.query.get(rid)
+            assert row.cube_28d == pytest.approx(31.75)
+            assert isinstance(row.cube_28d, float)
 
 
 class TestExistenceOracle:

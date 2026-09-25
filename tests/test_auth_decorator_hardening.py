@@ -358,10 +358,10 @@ class TestRememberMeLogin:
         stored = client.get_cookie(REMEMBER_COOKIE)
         assert stored is not None
         assert stored.value == token
-        # a signed token that decodes back to the authenticated user id
-        assert decode_cookie(token) == str(_user_id(app, "t_eng"))
+        with app.app_context():
+            assert decode_cookie(token) == str(_user_id(app, "t_eng"))
 
-    def test_remember_cookies_differ_per_user(self, client):
+    def test_remember_cookies_differ_per_user(self, client, app):
         first = client.post(LOGIN, data={"username": "t_eng", "password": "pw12345",
                                          "remember": "on"})
         first_token = _remember_headers(first)[0].split("=", 1)[1].split(";")[0]
@@ -369,7 +369,8 @@ class TestRememberMeLogin:
         second = client.post(LOGIN, data={"username": "t_admin", "password": "pw12345",
                                           "remember": "on"})
         second_token = _remember_headers(second)[0].split("=", 1)[1].split(";")[0]
-        assert decode_cookie(first_token) != decode_cookie(second_token)
+        with app.app_context():
+            assert decode_cookie(first_token) != decode_cookie(second_token)
         assert client.get_cookie(REMEMBER_COOKIE).value == second_token
 
     def test_remember_cookie_carries_an_expiry(self, client):
