@@ -12,8 +12,13 @@ Verifies: apply_decision, amendment spawning, serial-race retries,
 HTTP 423 on locked/historical edits/deletes, and audit-trail preservation.
 """
 
+from unittest.mock import patch
+
+import pytest
+
 from tests.conftest import login_as
-from app.ops.versioning import APPROVED, AMENDED
+from app.ops.versioning import (AMENDED, APPROVED, DRAFT, SUBMITTED,
+                                apply_decision, spawn_amendment)
 
 
 def _alpha_id(client):
@@ -170,6 +175,75 @@ def test_delete_on_approved_returns_423(client):
                 json={"decision": "approve"})
     r = client.delete(f"/ops/cost-variances/{cid}")
     assert r.status_code == 423
+
+
+def test_spawn_amendment_rejects_unknown_integer_author(app):
+    from app.ops.models import CostVariance
+
+    with app.app_context():
+        record = CostVariance.query.first()
+        with pytest.raises(ValueError, match="unknown author"):
+            spawn_amendment(CostVariance, record, 99999999, {})
+
+
+def test_spawn_amendment_accepts_integer_author(app):
+    from app.extensions import db
+    from app.models import User
+    from app.ops.models import CostVariance
+
+    with app.app_context():
+        record = CostVariance.query.filter_by(serial="CVR-000001").first()
+        author = User.query.filter_by(username="t_eng").first()
+        amendment = spawn_amendment(
+            CostVariance, record, author.id, {"boq_item": "integer author"})
+        assert amendment.user_id == author.id
+        assert amendment.status == DRAFT
+        assert amendment.version == (record.version or 1) + 1
+        db.session.remove()
+
+
+def test_spawn_amendment_exhausts_serial_retries(app):
+    from app.models import User
+    from app.ops.models import CostVariance
+
+    with app.app_context():
+        record = CostVariance.query.filter_by(serial="CVR-000001").first()
+        author = User.query.filter_by(username="t_eng").first()
+        serials = [f"CVR-RACE-{i}" for i in range(5)]
+        with patch("app.ops.models.next_serial", side_effect=serials), \
+                patch("app.extensions.db.session.commit",
+                      side_effect=RuntimeError("commit failed")):
+            with pytest.raises(RuntimeError, match="could not allocate"):
+                spawn_amendment(CostVariance, record, author.id, {})
+
+
+def test_apply_decision_rejects_invalid_state_and_decision(app):
+    from app.models import User
+    from app.ops.models import CostVariance
+
+    with app.app_context():
+        record = CostVariance.query.filter_by(serial="CVR-000001").first()
+        reviewer = User.query.filter_by(username="t_admin").first()
+        record.status = DRAFT
+        error = apply_decision(record, "approve", reviewer)
+        assert "requires status 'submitted'" in error
+        record.status = SUBMITTED
+        error = apply_decision(record, "invalid", reviewer)
+        assert error == "decision must be approve or reject"
+
+
+def test_apply_decision_returns_database_error(app):
+    from app.models import User
+    from app.ops.models import CostVariance
+
+    with app.app_context():
+        record = CostVariance.query.filter_by(serial="CVR-000001").first()
+        reviewer = User.query.filter_by(username="t_admin").first()
+        record.status = SUBMITTED
+        with patch("app.extensions.db.session.commit",
+                   side_effect=RuntimeError("commit failed")):
+            error = apply_decision(record, "approve", reviewer)
+        assert error == "database error during decision — transaction rolled back"
 
 
 # ---- Serial race handling ------------------------------------------------

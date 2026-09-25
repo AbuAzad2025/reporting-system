@@ -1,5 +1,5 @@
 """Financial calculation accuracy — pure functions AND model delegation."""
-from app.ops.finance import (variance_metrics, billing_metrics,
+from app.ops.finance import (variance_metrics, evm_metrics, billing_metrics,
                              performance_overall, performance_grade,
                              manpower_total, signed_amount)
 from app.ops.models import (CostVariance, ProgressBilling,
@@ -21,6 +21,15 @@ def test_variance_zero_budget_guards_division():
     assert m["variance"] == 50.00
     assert m["variance_pct"] == 0.0  # no ZeroDivisionError
     assert m["reestimated_total"] is None
+
+
+def test_variance_invalid_reestimate_is_ignored():
+    metrics = variance_metrics(1, 2, 1, 3, "invalid", 4)
+    assert metrics["reestimated_total"] is None
+
+
+def test_evm_bac_forecast_handles_zero_cpi():
+    assert evm_metrics(100, 50, 0, 200)["forecast_final_cost"] == 150.0
 
 
 def test_variance_negative_savings():

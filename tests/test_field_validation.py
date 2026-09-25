@@ -1,6 +1,8 @@
 """Tests for field_validation.py — full coverage."""
 import pytest
-from app.services.field_validation import validate_field_value, rules_from_form
+from app.services.field_validation import (validate_field_value,
+                                           validate_inspection_result,
+                                           rules_from_form)
 
 
 class TestValidateFieldValue:
@@ -120,6 +122,32 @@ class TestValidateFieldValue:
 
     def test_unknown_type_returns_none(self):
         assert validate_field_value("unknown", "anything", {}) is None
+
+
+class TestValidateInspectionResult:
+
+    def test_empty_result_passes(self):
+        assert validate_inspection_result(None, 1, 2) == (None, False)
+        assert validate_inspection_result("  ", 1, 2) == (None, False)
+
+    def test_non_numeric_result_fails(self):
+        error, ncr = validate_inspection_result("invalid", 1, 2)
+        assert ncr is False
+        assert "رقماً" in error
+
+    def test_result_below_minimum_creates_ncr(self):
+        error, ncr = validate_inspection_result(1, 2, 3)
+        assert ncr is True
+        assert "أقل من الحد الأدنى" in error
+
+    def test_result_above_maximum_creates_ncr(self):
+        error, ncr = validate_inspection_result(3, 1, 2)
+        assert ncr is True
+        assert "أعلى من الحد الأعلى" in error
+
+    def test_invalid_limits_are_ignored(self):
+        assert validate_inspection_result(1, "invalid", 2) == (None, False)
+        assert validate_inspection_result(1, 0, "invalid") == (None, False)
 
 
 class TestRulesFromForm:

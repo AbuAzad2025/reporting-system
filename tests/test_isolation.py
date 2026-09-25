@@ -13,6 +13,37 @@ def _ids(app):
     return pa, pb, in_a, in_b
 
 
+def test_isolation_helper_fail_closed_paths(app):
+    from types import SimpleNamespace
+    import pytest
+    from werkzeug.exceptions import NotFound
+    from app.ops.isolation import (accessible_project_ids, can_access_project,
+                                   get_linked_project_or_404, is_platform_manager)
+
+    anonymous = SimpleNamespace(is_authenticated=False)
+    manager = SimpleNamespace(is_authenticated=True, role="admin")
+    assert is_platform_manager(None) is False
+    assert accessible_project_ids(anonymous) == set()
+    assert accessible_project_ids(manager) is None
+    assert can_access_project(manager, None) is False
+    with app.app_context():
+        with pytest.raises(NotFound):
+            get_linked_project_or_404(manager, "not-a-project")
+
+
+def test_roles_required_json_rejects_anonymous(app):
+    from app.ops.isolation import roles_required_json
+
+    @roles_required_json("admin")
+    def view():
+        return "ok"
+
+    with app.test_request_context():
+        response, status = view()
+        assert status == 401
+        assert response.get_json() == {"error": "authentication required"}
+
+
 def test_cross_tenant_read_is_404_not_403(app, client):
     # t_eng belongs to Alpha only; Beta's CVR-000002 must look nonexistent
     login_as(client, "t_eng")

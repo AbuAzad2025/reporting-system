@@ -6,6 +6,41 @@ from app.models import User, Project, ReportTemplate, DynamicField, ReportSubmis
 from app.extensions import db
 
 
+class TestModelHelpers:
+
+    def test_reprs(self):
+        assert repr(User(username="tester", role="site_engineer")) == \
+            "<User tester (site_engineer)>"
+        assert repr(Project(name="Project")) == "<Project Project>"
+        assert repr(ReportTemplate(key="daily", name_ar="يومي")) == \
+            "<ReportTemplate daily: يومي>"
+        assert repr(DynamicField(field_key="items", field_type="table")) == \
+            "<DynamicField items (table)>"
+
+    def test_dynamic_field_column_normalization(self):
+        field = DynamicField(sub_fields=[
+            "invalid",
+            {},
+            {"key": " Item Name ", "type": "unsupported", "required": 1,
+             "options": [1, 2]},
+            {"key": "OK", "type": "number"},
+        ])
+        assert field.options_list() == []
+        assert field.sub_columns() == [
+            {"key": "item_name", "label_ar": "item_name", "type": "text",
+             "required": True, "placeholder": "", "options": ["1", "2"]},
+            {"key": "ok", "label_ar": "ok", "type": "number",
+             "required": False, "placeholder": "", "options": []},
+        ]
+
+    def test_submission_get_and_repr(self):
+        submission = ReportSubmission(
+            template_id=7, project_name="Alpha", data={"known": 1})
+        assert submission.get("known") == 1
+        assert submission.get("missing", "fallback") == "fallback"
+        assert repr(submission) == "<Submission 7 | Alpha | None>"
+
+
 class TestAdminDashboard:
 
     def test_dashboard_requires_login(self, client):

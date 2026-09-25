@@ -39,6 +39,9 @@ class TestCollectBatch:
             records = collect_batch({}, u)
             assert records == []
 
+    def test_collect_batch_ignores_unknown_kind(self):
+        assert collect_batch({}, object(), kinds=["unknown"]) == []
+
     def test_collect_batch_filters_by_project(self, app):
         with app.app_context():
             from app.ops.models import SiteInspection
@@ -276,6 +279,31 @@ class TestBatchSummary:
 
 
 class TestBuildBatchPDF:
+
+    def test_build_batch_pdf_handles_record_attribute_error(self):
+        class BrokenInspection:
+            serial = "SIR-BROKEN"
+            report_date = date(2024, 1, 1)
+            status = "approved"
+            status_ar = "معتمد"
+            signatory_name = None
+            version = 1
+            result_value = 25
+            verdict = "pass"
+
+            @property
+            def test_type(self):
+                raise RuntimeError("attribute unavailable")
+
+        pdf_bytes = build_batch_pdf(
+            records=[("site-inspections", BrokenInspection())],
+            project_name="Test Project",
+            date_from="2024-01-01",
+            date_to="2024-01-31",
+            generated_by="Test User",
+            generated_at="2024-01-15 10:00",
+        )
+        assert pdf_bytes.startswith(b"%PDF-")
 
     def test_build_batch_pdf_empty_records(self):
         pdf_bytes = build_batch_pdf(
