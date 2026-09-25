@@ -92,21 +92,45 @@ class TestCollectBatch:
             # Make user member of project
             db.session.add(ProjectMember(user_id=u.id, project_id=p.id))
             db.session.commit()
-            
+
             # Create inspections with different dates
             from datetime import date
-            s1 = SiteInspection(project_id=p.id, user_id=u.id, serial="SIR-001",
-                               test_category="concrete", test_type="cube", result_value=25,
-                               acceptance_min=20, verdict="pass", signatory_name="Eng",
-                               report_date=date(2024, 1, 15))
-            s2 = SiteInspection(project_id=p.id, user_id=u.id, serial="SIR-002",
-                               test_category="concrete", test_type="cube", result_value=30,
-                               acceptance_min=20, verdict="pass", signatory_name="Eng",
-                               report_date=date(2024, 2, 15))
-            s3 = SiteInspection(project_id=p.id, user_id=u.id, serial="SIR-003",
-                               test_category="concrete", test_type="cube", result_value=35,
-                               acceptance_min=20, verdict="pass", signatory_name="Eng",
-                               report_date=date(2024, 3, 15))
+            s1 = SiteInspection(
+                project_id=p.id,
+                user_id=u.id,
+                serial="SIR-001",
+                test_category="concrete",
+                test_type="cube",
+                result_value=25,
+                acceptance_min=20,
+                verdict="pass",
+                signatory_name="Eng",
+                report_date=date(2024, 1, 15),
+            )
+            s2 = SiteInspection(
+                project_id=p.id,
+                user_id=u.id,
+                serial="SIR-002",
+                test_category="concrete",
+                test_type="cube",
+                result_value=30,
+                acceptance_min=20,
+                verdict="pass",
+                signatory_name="Eng",
+                report_date=date(2024, 2, 15),
+            )
+            s3 = SiteInspection(
+                project_id=p.id,
+                user_id=u.id,
+                serial="SIR-003",
+                test_category="concrete",
+                test_type="cube",
+                result_value=35,
+                acceptance_min=20,
+                verdict="pass",
+                signatory_name="Eng",
+                report_date=date(2024, 3, 15),
+            )
             db.session.add_all([s1, s2, s3])
             db.session.commit()
 
@@ -127,7 +151,7 @@ class TestCollectBatch:
                 serials = [r[1].serial for r in records]
                 assert "SIR-002" in serials
                 assert "SIR-003" in serials
-                 
+
                 # Test date_to filter (should get records with report_date <= 2024-02-28)
                 records = collect_batch(model_map, u, date_to_str="2024-02-28")
                 # Verify that all returned records have report_date <= 2024-02-28
@@ -137,7 +161,7 @@ class TestCollectBatch:
                 serials = [r[1].serial for r in records]
                 assert "SIR-001" in serials
                 assert "SIR-002" in serials
-                 
+
                 # Test both date_from and date_to (should get records with 2024-02-01 <= report_date <= 2024-02-28)
                 records = collect_batch(model_map, u, date_from_str="2024-02-01", date_to_str="2024-02-28")
                 # Verify that all returned records have 2024-02-01 <= report_date <= 2024-02-28
@@ -163,11 +187,19 @@ class TestCollectBatch:
             # Make user member of project
             db.session.add(ProjectMember(user_id=u.id, project_id=p.id))
             db.session.commit()
-            
+
             # Create an inspection
-            s = SiteInspection(project_id=p.id, user_id=u.id, serial="SIR-001",
-                              test_category="concrete", test_type="cube", result_value=25,
-                              acceptance_min=20, verdict="pass", signatory_name="Eng")
+            s = SiteInspection(
+                project_id=p.id,
+                user_id=u.id,
+                serial="SIR-001",
+                test_category="concrete",
+                test_type="cube",
+                result_value=25,
+                acceptance_min=20,
+                verdict="pass",
+                signatory_name="Eng",
+            )
             db.session.add(s)
             db.session.commit()
 
@@ -184,11 +216,11 @@ class TestCollectBatch:
                 # With the current buggy logic, this might return 0 or 1 records
                 # We just need to make sure the code paths are executed
                 assert isinstance(records, list)
-                
+
                 # Test invalid date_to string - should be ignored (treated as None)
                 records = collect_batch(model_map, u, date_to_str="also-invalid")
                 assert isinstance(records, list)
-                
+
                 # Test both invalid - should still work
                 records = collect_batch(model_map, u, date_from_str="bad1", date_to_str="bad2")
                 assert isinstance(records, list)
@@ -337,30 +369,56 @@ class TestBuildBatchPDF:
             p = Project(name="Test Project")
             db.session.add(p)
             db.session.commit()
-            
+
             # Make user member of project for tenant scoping
             from app.ops.models import ProjectMember
             db.session.add(ProjectMember(user_id=u.id, project_id=p.id))
             db.session.commit()
 
             # Create one record of each type
-            si = SiteInspection(project_id=p.id, user_id=u.id, serial="SIR-001",
-                               test_category="concrete", test_type="cube", result_value=25,
-                               acceptance_min=20, verdict="pass", signatory_name="Eng")
-            ms = MaterialSubmittal(project_id=p.id, user_id=u.id, serial="MSR-001",
-                                  material_name="Steel", submittal_no="MS-001", quantity=100)
-            rfi = RFI(project_id=p.id, user_id=u.id, serial="RFI-001",
-                     subject="Test RFI", ball_in_court="Contractor", priority="High")
+            si = SiteInspection(
+                project_id=p.id,
+                user_id=u.id,
+                serial="SIR-001",
+                test_category="concrete",
+                test_type="cube",
+                result_value=25,
+                acceptance_min=20,
+                verdict="pass",
+                signatory_name="Eng",
+            )
+            ms = MaterialSubmittal(
+                project_id=p.id,
+                user_id=u.id,
+                serial="MSR-001",
+                material_name="Steel",
+                submittal_no="MS-001",
+                quantity=100,
+            )
+            rfi = RFI(
+                project_id=p.id,
+                user_id=u.id,
+                serial="RFI-001",
+                subject="Test RFI",
+                ball_in_court="Contractor",
+                priority="High",
+            )
             # For CostVariance, we need to set the underlying fields, not the variance property
             # To get variance = 1500.0:
             # budgeted_total = budgeted_qty * budgeted_rate
             # actual_total = actual_qty * actual_rate
             # variance = actual_total - budgeted_total
             # Let's make: budgeted_total = 1000, actual_total = 2500 → variance = 1500
-            cv = CostVariance(project_id=p.id, user_id=u.id, serial="CV-001",
-                             boq_item="Concrete Work",
-                             budgeted_qty=100.0, budgeted_rate=10.0,  # budgeted_total = 1000
-                             actual_qty=250.0, actual_rate=10.0)     # actual_total = 2500 → variance = 1500
+            cv = CostVariance(
+                project_id=p.id,
+                user_id=u.id,
+                serial="CV-001",
+                boq_item="Concrete Work",
+                budgeted_qty=100.0,
+                budgeted_rate=10.0,
+                actual_qty=250.0,
+                actual_rate=10.0,
+            )
             # For ProgressBilling, we need to set the underlying fields, not the gross/net_payable properties
             # To get gross = 10000.0, net_payable = 9000.0:
             # gross = qty_completed * rate
@@ -369,9 +427,15 @@ class TestBuildBatchPDF:
             # Let's make: qty_completed = 1000.0, rate = 10.0 → gross = 10000.0
             # retention_pct = 10.0 (default) → retention = 10000 * 10 / 100 = 1000.0
             # net_payable = 10000 - 1000 = 9000.0
-            pb = ProgressBilling(project_id=p.id, user_id=u.id, serial="PB-001",
-                                work_item="Foundation", qty_completed=1000.0, rate=10.0)
-            
+            pb = ProgressBilling(
+                project_id=p.id,
+                user_id=u.id,
+                serial="PB-001",
+                work_item="Foundation",
+                qty_completed=1000.0,
+                rate=10.0,
+            )
+
             db.session.add_all([si, ms, rfi, cv, pb])
             db.session.commit()
 
