@@ -361,11 +361,14 @@ def test_share_endpoint_legacy(eng_client):
 
 
 def test_share_endpoint_tenant_isolation(client, app):
-    """Share endpoint blocks cross-author access (fail-closed 403)."""
+    """Share endpoint hides cross-author objects behind 404 (no oracle)."""
     s_id = _make_submission(app)  # owned by t_eng on Alpha
     login_as(client, "t_eng2")  # different author, no admin role
     r = client.get(f"/reports/share/dynamic/{s_id}")
-    assert r.status_code == 403
+    assert r.status_code == 404
+    missing = client.get("/reports/share/dynamic/999999")
+    assert missing.status_code == 404
+    assert r.status_code == missing.status_code
 
 
 def test_whatsapp_url_encoding():
