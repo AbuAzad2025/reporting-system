@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}لوحة التحكم{% endblock %}
 {% block content %}
-<div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between flex-wrap gap-3">
+<div class="card p-5 flex items-center justify-between flex-wrap gap-3">
   <div>
     <h1 class="text-lg md:text-2xl font-extrabold text-navy">مرحباً، {{ current_user.full_name }} 👋</h1>
     <p class="text-sm text-slate-500">{{ current_user.role_ar }} — اختر القالب وعبّئه من الجوال</p>
@@ -19,7 +19,7 @@
 {% if templates %}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
   {% for t in templates %}
-  <a href="{{ url_for('reports.dyn_new', template_key=t.key) }}" class="bg-gradient-to-br {{ t.gradient }} text-white rounded-3xl p-5 shadow-lg hover:scale-[1.01] transition">
+  <a href="{{ url_for('reports.dyn_new', template_key=t.key) }}" class="bg-gradient-to-br {{ t.gradient }} text-white rounded-3xl p-5 shadow-lg hover:scale-[1.01] transition-normal">
     <div class="flex items-start justify-between">
       <div class="text-4xl">{{ t.icon }}</div>
       <span class="bg-white/20 text-xs font-bold px-3 py-1 rounded-full">{{ counts.get(t.key, 0) }} تقرير</span>

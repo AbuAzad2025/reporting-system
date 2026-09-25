@@ -1,49 +1,72 @@
 {% extends "base.html" %}
 {% block title %}لوحة الإدارة{% endblock %}
 {% block content %}
-<div class="bg-navy text-white rounded-3xl p-5 shadow">
-  <h1 class="font-extrabold text-lg">⚙️ لوحة مالك المنصة</h1>
-  <p class="text-xs text-slate-300">إدارة القوالب والحقول والمشاريع والمستخدمين + تحليلات شاملة</p>
-  <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3 text-center">
-    {% for label, val in [('المستخدمون', stats.users), ('المشاريع', stats.projects), ('القوالب', stats.templates), ('ديناميكية', stats.submissions), ('كلاسيكية', stats.legacy)] %}
-    <div class="bg-white/10 rounded-2xl py-3"><div class="text-xl font-extrabold">{{ val }}</div><div class="text-[11px] text-slate-300">{{ label }}</div></div>
-    {% endfor %}
-  </div>
-</div>
-
-<div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3 text-sm font-bold">
-  <a href="{{ url_for('admin.templates') }}" class="bg-white rounded-2xl shadow p-4 text-center hover:bg-slate-50">🧩<br>منشئ النماذج</a>
-  <a href="{{ url_for('admin.projects') }}" class="bg-white rounded-2xl shadow p-4 text-center hover:bg-slate-50">🏗️<br>المشاريع</a>
-  <a href="{{ url_for('admin.users') }}" class="bg-white rounded-2xl shadow p-4 text-center hover:bg-slate-50">👥<br>المستخدمون</a>
-  <a href="{{ url_for('reports.dyn_list') }}" class="bg-white rounded-2xl shadow p-4 text-center hover:bg-slate-50">📋<br>معاينة القوالب</a>
-  <a href="{{ url_for('ops.batch_form') }}" class="bg-navy text-white rounded-2xl shadow p-4 text-center hover:brightness-110">📚<br>تصدير مجمع PDF</a>
-</div>
-
-<div class="bg-white rounded-3xl shadow p-5 mt-3">
-  <h2 class="font-extrabold text-navy mb-2">📊 التقارير حسب القالب</h2>
-  {% for name, cnt in per_template %}
-  <div class="flex items-center gap-2 mb-2 text-sm">
-    <div class="w-40 shrink-0 font-bold truncate">{{ name }}</div>
-    <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-teal2 h-4 rounded-full" style="width: {{ (cnt / (stats.submissions or 1) * 100)|round }}%"></div></div>
-    <div class="w-10 text-left font-extrabold">{{ cnt }}</div>
-  </div>
-  {% else %}
-  <p class="text-sm text-slate-400">لا توجد بيانات بعد.</p>
-  {% endfor %}
-</div>
-
-<div class="bg-white rounded-3xl shadow p-5 mt-3">
-  <h2 class="font-extrabold text-navy mb-2">📈 آخر 14 يوم (حسب تاريخ التقرير)</h2>
-  <div class="flex items-end gap-1 h-28">
-    {% for row in chart %}
-    <div class="flex-1 flex flex-col items-center gap-1">
-      <span class="text-[10px] font-bold">{{ row.c }}</span>
-      <div class="w-full bg-navy/80 rounded-t" style="height: {{ (row.c / ((chart|map(attribute='c')|max) or 1) * 80)|round }}px"></div>
-      <span class="text-[9px] text-slate-400">{{ row.d[5:] }}</span>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <div class="card p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="font-bold text-navy mb-1">المستخدمين</h3>
+        <p class="text-sm text-slate-500">إجمالي الحسابات</p>
+      </div>
+      <div class="text-3xl font-extrabold text-navy">{{ users }}</div>
     </div>
-    {% else %}
-    <p class="text-sm text-slate-400">لا توجد بيانات بعد.</p>
-    {% endfor %}
   </div>
+  <div class="card p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="font-bold text-navy mb-1">التقارير</h3>
+        <p class="text-sm text-slate-500">إجمالي التقارير</p>
+      </div>
+      <div class="text-3xl font-extrabold text-navy">{{ submissions }}</div>
+    </div>
+  </div>
+  <div class="card p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="font-bold text-navy mb-1">المشاريع</h3>
+        <p class="text-sm text-slate-500">إجمالي المشاريع</p>
+      </div>
+      <div class="text-3xl font-extrabold text-navy">{{ projects }}</div>
+    </div>
+  </div>
+</div>
+
+<h2 class="font-extrabold text-navy mb-4">النشاط الأخير</h2>
+<div class="space-y-4">
+  {% for activity in recent_activities %}
+  <div class="card p-4">
+    <div class="flex items-start justify-between">
+      <div class="flex-shrink-0">
+        <div class="bg-teal2 text-white rounded-xl px-3 py-2 text-xs font-bold">{{ activity.icon }}</div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h4 class="font-bold text-navy mb-1">{{ activity.title }}</h4>
+        <p class="text-sm text-slate-500">{{ activity.description }}</p>
+        <div class="flex items-center justify-between mt-2">
+          <span class="text-xs text-slate-400">{{ activity.time }}</span>
+          {% if activity.user %}
+          <span class="text-xs font-semibold">{{ activity.user }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% if recent_activities|length == 0 %}
+  <div class="card p-6 text-center text-slate-500">
+    لا يوجد نشاط حديث
+  </div>
+  {% endif %}
+</div>
+
+<h2 class="font-extrabold text-navy mb-4">إحصائيات القوالب</h2>
+<div class="grid gap-4">
+  {% for stat in template_stats %}
+  <div class="card p-4">
+    <h3 class="font-bold text-navy mb-2">{{ stat.template_name }}</h3>
+    <div class="text-2xl font-extrabold text-teal2">{{ stat.count }} تقرير</div>
+    <p class="text-sm text-slate-500 mt-1">المتوسط اليومي: {{ stat.average_daily }} تقرير</p>
+  </div>
+  {% endfor %}
 </div>
 {% endblock %}

@@ -3,7 +3,7 @@
 {% block content %}
 <div class="max-w-2xl mx-auto">
   <!-- Sticky action bar: back / print / official A4 PDF / edit / delete / share -->
-  <div class="sticky top-[74px] z-30 no-print">
+  <div class="sticky top-[74px] z-[var(--z-index-sticky)] no-print">
     <div class="bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-2xl p-2 flex gap-2 overflow-x-auto">
       <a href="{{ url_for('main.archive', src='dyn') }}" class="shrink-0 min-h-[48px] inline-flex items-center bg-slate-100 px-4 py-3 rounded-xl text-sm font-bold">→ رجوع</a>
       <button data-print class="shrink-0 min-h-[48px] bg-navy text-white px-4 py-3 rounded-xl text-sm font-extrabold">🖨️ طباعة التقرير</button>
@@ -61,28 +61,28 @@
               {% for c in cols %}<th class="px-3 py-2 whitespace-nowrap">{{ c.label_ar }}</th>{% endfor %}
             </tr></thead>
             <tbody>
-      {% for row in rows %}
-      {# caption for photo cells: sibling caption/comment column in same row #}
-      {% set _ns = namespace(caption='') %}
-      {% for c in cols %}{% if c.type != 'file' and ('caption' in c.key or 'تعليق' in c.label_ar) and row.get(c.key,'') %}{% set _ns.caption = row.get(c.key,'') %}{% endif %}{% endfor %}
-      <tr class="border-t border-slate-100">
-        <td class="px-2 py-2 text-center font-bold text-slate-400 text-[11px] row-num">{{ loop.index }}</td>
-        {% for c in cols %}
-        <td class="px-3 py-2 whitespace-pre-wrap text-[11px]">
-          {% if c.type == 'file' and row.get(c.key,'') %}
-          <a href="{{ url_for('reports.dyn_file', key=row.get(c.key,'')) }}" target="_blank" class="block">
-            <img src="{{ url_for('reports.dyn_file', key=row.get(c.key,'')) }}" alt="{{ _ns.caption or c.label_ar }}" loading="lazy" class="rounded-xl border max-w-full h-auto max-h-64 object-cover">
-          </a>
-          {% if _ns.caption %}<div class="mt-1 text-slate-600">📝 {{ _ns.caption }}</div>{% endif %}
-          {% elif c.type == 'checkbox' %}
-          {{ '☒' if (row.get(c.key,'') in ['yes','true','1','☒','نعم'] or row.get(c.key,'') == true) else '☐' }}
-          {% else %}
-          {{ row.get(c.key, '') or '—' }}
-          {% endif %}
-        </td>
-        {% endfor %}
-      </tr>
-      {% endfor %}
+          {% for row in rows %}
+          {# caption for photo cells: sibling caption/comment column in same row #}
+          {% set _ns = namespace(caption='') %}
+          {% for c in cols %}{% if c.type != 'file' and ('caption' in c.key or 'تعليق' in c.label_ar) and row.get(c.key,'') %}{% set _ns.caption = row.get(c.key,'') %}{% endif %}{% endfor %}
+          <tr class="border-t border-slate-100">
+            <td class="px-2 py-2 text-center font-bold text-slate-400 text-[11px] row-num">{{ loop.index }}</td>
+            {% for c in cols %}
+            <td class="px-3 py-2 whitespace-pre-wrap text-[11px]">
+              {% if c.type == 'file' and row.get(c.key,'') %}
+              <a href="{{ url_for('reports.dyn_file', key=row.get(c.key,'')) }}" target="_blank" class="block">
+                <img src="{{ url_for('reports.dyn_file', key=row.get(c.key,'')) }}" alt="{{ _ns.caption or c.label_ar }}" loading="lazy" class="rounded-xl border max-w-full h-auto max-h-64 object-cover">
+              </a>
+              {% if _ns.caption %}<div class="mt-1 text-slate-600">📝 {{ _ns.caption }}</div>{% endif %}
+              {% elif c.type == 'checkbox' %}
+              {{ '☒' if (row.get(c.key,'') in ['yes','true','1','☒','نعم'] or row.get(c.key,'') == true) else '☐' }}
+              {% else %}
+              {{ row.get(c.key, '') or '—' }}
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
             </tbody>
           </table>
         </div>
@@ -104,100 +104,100 @@
 {% endblock %}
 {% block scripts %}
 <script>
-const shareData = {
-  reportType: 'dynamic',
-  reportId: {{ s.id }},
-  serial: 'DS-{{ '%05d'|format(s.id) }}',
-  project: {{ s.project_name|tojson }},
-  title: {{ tpl.name_ar|tojson }},
-  url: '{{ url_for("reports.dyn_view", sub_id=s.id, _external=true) }}'
-};
+  const shareData = {
+    reportType: 'dynamic',
+    reportId: {{ s.id }},
+    serial: 'DS-{{ '%05d'|format(s.id) }}',
+    project: {{ s.project_name|tojson }},
+    title: {{ tpl.name_ar|tojson }},
+    url: '{{ url_for("reports.dyn_view", sub_id=s.id, _external=true) }}'
+  };
 
-function toggleShareMenu() {
-  const dropdown = document.getElementById('shareDropdown');
-  dropdown.classList.toggle('hidden');
-}
-
-function closeShareMenu() {
-  document.getElementById('shareDropdown').classList.add('hidden');
-}
-
-async function fetchShareUrls() {
-  try {
-    const res = await fetch(`/reports/share/dynamic/{{ s.id }}`);
-    if (!res.ok) throw new Error('فشل في جلب بيانات المشاركة');
-    return await res.json();
-  } catch (e) {
-    console.error(e);
-    return null;
+  function toggleShareMenu() {
+    const dropdown = document.getElementById('shareDropdown');
+    dropdown.classList.toggle('hidden');
   }
-}
 
-async function shareNative() {
-  closeShareMenu();
-  const data = await fetchShareUrls();
-  if (!data) return;
-  if (navigator.share) {
+  function closeShareMenu() {
+    document.getElementById('shareDropdown').classList.add('hidden');
+  }
+
+  async function fetchShareUrls() {
     try {
-      await navigator.share({
-        title: data.payload.title + ' - ' + data.payload.serial,
-        text: `تقرير: ${data.payload.title}\nالرقم: ${data.payload.serial}\nالمشروع: ${data.payload.project}`,
-        url: data.url
-      });
+      const res = await fetch(`/reports/share/dynamic/{{ s.id }}`);
+      if (!res.ok) throw new Error('فشل في جلب بيانات المشاركة');
+      return await res.json();
     } catch (e) {
-      if (e.name !== 'AbortError') fallbackShare(data.url);
+      console.error(e);
+      return null;
     }
-  } else {
-    fallbackShare(data.url);
   }
-}
 
-async function shareWhatsApp() {
-  closeShareMenu();
-  const data = await fetchShareUrls();
-  if (!data) return;
-  window.open(data.whatsapp_url, '_blank');
-}
-
-async function copyLink() {
-  closeShareMenu();
-  const data = await fetchShareUrls();
-  if (!data) return;
-  await navigator.clipboard.writeText(data.url);
-  showToast('تم نسخ الرابط إلى الحافظة');
-}
-
-async function shareEmail() {
-  closeShareMenu();
-  const data = await fetchShareUrls();
-  if (!data) return;
-  window.location.href = data.email_url;
-}
-
-function fallbackShare(url) {
-  const temp = document.createElement('input');
-  temp.value = url;
-  document.body.appendChild(temp);
-  temp.select();
-  document.execCommand('copy');
-  document.body.removeChild(temp);
-  showToast('تم نسخ الرابط (متصفح لا يدعم المشاركة الأصلية)');
-}
-
-function showToast(msg) {
-  const toast = document.createElement('div');
-  toast.textContent = msg;
-  toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg z-50';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-  const menu = document.getElementById('shareMenu');
-  if (menu && !menu.contains(e.target)) {
+  async function shareNative() {
     closeShareMenu();
+    const data = await fetchShareUrls();
+    if (!data) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: data.payload.title + ' - ' + data.payload.serial,
+          text: `تقرير: ${data.payload.title}\nالرقم: ${data.payload.serial}\nالمشروع: ${data.payload.project}`,
+          url: data.url
+        });
+      } catch (e) {
+        if (e.name !== 'AbortError') fallbackShare(data.url);
+      }
+    } else {
+      fallbackShare(data.url);
+    }
   }
-});
+
+  async function shareWhatsApp() {
+    closeShareMenu();
+    const data = await fetchShareUrls();
+    if (!data) return;
+    window.open(data.whatsapp_url, '_blank');
+  }
+
+  async function copyLink() {
+    closeShareMenu();
+    const data = await fetchShareUrls();
+    if (!data) return;
+    await navigator.clipboard.writeText(data.url);
+    showToast('تم نسخ الرابط إلى الحافظة');
+  }
+
+  async function shareEmail() {
+    closeShareMenu();
+    const data = await fetchShareUrls();
+    if (!data) return;
+    window.location.href = data.email_url;
+  }
+
+  function fallbackShare(url) {
+    const temp = document.createElement('input');
+    temp.value = url;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+    showToast('تم نسخ الرابط (متصفح لا يدعم المشاركة الأصلية)');
+  }
+
+  function showToast(msg) {
+    const toast = document.createElement('div');
+    toast.textContent = msg;
+    toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg z-[var(--z-index-toast)]';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('shareMenu');
+    if (menu && !menu.contains(e.target)) {
+      closeShareMenu();
+    }
+  });
 </script>
 {% endblock %}

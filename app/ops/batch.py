@@ -88,6 +88,8 @@ def collect_batch(model_map, user, project_id=None, date_from_str=None,
             q = q.filter(model.report_date >= date_from)
         if date_to:
             q = q.filter(model.report_date <= date_to)
+        if project_id is not None:
+            q = q.filter(model.project_id == project_id)
         for r in q.order_by(model.report_date, model.id).all():
             out.append((kind, r))
     out.sort(key=lambda kr: (str(kr[1].report_date), kr[1].id))
