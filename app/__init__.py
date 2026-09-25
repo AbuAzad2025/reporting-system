@@ -48,9 +48,10 @@ def create_app(config_class=Config):
             "Refusing boot: SECRET_KEY must be set in production "
             "(default dev secret detected).")
         raise RuntimeError("SECRET_KEY must be set in production.")
-    # Cookie hardening: Secure only in production (local HTTP stays working).
-    app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
-    app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
+    if app.config.get("SESSION_COOKIE_HTTPONLY") is not True:
+        app.config["SESSION_COOKIE_HTTPONLY"] = True
+    if not app.config.get("SESSION_COOKIE_SAMESITE"):
+        app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     if _is_prod:
         app.config["SESSION_COOKIE_SECURE"] = True
 

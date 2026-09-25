@@ -40,7 +40,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from app.extensions import db
 from app.models import (Project, Report, ReportSubmission, ReportTemplate,
                         DynamicField, User)
-from app.ops.models import ProjectMember
+from app.ops.models import Attachment, ProjectMember
 from app.ops.models import (SiteInspection, MaterialSubmittal, RFI,
                             CostVariance, ProgressBilling,
                             SubcontractorPerformance, DailySiteReport,
@@ -186,187 +186,276 @@ def _load_json(archive: zipfile.ZipFile, name: str) -> List[Dict[str, Any]]:
     return json.loads(payload.decode("utf-8"))
 
 
-def _restore_rows(model_cls: Any, rows: Iterable[Dict[str, Any]],
-                  id_map: Dict[str, Dict[int, int]], key: str) -> None:
-    """Restore rows into the database, remapping foreign keys."""
+_FK_MAP = (("project_id", "projects"),
+           ("user_id", "users"),
+           ("template_id", "report_templates"),
+           ("created_by_id", "users"),
+           ("reviewed_by_id", "users"),
+           ("uploaded_by", "users"))
+
+
+def _parse_date(value: Any) -> Optional[date]:
+    """Coerce an ISO date/datetime string back into a ``date``."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            return date.fromisoformat(value.strip()[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def _parse_datetime(value: Any) -> Optional[datetime]:
+    """Coerce an ISO datetime string back into a naive ``datetime``."""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+    if isinstance(value, str) and value.strip():
+        raw = value.strip()
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            day = _parse_date(raw)
+            return datetime(day.year, day.month, day.day) if day else None
+        return parsed.replace(tzinfo=None)
+    return None
+
+
+def _coerce_row(model_cls: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Restore column values to the Python types the DB driver expects.
+
+    JSON round-trips turn DATE/DATETIME columns into strings, which both
+    SQLite and PostgreSQL reject on bind, so an export could never be
+    re-imported without this coercion.
+    """
+    from sqlalchemy import Date as SADate, DateTime as SADateTime
+    out: Dict[str, Any] = {}
+    for col in model_cls.__table__.columns:
+        if col.name not in payload:
+            continue
+        value = payload[col.name]
+        if isinstance(col.type, SADateTime):
+            value = _parse_datetime(value)
+        elif isinstance(col.type, SADate):
+            value = _parse_date(value)
+        out[col.name] = value
+    return out
+
+
+def _remap_fks(payload: Dict[str, Any],
+               id_map: Dict[str, Dict[int, int]]) -> Dict[str, Any]:
+    """Point foreign keys at the ids the restore actually produced."""
+    out = dict(payload)
+    for fk_col, target_key in _FK_MAP:
+        if out.get(fk_col) is not None:
+            out[fk_col] = id_map.get(target_key, {}).get(
+                out[fk_col], out[fk_col])
+    return out
+
+
+def _scoped_rows(rows: Iterable[Dict[str, Any]], project_id: Optional[int],
+                 project_name: str = "") -> List[Dict[str, Any]]:
+    """Keep only rows that belong to the target project (tenant isolation).
+
+    Ops records and submissions carry ``project_id``; legacy reports are only
+    linked by ``project_name``.
+    """
+    if project_id is None:
+        return list(rows)
+    kept = []
+    for row in rows:
+        if "project_id" in row:
+            value = row.get("project_id")
+            if value is not None and str(value) == str(project_id):
+                kept.append(row)
+        elif "project_name" in row:
+            if project_name and row.get("project_name") == project_name:
+                kept.append(row)
+        else:
+            kept.append(row)
+    return kept
+
+
+_NATURAL_KEYS = {
+    ProjectMember: ("project_id", "user_id"),
+    Attachment: ("record_kind", "record_id", "storage_key"),
+}
+
+
+def _insert_row(model_cls: Any, row: Dict[str, Any],
+                id_map: Dict[str, Dict[int, int]], key: str) -> Optional[int]:
+    """Insert one archived row, skipping rows already present (idempotent)."""
+    old_id = row.get("id")
+    columns = {c.name for c in model_cls.__table__.columns}
+    payload_in = {k: v for k, v in row.items() if k in columns and k != "id"}
+    existing = None
+    if "serial" in columns and row.get("serial"):
+        existing = model_cls.query.filter_by(serial=row["serial"]).first()
+    else:
+        natural = _NATURAL_KEYS.get(model_cls)
+        if natural and all(row.get(f) is not None for f in natural):
+            existing = model_cls.query.filter_by(
+                **{f: row[f] for f in natural}).first()
+    if existing is not None:
+        if old_id is not None:
+            id_map.setdefault(key, {})[old_id] = existing.id
+        return existing.id
+    payload = _coerce_row(model_cls, _remap_fks(payload_in, id_map))
+    obj = model_cls(**payload)
+    db.session.add(obj)
+    db.session.flush()
+    if old_id is not None:
+        id_map.setdefault(key, {})[old_id] = obj.id
+    return obj.id
+
+
+def _restore_shared(model_cls: Any, rows: List[Dict[str, Any]],
+                    match_fields: tuple, id_map: Dict[str, Dict[int, int]],
+                    key: str) -> int:
+    """Restore rows of a shared table by natural key instead of blind insert.
+
+    Templates and dynamic fields are platform-wide, so a project-scoped
+    archive re-inserting them would violate the unique key; map onto the
+    existing rows instead.
+    """
     for row in rows:
         old_id = row.get("id")
-        payload = {k: v for k, v in row.items() if k != "id"}
-        # Remap FK columns that reference restored entities.
-        for fk_col, target_key in (("project_id", "projects"),
-                                   ("user_id", "users"),
-                                   ("template_id", "report_templates")):
-            if fk_col in payload and payload[fk_col] is not None:
-                payload[fk_col] = id_map.get(target_key, {}).get(
-                    payload[fk_col], payload[fk_col])
-        obj = model_cls(**payload)
-        db.session.add(obj)
-        db.session.flush()
+        payload = _remap_fks({k: v for k, v in row.items() if k != "id"},
+                             id_map)
+        criteria = {f: payload.get(f) for f in match_fields}
+        obj = model_cls.query.filter_by(**criteria).first()
+        if obj is None:
+            obj = model_cls(**_coerce_row(model_cls, payload))
+            db.session.add(obj)
+            db.session.flush()
         if old_id is not None:
             id_map.setdefault(key, {})[old_id] = obj.id
+    return len(rows)
+
+
+def _purge_project(project_id: int, project_name: str = "") -> None:
+    """Delete every tenant-owned row of a project (children first)."""
+    Attachment.query.filter_by(project_id=project_id).delete(
+        synchronize_session=False)
+    for model_cls in OPS_MODELS.values():
+        model_cls.query.filter_by(project_id=project_id).delete(
+            synchronize_session=False)
+    ReportSubmission.query.filter_by(project_id=project_id).delete(
+        synchronize_session=False)
+    if project_name:
+        Report.query.filter_by(project_name=project_name).delete(
+            synchronize_session=False)
+    ProjectMember.query.filter_by(project_id=project_id).delete(
+        synchronize_session=False)
+    db.session.flush()
 
 
 def restore_backup(data: bytes, project_id: Optional[int] = None,
                    replace: bool = False) -> Dict[str, int]:
-    """
-    Restore a ZIP backup archive into the database.
+    """Restore a ZIP backup archive into the database.
 
-    :param data: ZIP archive bytes.
-    :param project_id: Target project id for project-scoped restore.
-    :param replace: If True, delete existing target data first.
-    :returns: Count of restored rows per table.
+    Atomic: the whole restore runs in one transaction, and any failure rolls
+    the session back and re-raises, so a bad archive can never leave the
+    database half-written or the session unusable.
     """
-    archive_bytes = io.BytesIO(data)
     counts: Dict[str, int] = {}
     id_map: Dict[str, Dict[int, int]] = {}
+    archive_bytes = io.BytesIO(data)
+    try:
+        with zipfile.ZipFile(archive_bytes, "r") as archive:
+            meta = json.loads(archive.read("metadata.json").decode("utf-8"))
+            if meta.get("version") != BACKUP_VERSION:
+                raise ValueError("Backup version mismatch.")
+            scope = meta.get("scope")
+            target_name = ""
+            if scope == "project" and project_id is None:
+                raise ValueError(
+                    "Project-scoped archive requires a target project.")
+            if scope == "platform" and project_id is not None:
+                raise ValueError(
+                    "Platform archive cannot be restored into a project.")
 
-    with zipfile.ZipFile(archive_bytes, "r") as archive:
-        meta = json.loads(archive.read("metadata.json").decode("utf-8"))
-        if meta.get("version") != BACKUP_VERSION:
-            raise ValueError("Backup version mismatch.")
-
-        # Users (platform-wide only)
-        if meta.get("scope") == "platform":
-            users = _load_json(archive, "users.json")
-            for row in users:
-                old_id = row.get("id")
-                payload = {k: v for k, v in row.items() if k != "id"}
-                obj = User(**payload)
-                db.session.add(obj)
+            if scope == "platform":
+                users = _load_json(archive, "users.json")
+                counts["users"] = _restore_shared(
+                    User, users, ("username",), id_map, "users")
+                projects = _load_json(archive, "projects.json")
+                counts["projects"] = _restore_shared(
+                    Project, projects, ("name",), id_map, "projects")
+            else:
+                target = db.session.get(Project, project_id)
+                if target is None:
+                    raise ValueError("Target project not found.")
+                project_rows = _load_json(archive, "project.json")
+                for row in project_rows:
+                    for k, v in row.items():
+                        if k != "id":
+                            setattr(target, k, _coerce_row(Project, {k: v})[k])
                 db.session.flush()
-                if old_id is not None:
-                    id_map.setdefault("users", {})[old_id] = obj.id
-            counts["users"] = len(users)
+                counts["projects"] = len(project_rows)
+                id_map["projects"] = {row.get("id"): target.id
+                                      for row in project_rows}
+                target_name = target.name
+                if replace:
+                    _purge_project(project_id, target_name)
 
-        # Projects
-        projects = _load_json(archive, "projects.json") if \
-            meta.get("scope") == "platform" else \
-            _load_json(archive, "project.json")
-        if project_id is not None and meta.get("scope") == "project":
-            # Restore into the existing target project (update in place).
-            target = db.session.get(Project, project_id)
-            if target is None:
-                raise ValueError("Target project not found.")
-            for row in projects:
-                for k, v in row.items():
-                    if k != "id":
-                        setattr(target, k, v)
-                db.session.add(target)
-                db.session.flush()
-                id_map["projects"] = {row.get("id"): target.id}
-        else:
-            for row in projects:
-                old_id = row.get("id")
-                payload = {k: v for k, v in row.items() if k != "id"}
-                obj = Project(**payload)
-                db.session.add(obj)
-                db.session.flush()
-                if old_id is not None:
-                    id_map.setdefault("projects", {})[old_id] = obj.id
-        counts["projects"] = len(projects)
+            members = _scoped_rows(_load_json(archive, "project_members.json"),
+                                   project_id)
+            counts["project_members"] = len(members)
+            for row in members:
+                _insert_row(ProjectMember, row, id_map, "project_members")
 
-        # Project members
-        members = _load_json(archive, "project_members.json")
-        for row in members:
-            old_id = row.get("id")
-            payload = {k: v for k, v in row.items() if k != "id"}
-            for fk_col, target_key in (("project_id", "projects"),
-                                       ("user_id", "users")):
-                if fk_col in payload and payload[fk_col] is not None:
-                    payload[fk_col] = id_map.get(target_key, {}).get(
-                        payload[fk_col], payload[fk_col])
-            obj = ProjectMember(**payload)
-            db.session.add(obj)
-            db.session.flush()
-            if old_id is not None:
-                id_map.setdefault("project_members", {})[old_id] = obj.id
-        counts["project_members"] = len(members)
+            templates = _load_json(archive, "report_templates.json")
+            counts["report_templates"] = _restore_shared(
+                ReportTemplate, templates, ("key",), id_map, "report_templates")
 
-        # Templates + fields
-        templates = _load_json(archive, "report_templates.json")
-        for row in templates:
-            old_id = row.get("id")
-            payload = {k: v for k, v in row.items() if k != "id"}
-            for fk_col, target_key in (("created_by_id", "users"),):
-                if fk_col in payload and payload[fk_col] is not None:
-                    payload[fk_col] = id_map.get(target_key, {}).get(
-                        payload[fk_col], payload[fk_col])
-            obj = ReportTemplate(**payload)
-            db.session.add(obj)
-            db.session.flush()
-            if old_id is not None:
-                id_map.setdefault("report_templates", {})[old_id] = obj.id
-        counts["report_templates"] = len(templates)
+            fields = _load_json(archive, "dynamic_fields.json")
+            counts["dynamic_fields"] = _restore_shared(
+                DynamicField, fields, ("template_id", "field_key"), id_map,
+                "dynamic_fields")
 
-        fields = _load_json(archive, "dynamic_fields.json")
-        for row in fields:
-            old_id = row.get("id")
-            payload = {k: v for k, v in row.items() if k != "id"}
-            for fk_col, target_key in (("template_id", "report_templates"),):
-                if fk_col in payload and payload[fk_col] is not None:
-                    payload[fk_col] = id_map.get(target_key, {}).get(
-                        payload[fk_col], payload[fk_col])
-            obj = DynamicField(**payload)
-            db.session.add(obj)
-            db.session.flush()
-            if old_id is not None:
-                id_map.setdefault("dynamic_fields", {})[old_id] = obj.id
-        counts["dynamic_fields"] = len(fields)
+            submissions = _scoped_rows(
+                _load_json(archive, "report_submissions.json"), project_id)
+            counts["report_submissions"] = len(submissions)
+            for row in submissions:
+                _insert_row(ReportSubmission, row, id_map,
+                            "report_submissions")
 
-        # Submissions + legacy reports
-        submissions = _load_json(archive, "report_submissions.json")
-        for row in submissions:
-            old_id = row.get("id")
-            payload = {k: v for k, v in row.items() if k != "id"}
-            for fk_col, target_key in (("project_id", "projects"),
-                                       ("user_id", "users"),
-                                       ("template_id", "report_templates")):
-                if fk_col in payload and payload[fk_col] is not None:
-                    payload[fk_col] = id_map.get(target_key, {}).get(
-                        payload[fk_col], payload[fk_col])
-            obj = ReportSubmission(**payload)
-            db.session.add(obj)
-            db.session.flush()
-            if old_id is not None:
-                id_map.setdefault("report_submissions", {})[old_id] = obj.id
-        counts["report_submissions"] = len(submissions)
+            legacy = _scoped_rows(_load_json(archive, "legacy_reports.json"),
+                                  project_id, target_name)
+            counts["legacy_reports"] = len(legacy)
+            for row in legacy:
+                _insert_row(Report, row, id_map, "legacy_reports")
 
-        legacy = _load_json(archive, "legacy_reports.json")
-        for row in legacy:
-            old_id = row.get("id")
-            payload = {k: v for k, v in row.items() if k != "id"}
-            for fk_col, target_key in (("project_id", "projects"),
-                                       ("user_id", "users")):
-                if fk_col in payload and payload[fk_col] is not None:
-                    payload[fk_col] = id_map.get(target_key, {}).get(
-                        payload[fk_col], payload[fk_col])
-            obj = Report(**payload)
-            db.session.add(obj)
-            db.session.flush()
-            if old_id is not None:
-                id_map.setdefault("legacy_reports", {})[old_id] = obj.id
-        counts["legacy_reports"] = len(legacy)
+            for filename, model_cls in OPS_MODELS.items():
+                rows = _scoped_rows(
+                    _load_json(archive, f"ops_records/{filename}.json"),
+                    project_id)
+                for row in rows:
+                    _insert_row(model_cls, row, id_map, filename)
+                counts[filename] = len(rows)
 
-        # Ops records
-        for filename, model_cls in OPS_MODELS.items():
-            rows = _load_json(archive, f"ops_records/{filename}.json")
-            for row in rows:
-                old_id = row.get("id")
-                payload = {k: v for k, v in row.items() if k != "id"}
-                for fk_col, target_key in (("project_id", "projects"),
-                                           ("user_id", "users")):
-                    if fk_col in payload and payload[fk_col] is not None:
-                        payload[fk_col] = id_map.get(target_key, {}).get(
-                            payload[fk_col], payload[fk_col])
-                obj = model_cls(**payload)
-                db.session.add(obj)
-                db.session.flush()
-                if old_id is not None:
-                    id_map.setdefault(filename, {})[old_id] = obj.id
-            counts[filename] = len(rows)
+            attachments = _scoped_rows(
+                _load_json(archive, "attachments.json"), project_id)
+            restored = 0
+            for row in attachments:
+                kind = str(row.get("record_kind", "")).replace("-", "_")
+                record_id = id_map.get(kind, {}).get(row.get("record_id"))
+                if record_id is None:
+                    continue
+                row = dict(row, record_id=record_id)
+                _insert_row(Attachment, row, id_map, "attachments")
+                restored += 1
+            counts["attachments"] = restored
 
         db.session.commit()
-
+    except Exception:
+        db.session.rollback()
+        raise
     return counts
 
 

@@ -166,7 +166,7 @@ def new(report_type):
 def view(report_id):
     r = Report.query.get_or_404(report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
-        abort(403)
+        abort(404)
     return render_template("reports/view.html", report=r,
                            specs=FIELD_SPECS.get(r.report_type, []))
 
@@ -176,7 +176,7 @@ def view(report_id):
 def edit(report_id):
     r = Report.query.get_or_404(report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
-        abort(403)
+        abort(404)
     specs = FIELD_SPECS.get(r.report_type, [])
     if request.method == "POST":
         project_name, location, contractor, report_date = _parse_common(request.form)
@@ -212,7 +212,7 @@ def edit(report_id):
 def delete(report_id):
     r = Report.query.get_or_404(report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
-        abort(403)
+        abort(404)
     db.session.delete(r)
     db.session.commit()
     flash("تم حذف التقرير.", "info")
@@ -224,7 +224,7 @@ def delete(report_id):
 def pdf(report_id):
     r = Report.query.get_or_404(report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
-        abort(403)
+        abort(404)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     data = build_report_pdf(r, author_name=r.signatory_name, generated_at=stamp)
     return Response(data, mimetype="application/pdf",
@@ -236,7 +236,7 @@ def pdf(report_id):
 def _visible_submission(sub_id: int) -> ReportSubmission:
     s = ReportSubmission.query.get_or_404(sub_id)
     if not current_user.is_admin and s.user_id != current_user.id:
-        abort(403)
+        abort(404)
     return s
 
 
@@ -636,7 +636,7 @@ def share_report(report_type, report_id):
     if report_type == "legacy":
         report = Report.query.get_or_404(report_id)
         if not current_user.is_admin and report.user_id != current_user.id:
-            abort(403)
+            abort(404)
         data = get_share_data(report, "legacy")
     elif report_type == "dynamic":
         from app.reports.routes import _visible_submission

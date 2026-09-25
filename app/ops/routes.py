@@ -63,7 +63,9 @@ SCHEMAS = {
         "numbers": {"result_value": (None, None),
                     "acceptance_min": (None, None),
                     "acceptance_max": (None, None),
-                    "slump": (0, None), "attachments": (0, None)},
+                    "slump": (0, None), "attachments": (0, None),
+                    "tolerance_mm": (0, None), "cube_7d": (0, None),
+                    "cube_28d": (0, None)},
         "dates": ["report_date"],
     },
     "material-submittals": {
@@ -251,7 +253,8 @@ def ui_fields(kind: str, model) -> list:
 
 #: mass-assignment guard — never client-settable
 PROTECTED = {"id", "serial", "status", "signatory_name", "user_id",
-             "reviewed_by_id", "reviewed_at", "created_at", "updated_at"}
+             "reviewed_by_id", "reviewed_at", "created_at", "updated_at",
+             "version", "root_id", "supersedes_id", "review_notes"}
 
 #: structured workflow tables: kind -> table -> [(key, type, required, rule)]
 #: type ∈ text/number/enum; rule = allowed tuple (enum) or (lo, hi) (number).
@@ -461,6 +464,48 @@ def _resolve_kind(kind):
     return KIND_MODEL[kind], None
 
 
+def _parse_date_arg(value, label="التاريخ"):
+    """Parse a YYYY-MM-DD filter argument into a real ``date``.
+
+    Date columns must never be compared against raw request strings: SQLite
+    silently returns the wrong rows while PostgreSQL raises
+    InvalidDatetimeFormat and turns every filtered listing into a 500.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{label} غير صالح — الصيغة المطلوبة YYYY-MM-DD.")
+    raw = value.strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError(f"{label} غير صالح — الصيغة المطلوبة YYYY-MM-DD.")
+
+
+def _date_filter_error(exc):
+    return jsonify({"error": "validation failed",
+                    "details": [str(exc)]}), 422
+
+
+def _raw_date_arg(value, label="التاريخ"):
+    """Validated YYYY-MM-DD string, or None when absent.
+
+    A JSON number (or any non-string) used to reach ``.strip()`` and raise
+    AttributeError, turning a bad filter into a 500.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{label} غير صالح — الصيغة المطلوبة YYYY-MM-DD.")
+    raw = value.strip()
+    if not raw:
+        return None
+    _parse_date_arg(raw, label)
+    return raw
+
+
 # ---------------------------------------------------------------- registry
 @bp.route("/", methods=["GET"])
 @login_required
@@ -502,6 +547,11 @@ def listing(kind):
         q = q.filter_by(status=status)
     date_from = request.args.get("from")
     date_to = request.args.get("to")
+    try:
+        date_from = _parse_date_arg(date_from, "«من»")
+        date_to = _parse_date_arg(date_to, "«إلى»")
+    except ValueError as exc:
+        return _date_filter_error(exc)
     if date_from:
         q = q.filter(model.report_date >= date_from)
     if date_to:
@@ -785,11 +835,16 @@ def ui_detail(kind, obj_id):
 
 @bp.route("/ui/<kind>/<int:obj_id>/edit", methods=["GET", "POST"])
 @login_required
+@any_permission_required("edit_own_reports", "edit_all_reports")
 def ui_edit(kind, obj_id):
+    from app.ops.versioning import is_locked, is_historical, spawn_amendment
     model, err = _resolve_kind(kind)
     if err:
         return err
     record = get_object_or_404_tenant(model, obj_id, current_user)
+    if record.user_id != current_user.id and not is_platform_manager(current_user):
+        from flask import abort
+        abort(403)
     schema = SCHEMAS[kind]
     projects = _ui_projects(current_user)
     if request.method == "POST":
@@ -801,11 +856,21 @@ def ui_edit(kind, obj_id):
                 flash(e, "danger")
             return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="edit", record=record,
                                    fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
-        for k, v in cleaned.items():
-            if hasattr(record, k):
-                setattr(record, k, v)
-        db.session.commit()
+        if "project_id" in cleaned and int(cleaned["project_id"]) != record.project_id:
+            tenant_create_guard(current_user, cleaned["project_id"])
         from flask import flash as _fl, redirect, url_for
+        if is_historical(record):
+            from flask import abort
+            abort(423)
+        if is_locked(record):
+            amendment = spawn_amendment(model, record, current_user, cleaned)
+            _fl("تم إنشاء نسخة تعديل جديدة؛ السجل الأصلي محفوظ للمراجعة.",
+                "success")
+            return redirect(url_for("ops.ui_detail", kind=kind,
+                                    obj_id=amendment.id))
+        for k, v in cleaned.items():
+            setattr(record, k, v)
+        db.session.commit()
         _fl("تم التحديث.", "success")
         return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
     prefill = {c.key: (getattr(record, c.key) or "") for c in model.__table__.columns}
@@ -815,21 +880,32 @@ def ui_edit(kind, obj_id):
 
 @bp.route("/ui/<kind>/<int:obj_id>/submit", methods=["POST"])
 @login_required
+@any_permission_required("create_reports", "edit_own_reports")
 def ui_submit(kind, obj_id):
+    from app.ops.versioning import normalize, can_transition
     model, err = _resolve_kind(kind)
     if err:
         return err
     record = get_object_or_404_tenant(model, obj_id, current_user)
+    if record.user_id != current_user.id and not is_platform_manager(current_user):
+        from flask import abort
+        abort(403)
+    from flask import flash as _fl, redirect, url_for
+    if not can_transition(record.status, "submitted"):
+        _fl(f"لا يمكن التقديم من الحالة «{normalize(record.status)}».",
+            "danger")
+        return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
     record.status = "submitted"
     db.session.commit()
-    from flask import flash as _fl, redirect, url_for
     _fl("تم التقديم للاعتماد.", "success")
     return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
 
 
 @bp.route("/ui/<kind>/<int:obj_id>/approve", methods=["POST"])
 @login_required
+@permission_required("approve_reports")
 def ui_approve(kind, obj_id):
+    from app.ops.versioning import apply_decision
     model, err = _resolve_kind(kind)
     if err:
         return err
@@ -837,15 +913,13 @@ def ui_approve(kind, obj_id):
     if not is_platform_manager(current_user):
         from flask import abort
         abort(403)
-    record.status = "approved"
-    record.reviewed_by_id = current_user.id
-    try:
-        from datetime import datetime as _dt
-        record.reviewed_at = _dt.now()
-    except Exception:
-        pass
-    db.session.commit()
     from flask import flash as _fl, redirect, url_for
+    decision = (request.form.get("decision") or "approve").strip().lower()
+    notes = (request.form.get("notes") or "").strip()
+    err_msg = apply_decision(record, decision, current_user, notes)
+    if err_msg:
+        _fl(err_msg, "danger")
+        return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
     _fl("تم الاعتماد.", "success")
     return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
 
@@ -905,8 +979,11 @@ def batch_export():
         project_id = int(project_id) if project_id not in ("", None) else None
     except (TypeError, ValueError):
         return jsonify({"error": "project_id must be an integer"}), 422
-    date_from_str = (data.get("from") or "").strip() or None
-    date_to_str = (data.get("to") or "").strip() or None
+    try:
+        date_from_str = _raw_date_arg(data.get("from"), "«من»")
+        date_to_str = _raw_date_arg(data.get("to"), "«إلى»")
+    except ValueError as exc:
+        return _date_filter_error(exc)
     if request.is_json:
         kinds = data.get("types") or data.get("type")
         if isinstance(kinds, str):
@@ -1271,10 +1348,15 @@ def archive():
                 if project_id.isdigit() else query.filter(db.false())
         if status in M.STATUSES:
             query = query.filter_by(status=status)
-        if date_from:
-            query = query.filter(model.report_date >= date_from)
-        if date_to:
-            query = query.filter(model.report_date <= date_to)
+        try:
+            range_from = _parse_date_arg(date_from, "«من»")
+            range_to = _parse_date_arg(date_to, "«إلى»")
+        except ValueError as exc:
+            return _date_filter_error(exc)
+        if range_from:
+            query = query.filter(model.report_date >= range_from)
+        if range_to:
+            query = query.filter(model.report_date <= range_to)
         if q:
             like = f"%{q}%"
             query = query.filter(model.serial.ilike(like))

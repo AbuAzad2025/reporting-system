@@ -301,7 +301,12 @@ SECTION_ORDER = {
 
 def _footer(canvas, doc, serial="", timestamp="", project_name="",
             report_type=""):
-    """Full corporate footer: serial, timestamp, page, project context."""
+    """Full corporate footer: serial, timestamp, page, project context.
+
+    ``serial`` is the complete document number including its module prefix
+    (CVR-, RFI-, VOR- ...); the caller owns the prefix, so a Variation Order
+    is never stamped with an inspection number.
+    """
     canvas.saveState()
     canvas.setFillColor(NAVY)
     canvas.rect(0, 0, A4[0], 34, fill=1, stroke=0)
@@ -316,7 +321,7 @@ def _footer(canvas, doc, serial="", timestamp="", project_name="",
                       "Generated securely via Azadexa Cloud Platform")
     canvas.setFont(FONT_NORMAL, 7.5)
     canvas.drawCentredString(A4[0] / 2, 22,
-                             f"SIR-{serial}  •  {timestamp}")
+                             f"{serial or '—'}  •  {timestamp}")
     canvas.drawRightString(A4[0] - 10 * mm, 22,
                             f"Page {doc.page}")
     canvas.setFont(FONT_NORMAL, 6.5)
@@ -382,7 +387,7 @@ def build_report_pdf(report, author_name: str = "", generated_at: str = "") -> b
         ar("أقر بأن البيانات المذكورة أعلاه صحيحة ومطابقة للواقع في الموقع بتاريخ التقرير."),
         st["cell_small"]))
 
-    serial = f"{report.id:06d}" if report.id else "000000"
+    serial = f"RPT-{report.id:06d}" if report.id else "RPT-000000"
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     def _foot(c, d):
         _footer(c, d, serial=serial, timestamp=stamp,

@@ -348,7 +348,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         ar("أقر بأن البيانات المذكورة أعلاه صحيحة ومطابقة للواقع في الموقع بتاريخ التقرير."),
         st["cell_small"]))
 
-    serial = f"{submission.id:06d}" if submission.id else "000000"
+    serial = f"DS-{submission.id:06d}" if submission.id else "DS-000000"
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
 
     def _foot(c, d):

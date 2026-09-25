@@ -221,9 +221,7 @@ def build_ops_pdf(kind: str, record, project_name: str = "",
             canvas.rotate(30)
             canvas.drawCentredString(A4[0] * 0.85, A4[1] * 0.28, watermark)
             canvas.restoreState()
-        # Extract numeric part of serial for footer (record.serial already has prefix)
-        serial_num = record.serial.split("-")[-1] if "-" in record.serial else record.serial
-        _footer(canvas, _doc, serial=serial_num,
+        _footer(canvas, _doc, serial=record.serial,
                 timestamp=generated_at or datetime.now().strftime("%Y-%m-%d %H:%M"))
 
     story = []

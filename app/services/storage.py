@@ -102,24 +102,55 @@ def _gcs_blob_handle(client: Any, key: str) -> Any:
     return _gcs_blob(client, key)
 
 
+CLOUD_KEY_PREFIX = "backups/"
+
+
+def _cloud_key(key: str) -> str:
+    """Return the object key under the backups/ prefix, exactly once.
+
+    Cloud object stores always use '/' as the delimiter, and keys handed back
+    by list_backups() already carry the prefix, so re-applying it would
+    produce 'backups/backups/...' and break list -> download -> delete.
+    """
+    normalized = str(key).replace("\\", "/").lstrip("/")
+    if normalized.startswith(CLOUD_KEY_PREFIX):
+        return normalized
+    return CLOUD_KEY_PREFIX + normalized
+
+
 def _s3_key(key: str) -> str:
     """Return S3 key with prefix."""
-    return os.path.join("backups", key)
+    return _cloud_key(key)
 
 
 def _azure_key(key: str) -> str:
     """Return Azure blob key with prefix."""
-    return os.path.join("backups", key)
+    return _cloud_key(key)
 
 
 def _gcs_key(key: str) -> str:
     """Return GCS blob key with prefix."""
-    return os.path.join("backups", key)
+    return _cloud_key(key)
 
 
 def _local_key(key: str) -> str:
     """Return local file path with prefix."""
     return os.path.join(_local_dir(), key)
+
+
+def _safe_local_path(key: str) -> str:
+    """Resolve key inside the local backup dir, rejecting traversal.
+
+    Keys reach this module from request paths (admin backup routes), so a key
+    such as '../../etc/passwd' or an absolute path must never escape the
+    backup directory. Raises ValueError; missing files still surface as
+    FileNotFoundError from the caller's open().
+    """
+    root = os.path.realpath(_local_dir())
+    resolved = os.path.realpath(os.path.join(root, str(key)))
+    if resolved != root and not resolved.startswith(root + os.sep):
+        raise ValueError(f"unsafe storage key: {key!r}")
+    return resolved
 
 
 def _to_bytes(data: Any) -> bytes:
@@ -197,21 +228,32 @@ def _local_upload(data: bytes, key: str) -> str:
 
 def _local_download(key: str) -> bytes:
     """Download from local filesystem and return bytes."""
-    local_key = _local_key(key)
+    local_key = _safe_local_path(key)
     with open(local_key, "rb") as fh:
         return fh.read()
+
+
+def _safe_component(value: str, fallback: str) -> str:
+    """Return a single path component with separators and dots removed."""
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(value))
+    safe = safe.strip("._")
+    return safe or fallback
 
 
 def upload_image(project_name: str, filename: str, data: bytes) -> str:
     """Upload image organized by project / date / sequential number."""
     from datetime import datetime, timezone
-    safe_project = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(project_name))
+    safe_project = _safe_component(project_name, "project")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     base_dir = os.path.join(BACKUP_LOCAL_DIR, "images", safe_project, today)
     os.makedirs(base_dir, exist_ok=True)
-    # Sequential naming to avoid repeats
-    stem = os.path.splitext(filename)[0]
-    ext = os.path.splitext(filename)[1] or ".jpg"
+    # Sequential naming to avoid repeats; the stem comes from user input, so
+    # strip any directory/traversal part before it reaches os.path.join.
+    raw = os.path.basename(str(filename).replace("\\", "/"))
+    stem, ext = os.path.splitext(raw)
+    stem = _safe_component(stem, "image")
+    ext = "".join(c for c in ext if c.isalnum())
+    ext = f".{ext}" if ext else ".jpg"
     seq = 1
     while True:
         new_name = f"{stem}_{seq:03d}{ext}"
@@ -257,18 +299,18 @@ def list_backups() -> list:
     if backend == "s3":
         client = _s3_client()
         response = client.list_objects_v2(
-            Bucket=_bucket_name(), Prefix="backups/")
+            Bucket=_bucket_name(), Prefix=CLOUD_KEY_PREFIX)
         return [obj["Key"] for obj in response.get("Contents", [])]
     if backend == "azure":
         client = _azure_client()
         container = _blob_container(client)
         return [blob.name for blob in container.list_blobs(
-            name_starts_with="backups/")]
+            name_starts_with=CLOUD_KEY_PREFIX)]
     if backend == "gcs":
         client = _gcs_client()
         bucket = _gcs_bucket(client)
         return [blob.name for blob in bucket.list_blobs(
-            prefix="backups/")]
+            prefix=CLOUD_KEY_PREFIX)]
     # local filesystem — return basenames only (relative keys) to avoid path disclosure and double-join bugs
     local_dir = _local_dir()
     return [name for name in os.listdir(local_dir)

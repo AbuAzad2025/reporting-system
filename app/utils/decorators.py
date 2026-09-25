@@ -64,14 +64,19 @@ def has_role(*roles) -> bool:
     return norm_role(getattr(current_user, "role", "")) in set(roles)
 
 
-def roles_required(*roles):
-    """Allow only the given roles (legacy 'admin' counts as manager)."""
+def roles_required(*roles, expand_admin: bool = True):
+    """Allow only the given roles (legacy 'admin' counts as manager).
+
+    ``expand_admin`` keeps the historical behaviour where an "admin" gate also
+    admits superadmin/project_manager. Security-sensitive platform gates pass
+    ``expand_admin=False`` so the role list is enforced exactly.
+    """
     def deco(view):
         @wraps(view)
         def wrapper(*args, **kwargs):
             allowed = set(roles)
             # legacy compat: 'admin' gate also admits superadmin/project_manager
-            if "admin" in allowed:
+            if expand_admin and "admin" in allowed:
                 allowed |= {"superadmin", "project_manager"}
             if not current_user.is_authenticated:
                 return _deny("authentication required", 401)
@@ -112,4 +117,5 @@ def any_permission_required(*perms):
 
 admin_required = roles_required("admin", "superadmin", "project_manager")
 superadmin_required = roles_required("superadmin")
-template_manager_required = roles_required("admin", "superadmin")
+template_manager_required = roles_required("admin", "superadmin",
+                                            expand_admin=False)
