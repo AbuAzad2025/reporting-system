@@ -150,19 +150,20 @@ class TestSeedReferenceData:
         assert results["skipped"] > 0
         assert results["errors"] == []
 
-    def test_unknown_reference_table_is_reported(self, app, monkeypatch):
+    def test_unknown_reference_table_is_reported(self, app):
+        from unittest.mock import patch
         from app.extensions import db
         from app.services import reference_data as module
         from app.services.reference_data import seed_reference_data
-        monkeypatch.setitem(module.REFERENCE_TABLES, "test_categories", None)
-        with app.app_context():
-            results = seed_reference_data(db)
+        with patch.dict(module.REFERENCE_TABLES, {"test_categories": None}):
+            with app.app_context():
+                results = seed_reference_data(db)
         assert any("not found: test_categories" in e for e in results["errors"])
 
-    def test_a_failing_field_is_captured_not_raised(self, app, monkeypatch):
+    def test_a_failing_field_is_captured_not_raised(self, app):
+        from unittest.mock import patch
         from app.extensions import db
         from app.models import DynamicField
-        from app.services import reference_data as module
         from app.services.reference_data import seed_reference_data
 
         class _Boom:
@@ -170,9 +171,9 @@ class TestSeedReferenceData:
             def filter_by(**_kwargs):
                 raise RuntimeError("database exploded")
 
-        monkeypatch.setattr(DynamicField, "query", _Boom)
         with app.app_context():
-            results = seed_reference_data(db)
+            with patch.object(DynamicField, "query", _Boom):
+                results = seed_reference_data(db)
         assert results["errors"]
         assert any("database exploded" in e for e in results["errors"])
         assert results["updated"] == 0
