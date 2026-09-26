@@ -299,9 +299,9 @@ def toggle_role(user_id):
             user.role = "admin"
             flash("ترقية Superadmin مقصورة على مالك المنصة.", "danger")
         else:
-            db.session.commit()
             flash(f"تم تحديث دور {user.full_name} إلى ({user.role_ar}).",
                   "success")
+        db.session.commit()
     return redirect(url_for("main.users"))
 
 

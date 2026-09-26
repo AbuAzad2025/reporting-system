@@ -473,13 +473,27 @@ def backup_size(data: bytes) -> int:
 
 
 def validate_backup(data: bytes) -> Dict[str, Any]:
-    """Validate archive integrity and return metadata."""
+    """Validate archive integrity, format version and scope.
+
+    ``ok`` is only True for an archive this service can actually restore: a
+    ZIP whose metadata carries an unknown version or scope is rejected here
+    instead of failing halfway through a destructive restore.
+    """
     try:
         with zipfile.ZipFile(io.BytesIO(data), "r") as archive:
             bad = archive.testzip()
             if bad:
                 raise ValueError(f"Corrupt archive member: {bad}")
             meta = json.loads(archive.read("metadata.json").decode("utf-8"))
+        if not isinstance(meta, dict):
+            raise ValueError("metadata.json is not an object")
+        if meta.get("version") != BACKUP_VERSION:
+            raise ValueError("Backup version mismatch.")
+        scope = meta.get("scope")
+        if scope not in ("platform", "project"):
+            raise ValueError("Unknown backup scope.")
+        if scope == "project" and not isinstance(meta.get("project_id"), int):
+            raise ValueError("Project-scoped backup is missing project_id.")
         return {"ok": True, "metadata": meta, "size": len(data)}
     except Exception as exc:
         return {"ok": False, "error": str(exc), "size": len(data)}

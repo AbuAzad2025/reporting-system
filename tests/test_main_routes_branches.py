@@ -545,8 +545,8 @@ def test_backup_import_rejects_a_file_without_a_name(app, backup_tmp_client):
 
 def test_backup_import_of_an_incompatible_version_fails_closed(
         app, backup_tmp_client):
-    """Lines 490-494: the archive validates as a ZIP but the restore refuses
-    it, so the generic failure flash is shown and the project is untouched."""
+    """A wrong format version is rejected by validate_backup itself, so the
+    restore is never attempted and the project is left untouched."""
     from app.models import Project
     from app.ops.models import ProjectMember, SiteInspection
     pid = _project_id(app, "Alpha Tower")
@@ -559,8 +559,9 @@ def test_backup_import_of_an_incompatible_version_fails_closed(
     assert r.status_code == 302
     assert r.headers["Location"].endswith(f"/projects/{pid}")
     text = _page(backup_tmp_client, f"/projects/{pid}")
-    assert "فشل الاستعادة. تأكد من سلامة الملف وأعد المحاولة." in text
-    assert "تم استعادة المشروع" not in text
+    assert "الملف غير صالح" in text
+    assert "Backup version mismatch" in text
+    assert "فشل الاستعادة" not in text
     with app.app_context():
         assert ProjectMember.query.filter_by(project_id=pid).count() == 3
         assert SiteInspection.query.filter_by(

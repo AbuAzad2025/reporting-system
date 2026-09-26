@@ -10,7 +10,7 @@ Security posture on EVERY route:
   * Serials unique per module with DB constraint + insert retry.
 """
 from datetime import datetime
-from flask import Response, current_app, jsonify, request, send_file, render_template
+from flask import Response, current_app, g, jsonify, request, send_file, render_template
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 import os
@@ -28,6 +28,7 @@ from app.ops.isolation import (is_platform_manager, scope_to_tenant,
                                get_object_or_404_tenant, tenant_create_guard,
                                roles_required_json, visible_projects)
 from app.utils.decorators import permission_required, any_permission_required
+from app.services import mime_guard
 from app.services.reference_data import (
     TEST_CATEGORIES_LIST,
     BALL_IN_COURT_LIST,
@@ -412,6 +413,28 @@ def validate_input(kind: str, data: dict, partial: bool = False):
     return cleaned, errors
 
 
+_PROJECT_CACHE_KEY = "_ops_project_names"
+
+
+def _project_name(project_id) -> str:
+    """Resolve a project name once per request instead of once per record.
+
+    Serialising a 500-row listing previously issued one extra SELECT per row
+    (db.session.get); this memoises the lookups on Flask's request context, so
+    a listing costs one query per distinct project rather than per record.
+    """
+    if project_id is None:
+        return ""
+    cache = g.get(_PROJECT_CACHE_KEY)
+    if cache is None:
+        cache = {}
+        setattr(g, _PROJECT_CACHE_KEY, cache)
+    if project_id not in cache:
+        project = db.session.get(Project, project_id)
+        cache[project_id] = project.name if project else ""
+    return cache[project_id]
+
+
 def _serialize(kind, record):
     from app.ops.versioning import (normalize, is_locked, TRANSITIONS,
                                     WORKFLOW_AR)
@@ -426,8 +449,7 @@ def _serialize(kind, record):
     d["is_locked"] = is_locked(record)
     d["allowed_transitions"] = list(TRANSITIONS.get(normalize(record.status),
                                                     ()))
-    project = db.session.get(Project, record.project_id)
-    d["project_name"] = project.name if project else ""
+    d["project_name"] = _project_name(record.project_id)
     # computed summaries for financial/engineering modules
     if kind == "cost-variances":
         d["computed"] = {"budgeted_total": record.budgeted_total,
@@ -1049,38 +1071,8 @@ def batch_export():
 
 
 # ---------------------------------------------------------------- attachments
-ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif",
-                "image/webp", "application/pdf"}
-MAX_UPLOAD_BYTES = 4 * 1024 * 1024
-
-#: magic-byte signatures for every allowed type — a client-declared
-#: Content-Type is never trusted, because "image/jpeg" wrapping an executable
-#: is the whole point of the attack.
-_MIME_SIGNATURES = (
-    (b"\xff\xd8\xff", {"image/jpeg"}),
-    (b"\x89PNG\r\n\x1a\n", {"image/png"}),
-    (b"GIF87a", {"image/gif"}),
-    (b"GIF89a", {"image/gif"}),
-    (b"RIFF", {"image/webp"}),
-    (b"%PDF-", {"application/pdf"}),
-)
-
-
-def _sniff_mime(buf: bytes, declared: str) -> str | None:
-    """Return the declared type only when the bytes actually match it.
-
-    WebP needs a second look at bytes 8..12 ("WEBP"); the other formats are
-    identified by their leading signature. ``None`` means the payload does
-    not match anything we accept, so the upload is refused.
-    """
-    if not buf:
-        return None
-    for signature, types in _MIME_SIGNATURES:
-        if buf.startswith(signature):
-            if "image/webp" in types and buf[8:12] != b"WEBP":
-                return None
-            return declared if declared in types else None
-    return None
+ALLOWED_MIME = set(mime_guard.ALLOWED_MIME)
+MAX_UPLOAD_BYTES = mime_guard.MAX_UPLOAD_BYTES
 
 #: sub-directory of UPLOAD_FOLDER holding ops evidence files
 ATTACH_DIR = "ops"
@@ -1254,7 +1246,7 @@ def attachment_upload(kind, obj_id):
     buf = file.read()
     if len(buf) > MAX_UPLOAD_BYTES:
         return jsonify({"error": "file exceeds 4 MB limit"}), 413
-    if _sniff_mime(buf, mime) is None:
+    if mime_guard.sniff_mime(buf, mime) is None:
         return jsonify({"error": f"content does not match type: {mime}"}), 415
     try:
         storage_key = _store_file(kind, record.id, filename, buf)
@@ -1464,11 +1456,10 @@ def archive():
             query = query.filter(model.serial.ilike(like))
         for r in query.all():
             _m, _p, name_ar, _e = M.OPS_MODULES[kind]
-            project = db.session.get(Project, r.project_id)
             rows.append({
                 "type": kind, "type_ar": name_ar, "id": r.id,
                 "serial": r.serial, "project_id": r.project_id,
-                "project": project.name if project else "",
+                "project": _project_name(r.project_id),
                 "date": r.report_date.isoformat() if r.report_date else "",
                 "status": r.status, "status_ar": r.status_ar,
                 "signatory": r.signatory_name})
