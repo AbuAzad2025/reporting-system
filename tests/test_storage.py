@@ -13,7 +13,7 @@ from tests.conftest import login_as
 
 
 def _upload(client, kind, oid, filename="test.jpg",
-            content=b"fake-image-data"):
+            content=b"\xff\xd8\xff\xe0" + b"\x00" * 32):
     data = {"file": (io.BytesIO(content), filename)}
     return client.post(f"/ops/{kind}/{oid}/attachments",
                        data=data, content_type="multipart/form-data")
@@ -35,7 +35,7 @@ def _abs_key(client, storage_key):
 def test_upload_persists_bytes_to_disk(client):
     login_as(client, "t_eng")
     oid = _first_id(client, "site-inspections")
-    payload = b"fake-image-data"
+    payload = b"\xff\xd8\xff\xe0" + b"real-jpeg-body"
     r = _upload(client, "site-inspections", oid, content=payload)
     assert r.status_code == 201, r.get_json()
     body = r.get_json()
@@ -127,7 +127,8 @@ def test_path_traversal_filename_contained(client):
     login_as(client, "t_eng")
     oid = _first_id(client, "site-inspections")
     r = _upload(client, "site-inspections", oid,
-                filename="../../evil.jpg", content=b"x")
+                filename="../../evil.jpg",
+                content=b"\xff\xd8\xff\xe0" + b"x")
     assert r.status_code == 201, r.get_json()
     body = r.get_json()
     assert ".." not in body["storage_key"].split("/")[-1]

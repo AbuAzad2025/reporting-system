@@ -225,10 +225,14 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
                         return "☒" if is_c else "☐"
                     if c.get("type") == "file":
                         v = str(raw or "").strip()
-                        # Keep storage key for the cell; image rendering is
-                        # deferred to a dedicated gallery section below
-                        # so corrupt uploads don't crash the whole PDF.
-                        return v if v else "—"
+                        if not v:
+                            return "—"
+                        abs_path = _resolve_upload_abs(v)
+                        if abs_path is not None and _readable_image(abs_path):
+                            gallery.append(
+                                (abs_path, _row_caption(_cols or [], _row or {})))
+                            return f"صورة {len(gallery)}"
+                        return "—"
                     return str(raw) if str(raw).strip() else "—"
                 body_rows = [[_fmt_cell(c, r.get(c["key"], ""), r, cols)
                               for c in cols]

@@ -738,6 +738,40 @@ def pdf(kind, obj_id):
                              f"inline; filename={record.serial}.pdf"})
 
 
+# ---------------------------------------------------------------- Word (.docx)
+WORD_BUILDERS = {
+    "progress-billings": ("build_ipc_docx", "ipc"),
+    "variation-orders": ("build_variation_order_docx", "vo"),
+}
+
+
+@bp.route("/<kind>/<int:obj_id>/docx", methods=["GET"])
+@login_required
+@permission_required("export_pdf")
+def word_export(kind, obj_id):
+    """Editable Word export for the certificate-style modules (IPC / VO)."""
+    if kind not in WORD_BUILDERS:
+        return jsonify({"error": "no Word export for this module",
+                        "supported": sorted(WORD_BUILDERS)}), 404
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    record = get_object_or_404_tenant(model, obj_id, current_user)
+    from app.services import word_export as wexport
+    builder = getattr(wexport, WORD_BUILDERS[kind][0])
+    project = db.session.get(Project, record.project_id)
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    data = builder(record, project_name=project.name if project else "",
+                   generated_at=stamp)
+    return Response(
+        data,
+        mimetype="application/vnd.openxmlformats-officedocument."
+                 "wordprocessingml.document",
+        headers={"Content-Disposition":
+                 f"attachment; filename={record.serial}-"
+                 f"{WORD_BUILDERS[kind][1]}.docx"})
+
+
 # ---------------------------------------------------------------- professional HTML UI (list/form/detail/timeline)
 OPS_UI_TITLES = {
     "site-inspections": "فحوصات واختبارات الموقع",
@@ -828,9 +862,17 @@ def ui_detail(kind, obj_id):
             "created_at", "updated_at"}
     items = [(flabel(k), v) for k, v in record.to_dict().items()
              if k not in hide and v not in ("", None, [])]
+    attachments = Attachment.query.filter_by(
+        record_kind=kind, record_id=record.id).order_by(
+        Attachment.created_at.desc()).all()
+    comments = M.OpsRecordComment.query.filter_by(
+        record_kind=kind, record_id=record.id).order_by(
+        M.OpsRecordComment.created_at.asc()).all()
     return render_template("ops/detail.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), record=record,
                            project_name=project.name if project else "—",
-                           items=items, flabel=flabel)
+                           items=items, flabel=flabel,
+                           attachments=attachments, comments=comments,
+                           word_kinds=tuple(WORD_BUILDERS))
 
 
 @bp.route("/ui/<kind>/<int:obj_id>/edit", methods=["GET", "POST"])
@@ -1011,6 +1053,35 @@ ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif",
                 "image/webp", "application/pdf"}
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
+#: magic-byte signatures for every allowed type — a client-declared
+#: Content-Type is never trusted, because "image/jpeg" wrapping an executable
+#: is the whole point of the attack.
+_MIME_SIGNATURES = (
+    (b"\xff\xd8\xff", {"image/jpeg"}),
+    (b"\x89PNG\r\n\x1a\n", {"image/png"}),
+    (b"GIF87a", {"image/gif"}),
+    (b"GIF89a", {"image/gif"}),
+    (b"RIFF", {"image/webp"}),
+    (b"%PDF-", {"application/pdf"}),
+)
+
+
+def _sniff_mime(buf: bytes, declared: str) -> str | None:
+    """Return the declared type only when the bytes actually match it.
+
+    WebP needs a second look at bytes 8..12 ("WEBP"); the other formats are
+    identified by their leading signature. ``None`` means the payload does
+    not match anything we accept, so the upload is refused.
+    """
+    if not buf:
+        return None
+    for signature, types in _MIME_SIGNATURES:
+        if buf.startswith(signature):
+            if "image/webp" in types and buf[8:12] != b"WEBP":
+                return None
+            return declared if declared in types else None
+    return None
+
 #: sub-directory of UPLOAD_FOLDER holding ops evidence files
 ATTACH_DIR = "ops"
 
@@ -1183,6 +1254,8 @@ def attachment_upload(kind, obj_id):
     buf = file.read()
     if len(buf) > MAX_UPLOAD_BYTES:
         return jsonify({"error": "file exceeds 4 MB limit"}), 413
+    if _sniff_mime(buf, mime) is None:
+        return jsonify({"error": f"content does not match type: {mime}"}), 415
     try:
         storage_key = _store_file(kind, record.id, filename, buf)
     except (OSError, ValueError):
@@ -1292,6 +1365,35 @@ def comment_create(kind, obj_id):
     db.session.add(cmt)
     db.session.commit()
     return jsonify(cmt.to_dict()), 201
+
+
+@bp.route("/ui/<kind>/<int:obj_id>/comment", methods=["POST"])
+@login_required
+@any_permission_required("create_reports", "edit_own_reports",
+                         "approve_reports")
+def ui_comment_create(kind, obj_id):
+    """HTML counterpart of comment_create: flash + redirect, never raw JSON."""
+    from flask import flash as _fl, redirect, url_for
+    model, err = _resolve_kind(kind)
+    if err:
+        return err
+    record = get_object_or_404_tenant(model, obj_id, current_user)
+    body = str((request.form.get("body") or "")).strip()
+    back = url_for("ops.ui_detail", kind=kind, obj_id=record.id)
+    if not body:
+        _fl("لا يمكن إضافة تعليق فارغ.", "danger")
+        return redirect(back)
+    if len(body) > M.MAX_COMMENT_LEN:
+        _fl(f"التعليق يتجاوز الحد ({M.MAX_COMMENT_LEN} حرفاً).", "danger")
+        return redirect(back)
+    db.session.add(M.OpsRecordComment(
+        record_kind=kind, record_id=record.id,
+        project_id=record.project_id, author_id=current_user.id,
+        author_name=current_user.full_name,
+        author_role=getattr(current_user, "role", ""), body=body))
+    db.session.commit()
+    _fl("تمت إضافة التعليق.", "success")
+    return redirect(back)
 
 
 @bp.route("/<kind>/<int:obj_id>/comments/<int:cmt_id>", methods=["DELETE"])

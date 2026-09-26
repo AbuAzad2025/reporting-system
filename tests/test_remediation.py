@@ -99,7 +99,7 @@ def test_pdf_dynamic_header_governance(client):
 
 
 def _upload(client, kind, oid, filename="test.jpg",
-            content=b"fake-image-data", mime="image/jpeg"):
+            content=b"\xff\xd8\xff\xe0" + b"real-jpeg-bytes", mime="image/jpeg"):
     data = {"file": (io.BytesIO(content), filename)}
     return client.post(f"/ops/{kind}/{oid}/attachments",
                        data=data, content_type="multipart/form-data",
@@ -117,7 +117,7 @@ def test_attachment_upload_list_delete(client, app):
     att = r.get_json()
     assert att["filename"] == "test.jpg"
     assert att["mime_type"] == "image/jpeg"
-    assert att["byte_size"] == len(b"fake-image-data")
+    assert att["byte_size"] == len(b"\xff\xd8\xff\xe0" + b"real-jpeg-bytes")
 
     # list
     r = client.get(f"/ops/site-inspections/{oid}/attachments")

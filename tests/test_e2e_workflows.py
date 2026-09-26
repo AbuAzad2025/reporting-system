@@ -62,7 +62,7 @@ def test_e2e_full_lifecycle_chain_create_attach_feedback_reject_resubmit_approve
     assert rec["status"] == "pending"
 
     # 2. evidence attachment (bytes round-trip later)
-    payload = b"e2e-evidence"
+    payload = b"\xff\xd8\xff\xe0" + b"e2e-evidence"
     r = client.post(f"/ops/{kind}/{oid}/attachments", data={
         "file": (io.BytesIO(payload), "proof.jpg")},
         content_type="multipart/form-data")
@@ -208,7 +208,7 @@ def test_e2e_delete_draft_cascades_attachments_comments_history_archives(client)
         "project_id": pid, "subject": "doomed", "question": "q?",
         "ball_in_court": "consultant"}).get_json()["id"]
     key = client.post(f"/ops/rfis/{oid}/attachments", data={
-        "file": (io.BytesIO(b"bye"), "bye.jpg")},
+        "file": (io.BytesIO(b"\xff\xd8\xff\xe0bye"), "bye.jpg")},
         content_type="multipart/form-data").get_json()["storage_key"]
     abs_path = os.path.join(client.application.config["UPLOAD_FOLDER"],
                             key)

@@ -361,6 +361,13 @@ class PdfDocument:
     def fonts(self):
         return {name: font.name for name, font in self._fonts.items()}
 
+    @property
+    def image_count(self) -> int:
+        """Number of embedded raster image XObjects (photos, brand logo)."""
+        return sum(1 for body, _payload in self.objects.values()
+                   if b"/Subtype /Image" in body
+                   or b"/Subtype/Image" in body)
+
     # -- text -----------------------------------------------------------
     @property
     def text_runs(self):
