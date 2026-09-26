@@ -353,7 +353,10 @@ jobs:
   coverage-report-combined:
     name: "Coverage Report"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The combined run executes the whole suite in one process; the suite has
+    # grown past the default 15m ceiling, so allow real headroom instead of
+    # letting a green run be cancelled mid-report.
+    timeout-minutes: 30
     needs: [crud-serials-validation, e2e-full-lifecycle, isolation-rbac, versioning-archive-pdf, feedback-analytics-remediation, enterprise-projects-finance-ui, storage-images]
     if: success()
     steps:

@@ -87,13 +87,37 @@ def _record(template, **overrides):
     return SimpleNamespace(**dict(template, **overrides))
 
 
+_RENDER_CACHE = {}
+
+
+def _cache_key(kind, record, options):
+    if type(record) is not SimpleNamespace:
+        return None
+    try:
+        payload = tuple(sorted((k, str(v)) for k, v in vars(record).items()))
+        return (kind, record.serial, payload, tuple(sorted(options.items())))
+    except TypeError:
+        return None
+
+
 def _render(kind, record, **options):
-    """Render one document and return a parsed :class:`PdfDocument`."""
+    """Render one document and return a parsed :class:`PdfDocument`.
+
+    Repeated renders of the same record/options are memoised: ReportLab layout
+    is by far the slowest thing in this file, and the assertions care about the
+    produced bytes, not about how many times they were produced.
+    """
     settings = {"project_name": "Alpha Tower",
                 "reviewer_name": "Jane Reviewer",
                 "generated_at": "2026-03-04 10:00"}
     settings.update(options)
-    return PdfDocument(build_ops_pdf(kind, record, **settings))
+    key = _cache_key(kind, record, settings)
+    if key is not None and key in _RENDER_CACHE:
+        return _RENDER_CACHE[key]
+    document = PdfDocument(build_ops_pdf(kind, record, **settings))
+    if key is not None:
+        _RENDER_CACHE[key] = document
+    return document
 
 
 def _runs(document):
