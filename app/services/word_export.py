@@ -13,7 +13,7 @@ from __future__ import annotations
 import io
 import zipfile
 from datetime import datetime
-from typing import Iterable, Sequence
+from typing import Sequence
 from xml.sax.saxutils import escape
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -94,11 +94,6 @@ def _table(rows: Sequence[Sequence[str]], header: bool = False) -> str:
     return ('<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/>'
             '<w:tblW w:w="0" w:type="auto"/></w:tblPr>'
             + "".join(body) + "</w:tbl>")
-
-
-def _pairs(items: Iterable[tuple]) -> list:
-    return [[str(label), str(value if value not in (None, "") else "—")]
-            for label, value in items]
 
 
 def _fmt(value, digits: int = 2) -> str:

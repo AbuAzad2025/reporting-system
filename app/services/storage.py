@@ -162,11 +162,6 @@ def _to_bytes(data: Any) -> bytes:
     return str(data).encode("utf-8")
 
 
-def _from_bytes(data: bytes) -> io.BytesIO:
-    """Convert bytes to BytesIO stream."""
-    return io.BytesIO(data)
-
-
 def _s3_upload(data: bytes, key: str) -> str:
     """Upload to S3 and return the object URI."""
     client = _s3_client()
