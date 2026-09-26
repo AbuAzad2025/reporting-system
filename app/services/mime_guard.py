@@ -54,11 +54,23 @@ def declared_mime(filename: str) -> str | None:
 
 
 def is_allowed_upload(payload: bytes, filename: str, declared: str) -> bool:
-    """True when the extension, the declared type and the bytes all agree."""
-    expected = declared_mime(filename)
+    """True when the extension, the declared type and the bytes all agree.
+
+    A name carrying a non-media extension (``x.exe``) is refused outright
+    even if the bytes look like an image. A name with no extension at all is
+    judged on the declared type alone, and still has to match its bytes.
+    """
+    declared = (declared or "").lower()
+    name = (filename or "").strip().lower().rsplit("/", 1)[-1]
+    if "." in name:
+        expected = declared_mime(name)
+        if expected is None:
+            return False
+    else:
+        expected = declared if declared in ALLOWED_MIME else None
     if expected is None:
         return False
-    return sniff_mime(payload, declared or expected) == expected
+    return sniff_mime(payload, expected) == expected
 
 
 __all__ = ["ALLOWED_MIME", "MAX_UPLOAD_BYTES", "declared_mime", "is_allowed_upload",

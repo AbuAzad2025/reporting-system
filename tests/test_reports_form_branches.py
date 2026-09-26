@@ -1003,12 +1003,18 @@ class TestDynamicFileEndpoint:
         assert r.status_code == 302
         return _submission(client.application, project)["data"][PHOTOS_TABLE][0]["photo"]
 
-    def test_refuses_a_stored_file_whose_mime_is_not_allowed(self, client, app):
+    def test_refuses_a_stored_file_whose_mime_is_not_allowed(
+            self, client, app):
+        """A non-media file planted on disk is refused by the download route."""
         _login(client, "t_eng")
-        key = self._upload_photo(client, "امتداد ممنوع", "evidence.txt")
-        assert key.startswith("reports/daily/") and key.endswith("_evidence.txt")
-        assert os.path.isfile(os.path.join(app.config["UPLOAD_FOLDER"], key))
-        assert client.get(f"/reports/dyn/file/{key}").status_code == 404
+        rel = "reports/daily/planted_evidence.txt"
+        path = os.path.join(app.config["UPLOAD_FOLDER"], rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as fh:
+            fh.write(b"plain text, not an image")
+        r = client.get(f"/reports/dyn/file/{rel}")
+        assert r.status_code == 404
+        assert _flashes(client, r) == []
 
     def test_refuses_a_key_that_is_not_stored(self, client, app):
         # an admin passes the tenant guard, so the missing file itself 404s
@@ -1133,8 +1139,9 @@ class TestCollectionDefensiveGuards:
         assert errors == []
         assert payload[WEATHER_TABLE] == []
 
-    def test_file_cell_survives_an_unseekable_upload_stream(self, app):
-        """The upload is still read + stored when its stream cannot seek."""
+    def test_file_cell_with_an_unverifiable_stream_is_refused(self, app):
+        """A stream that cannot be rewound cannot be byte-verified, so the
+        upload fails closed instead of being stored unverified."""
         from werkzeug.datastructures import MultiDict
         from app.models import ReportTemplate
         from app.reports.routes import _collect_dynamic
@@ -1143,7 +1150,7 @@ class TestCollectionDefensiveGuards:
                 "/reports/dyn/new/daily", method="POST",
                 data={photo_key: (io.BytesIO(_png_bytes()), "site.png",
                                   "image/png"),
-                      f"f_{PHOTOS_TABLE}__0__caption": "تعليق"},
+                      f"f_{PHOTOS_TABLE}__0__caption": "صورة"},
                 content_type="multipart/form-data") as ctx:
             tpl = ReportTemplate.query.filter_by(key="daily").first()
             req = ctx.request
@@ -1152,8 +1159,9 @@ class TestCollectionDefensiveGuards:
             uploads[photo_key] = _UnseekableUpload()
             setattr(req, "files", uploads)
             payload, errors = _collect_dynamic(tpl, req.form)
-        assert errors == []
-        key = payload[PHOTOS_TABLE][0]["photo"]
-        assert key.startswith("reports/daily/") and key.endswith("_site.png")
-        assert payload[PHOTOS_TABLE][0]["caption"] == "تعليق"
-        assert len(_stored_report_files(app)) == 1
+        rows = payload[PHOTOS_TABLE]
+        assert len(rows) == 1
+        assert rows[0]["photo"] == ""
+        assert len(errors) == 1
+        assert "لا يطابق نوعه" in errors[0]
+        assert _stored_report_files(app) == []

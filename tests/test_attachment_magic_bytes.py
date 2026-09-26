@@ -45,11 +45,11 @@ class TestSniffingHelper:
         (b"MZ\x90\x00", "image/jpeg", None),
     ])
     def test_signature_matching(self, payload, mime, expected):
-        from app.ops.routes import _sniff_mime
+        from app.services.mime_guard import sniff_mime as _sniff_mime
         assert _sniff_mime(payload, mime) == expected
 
     def test_declared_type_must_match_the_bytes(self):
-        from app.ops.routes import _sniff_mime
+        from app.services.mime_guard import sniff_mime as _sniff_mime
         assert _sniff_mime(PNG, "application/pdf") is None
         assert _sniff_mime(PDF, "image/png") is None
 

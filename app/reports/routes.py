@@ -405,12 +405,13 @@ def _collect_dynamic(template, form):
                             except Exception:
                                 pass
                             buf = file_obj.read()
+                            if len(buf) > MAX_UPLOAD_DYN:
+                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: الملف يتجاوز 4MB.")
+                                continue
                             if not is_allowed_upload(buf, safe, mime):
                                 errors.append(f"«{f.label_ar}» — الصف {idx + 1}: "
                                               "محتوى الملف لا يطابق نوعه المعلن.")
                                 continue
-                            if len(buf) > MAX_UPLOAD_DYN:
-                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: الملف يتجاوز 4MB.")
                                 continue
                             try:
                                 storage_key = _store_dyn_file(template.key, safe, buf)

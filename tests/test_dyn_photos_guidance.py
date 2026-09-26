@@ -80,20 +80,44 @@ def test_pdf_builds_with_gallery(client, app):
     assert pdf.startswith(b"%PDF")
 
 
-def test_pdf_survives_corrupt_image(client, app):
-    from app.extensions import db
-    sid, key = _upload_daily_photo(
-        client, project="Corrupt Photo", raw=b"not-an-image",
-        fname="bad.png")
-    # corrupt bytes fail MIME gate at upload; force a stored key instead
+def test_corrupt_photo_bytes_are_refused_at_upload(client, app):
+    """A file whose bytes are not really a PNG never reaches storage."""
     import os
+    from app.models import ReportSubmission
+    login_as(client, "t_admin")
+    r = client.post("/reports/dyn/new/daily", data={
+        "project_name": "Corrupt Photo", "report_date": "2026-09-24",
+        "f_photos_esha__0__photo": (io.BytesIO(b"not-an-image"), "bad.png")},
+        content_type="multipart/form-data", follow_redirects=True)
+    assert r.status_code == 200
+    assert "لا يطابق نوعه" in r.get_data(as_text=True)
     with app.app_context():
+        assert ReportSubmission.query.filter_by(
+            project_name="Corrupt Photo").count() == 0
+    ops_root = os.path.join(app.config["UPLOAD_FOLDER"], "reports")
+    stored = []
+    for root, _dirs, names in os.walk(ops_root):
+        stored.extend(os.path.join(root, n) for n in names)
+    assert not [p for p in stored if "bad" in os.path.basename(p)]
+
+
+def test_pdf_survives_a_file_corrupted_after_upload(client, app):
+    """Bytes that rot on disk (or are tampered with) degrade to a placeholder
+    instead of breaking the render."""
+    import os
+    from app.extensions import db
+    sid, key = _upload_daily_photo(client, project="Corrupt After Upload")
+    with app.app_context():
+        with open(os.path.join(app.config["UPLOAD_FOLDER"], key),
+                  "wb") as fh:
+            fh.write(b"not-an-image")
         from app.models import ReportSubmission, ReportTemplate
         from app.services.pdf_dynamic import build_dynamic_pdf
         s = db.session.get(ReportSubmission, sid)
         tpl = db.session.get(ReportTemplate, s.template_id)
         pdf = build_dynamic_pdf(s, tpl)
     assert pdf.startswith(b"%PDF")
+    assert key.encode() not in pdf
     assert os.path.isfile(
         os.path.join(app.config["UPLOAD_FOLDER"], key))
 
