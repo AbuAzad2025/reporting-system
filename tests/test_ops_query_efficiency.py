@@ -13,26 +13,27 @@ from tests.conftest import login_as
 
 RECORDS = 40
 
-
 @pytest.fixture()
 def counter(app):
+    """Count SELECTs emitted while the test runs.
+
+    The engine is resolved and the listener attached inside an application
+    context, so the fixture does not depend on test ordering.
+    """
+    from app.extensions import db
     stats = {"select": 0}
 
-    def _count(conn, _cursor, _statement, _params, _ctx, _many):
-        if conn.engine.dialect.name == "sqlite" or True:
-            text = _statement.lstrip()[:16].upper()
-            if text.startswith("SELECT"):
-                stats["select"] += 1
+    def _count(_conn, _cursor, statement, _params, _ctx, _many):
+        if statement.lstrip()[:16].upper().startswith("SELECT"):
+            stats["select"] += 1
 
-    engine = db_engine(app)
-    event.listen(engine, "before_cursor_execute", _count)
-    yield stats
-    event.remove(engine, "before_cursor_execute", _count)
-
-
-def db_engine(app):
-    from app.extensions import db
-    return db.engine
+    with app.app_context():
+        engine = db.engine
+        event.listen(engine, "before_cursor_execute", _count)
+        try:
+            yield stats
+        finally:
+            event.remove(engine, "before_cursor_execute", _count)
 
 
 def _seed(app, count=RECORDS, tag="A"):
