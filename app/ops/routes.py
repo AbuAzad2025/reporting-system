@@ -1316,7 +1316,7 @@ def attachment_download(kind, obj_id, att_id):
     try:
         abs_path = _abs_path(att.storage_key)
     except ValueError:
-        return jsonify({"error": "invalid storage key"}), 500
+        return jsonify({"error": "not found"}), 404
     if not os.path.isfile(abs_path):
         return jsonify({"error": "file missing from storage"}), 404
     return send_file(abs_path, mimetype=att.mime_type,
