@@ -18,6 +18,7 @@ from app.models import (User, Project, ReportTemplate, DynamicField,
 from app.utils.decorators import (template_manager_required, roles_required,
                                   permission_required)
 from app.ops.isolation import roles_required_json
+from app.services.db_lookup import get_or_404
 from app.services.default_templates import ensure_default_templates
 
 log = logging.getLogger(__name__)
@@ -101,7 +102,7 @@ def template_new():
 @login_required
 @template_manager_required
 def template_edit(template_id):
-    tpl = ReportTemplate.query.get_or_404(template_id)
+    tpl = get_or_404(ReportTemplate, template_id)
     if request.method == "POST":
         tpl.name_ar = request.form.get("name_ar", "").strip() or tpl.name_ar
         tpl.name_en = request.form.get("name_en", "").strip()
@@ -119,7 +120,7 @@ def template_edit(template_id):
 @login_required
 @template_manager_required
 def template_delete(template_id):
-    tpl = ReportTemplate.query.get_or_404(template_id)
+    tpl = get_or_404(ReportTemplate, template_id)
     if tpl.is_system:
         flash("لا يمكن حذف قوالب النظام الأساسية (يمكن تعطيلها فقط).", "warning")
         return redirect(url_for("admin.templates"))
@@ -175,7 +176,7 @@ def parse_table_columns(raw: str) -> list:
 @login_required
 @template_manager_required
 def fields(template_id):
-    tpl = ReportTemplate.query.get_or_404(template_id)
+    tpl = get_or_404(ReportTemplate, template_id)
     if request.method == "POST":
         field_key = request.form.get("field_key", "").strip().lower().replace(" ", "_")
         label_ar = request.form.get("label_ar", "").strip()
@@ -216,7 +217,7 @@ def fields(template_id):
 @login_required
 @template_manager_required
 def field_delete(field_id):
-    f = DynamicField.query.get_or_404(field_id)
+    f = get_or_404(DynamicField, field_id)
     tid = f.template_id
     db.session.delete(f)
     db.session.commit()
@@ -228,7 +229,7 @@ def field_delete(field_id):
 @login_required
 @template_manager_required
 def field_move(field_id, direction):
-    f = DynamicField.query.get_or_404(field_id)
+    f = get_or_404(DynamicField, field_id)
     sibs = DynamicField.query.filter_by(template_id=f.template_id).order_by(
         DynamicField.position).all()
     idx = next((i for i, s in enumerate(sibs) if s.id == f.id), None)
@@ -245,7 +246,7 @@ def field_move(field_id, direction):
 @template_manager_required
 def field_column_add(field_id):
     """Append one column to a table field."""
-    f = DynamicField.query.get_or_404(field_id)
+    f = get_or_404(DynamicField, field_id)
     if f.field_type != "table":
         flash("الأعمدة لجداول البنود فقط.", "danger")
         return redirect(url_for("admin.fields", template_id=f.template_id))
@@ -278,7 +279,7 @@ def field_column_add(field_id):
 @login_required
 @template_manager_required
 def field_column_delete(field_id, col_key):
-    f = DynamicField.query.get_or_404(field_id)
+    f = get_or_404(DynamicField, field_id)
     kept = [c for c in f.sub_columns() if c["key"] != col_key]
     if len(kept) != len(f.sub_columns()):
         f.sub_fields = kept
@@ -355,7 +356,7 @@ def projects():
 @login_required
 @template_manager_required
 def project_toggle(project_id):
-    p = Project.query.get_or_404(project_id)
+    p = get_or_404(Project, project_id)
     p.is_active = not p.is_active
     db.session.commit()
     flash(f"تم {'تفعيل' if p.is_active else 'أرشفة'} المشروع «{p.name}».", "success")
@@ -375,7 +376,7 @@ def users():
 @login_required
 @template_manager_required
 def user_role(user_id):
-    u = User.query.get_or_404(user_id)
+    u = get_or_404(User, user_id)
     new_role = request.form.get("role", "").strip()
     if new_role not in ROLES:
         flash("الدور غير صالح.", "danger")
@@ -394,7 +395,7 @@ def user_role(user_id):
 @login_required
 @template_manager_required
 def user_suspend(user_id):
-    u = User.query.get_or_404(user_id)
+    u = get_or_404(User, user_id)
     if u.id == current_user.id:
         flash("لا يمكنك إيقاف حسابك الخاص.", "warning")
     else:
@@ -409,7 +410,7 @@ def user_suspend(user_id):
 @login_required
 @roles_required("superadmin")
 def user_delete(user_id):
-    u = User.query.get_or_404(user_id)
+    u = get_or_404(User, user_id)
     if u.id == current_user.id:
         flash("لا يمكنك حذف حسابك الخاص.", "warning")
     else:
@@ -608,7 +609,7 @@ def api_analytics():
 @template_manager_required
 def branding(template_id):
     """Tenant branding customization for the report identity."""
-    tpl = ReportTemplate.query.get_or_404(template_id)
+    tpl = get_or_404(ReportTemplate, template_id)
     from app.models import TenantBranding
     brand = (db.session.query(TenantBranding)
              .filter_by(project_id=tpl.id, is_active=True).first())

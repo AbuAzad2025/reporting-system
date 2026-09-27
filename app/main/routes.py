@@ -10,6 +10,7 @@ import os
 from app.main import bp
 from app.extensions import db
 from app.models import User, Report, ReportTemplate, ReportSubmission, ROLES, Project
+from app.services.db_lookup import get_or_404
 from app.utils.decorators import roles_required, permission_required
 
 
@@ -279,7 +280,7 @@ def users():
 @login_required
 @roles_required("admin", "superadmin", expand_admin=False)
 def toggle_role(user_id):
-    user = User.query.get_or_404(user_id)
+    user = get_or_404(User, user_id)
     if user.id == current_user.id:
         flash("لا يمكنك تغيير دور حسابك الخاص.", "warning")
     else:

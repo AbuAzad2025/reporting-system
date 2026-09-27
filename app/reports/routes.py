@@ -21,6 +21,7 @@ import re
 import uuid
 from flask import current_app
 
+from app.services.db_lookup import get_or_404
 from app.services.mime_guard import is_allowed_upload
 
 from app.reports import bp
@@ -169,7 +170,7 @@ def new(report_type):
 @bp.route("/<int:report_id>")
 @login_required
 def view(report_id):
-    r = Report.query.get_or_404(report_id)
+    r = get_or_404(Report, report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
         abort(404)
     return render_template("reports/view.html", report=r,
@@ -179,7 +180,7 @@ def view(report_id):
 @bp.route("/<int:report_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit(report_id):
-    r = Report.query.get_or_404(report_id)
+    r = get_or_404(Report, report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
         abort(404)
     specs = FIELD_SPECS.get(r.report_type, [])
@@ -215,7 +216,7 @@ def edit(report_id):
 @bp.route("/<int:report_id>/delete", methods=["POST"])
 @login_required
 def delete(report_id):
-    r = Report.query.get_or_404(report_id)
+    r = get_or_404(Report, report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
         abort(404)
     db.session.delete(r)
@@ -227,7 +228,7 @@ def delete(report_id):
 @bp.route("/<int:report_id>/pdf")
 @login_required
 def pdf(report_id):
-    r = Report.query.get_or_404(report_id)
+    r = get_or_404(Report, report_id)
     if not current_user.is_admin and r.user_id != current_user.id:
         abort(404)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -239,7 +240,7 @@ def pdf(report_id):
 
 # ================================================================ DYNAMIC
 def _visible_submission(sub_id: int) -> ReportSubmission:
-    s = ReportSubmission.query.get_or_404(sub_id)
+    s = get_or_404(ReportSubmission, sub_id)
     if not current_user.is_admin and s.user_id != current_user.id:
         abort(404)
     return s
@@ -645,7 +646,7 @@ def dyn_pdf(sub_id):
 def share_report(report_type, report_id):
     """Return share metadata (URLs) for a report."""
     if report_type == "legacy":
-        report = Report.query.get_or_404(report_id)
+        report = get_or_404(Report, report_id)
         if not current_user.is_admin and report.user_id != current_user.id:
             abort(404)
         data = get_share_data(report, "legacy")

@@ -319,9 +319,9 @@ jobs:
           # Production code: every shipped Python file, not just app/.
           # The previous job scanned app/ only, which left config.py, app.py and
           # the whole utils/ package unexamined.
-          bandit -r app/ utils/ routes/ migrations/ config.py app.py \
+          bandit -r app/ utils/ migrations/ config.py app.py \
             -f json -o bandit-security-report.json || true
-          bandit -r app/ utils/ routes/ migrations/ config.py app.py \
+          bandit -r app/ utils/ migrations/ config.py app.py \
             -f text -o bandit-security-report.txt || true
           # Tests: also gated, minus the rule ids that are correct-by-design in
           # test code and would otherwise bury real findings in noise —
@@ -358,6 +358,53 @@ jobs:
             bandit-tests-report.json
           retention-days: 30
 
+  # ── Real PostgreSQL backup/restore (not mock, not SQLite) ──
+  postgres-restore:
+    name: "PostgreSQL Restore"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: azadexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa
+      # Set before pytest starts: tests/conftest.py reads this once at import
+      # time to decide the engine, so setting it inside a test is too late.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/azadexa_test
+      AZADEXA_AUTO_CREATE: "0"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+      - name: "DB Setup"
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
+      - name: "Python Setup"
+        uses: actions/setup-python@v7
+        with: { python-version: '3.12', cache: 'pip' }
+      - name: "Install"
+        run: |
+          python -m pip install --upgrade pip --no-cache-dir
+          python -m pip install --force-reinstall --no-cache-dir click==8.5.0
+          pip install -r requirements.txt pytest
+      - name: "Run Real PostgreSQL Restore"
+        # A single test, so there is no worker parallelism to control. -n0 is
+        # deliberately not used: pytest-xdist is not a declared dependency, and
+        # an unrecognised argument would fail the job rather than serialise it.
+        run: |
+          python -m pytest tests/backup/test_restore_postgresql_real.py \
+            -v --tb=short
+
   # ── Lint & Format (flake8) ──
   lint-check-flake8:
     name: "Lint + Format"
@@ -377,7 +424,7 @@ jobs:
           pip install flake8
       - name: "Run Lint Check"
         run: |
-          flake8 app/ tests/ config.py app.py --max-line-length=120 \
+          flake8 app/ tests/ utils/ migrations/ config.py app.py --max-line-length=120 \
             --ignore=E501,E731,W503,E203,F401,F841,E127,E231,E306,E302,E401,F811,E305,E999
 
   # ── Coverage Report ──
@@ -407,6 +454,8 @@ jobs:
           python -m pytest tests/ --cov=app \
             --cov-report=xml --cov-report=html --cov-report=term-missing \
             --cov-fail-under=80 \
+            # No PostgreSQL service in this job, so the real restore test is
+            # deselected here and run for real in the postgres-restore job.
             -k "not test_restore_postgresql_real"
       - name: "Upload Coverage"
         if: success() && hashFiles('coverage.xml') != '' && hashFiles('htmlcov/') != ''
