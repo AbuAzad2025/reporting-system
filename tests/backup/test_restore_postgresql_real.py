@@ -18,6 +18,32 @@ def _is_postgres(app) -> bool:
     return app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql")
 
 
+def _wipe(app) -> None:
+    """Empty every table, order-independently.
+
+    This test used to delete ProjectMember, Project and User by hand. SQLite
+    does not enforce foreign keys, so that looked fine; against a real
+    PostgreSQL it failed immediately, because the seeded project is still
+    referenced by site_inspections and the delete of `projects` was rejected.
+
+    TRUNCATE ... CASCADE removes the whole graph in one statement and is not
+    order-sensitive, which is what makes it the right tool here.
+
+    Must be called from inside an app context: opening a nested one here would
+    hand ``db.session`` a different scope than the caller's, leaving the
+    caller's session holding stale rows.
+    """
+    from sqlalchemy import text
+
+    from app.extensions import db
+
+    tables = ", ".join(
+        f'"{table.name}"' for table in reversed(db.metadata.sorted_tables)
+        if table.name != "alembic_version")
+    db.session.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+    db.session.commit()
+
+
 @pytest.fixture()
 def pg_app(app):
     if not _is_postgres(app):
@@ -45,10 +71,7 @@ def test_restore_real_postgresql(pg_app):
 
     with pg_app.app_context():
         # Clean target data without dropping tables (safe for CI PG)
-        db.session.query(ProjectMember).delete()
-        db.session.query(Project).delete()
-        db.session.query(User).delete()
-        db.session.commit()
+        _wipe(pg_app)
 
         u = User(username="pg_real", email="pg@t.com", full_name="PG Real",
                  role="admin")
@@ -63,10 +86,7 @@ def test_restore_real_postgresql(pg_app):
 
         data = build_backup()
 
-        db.session.query(ProjectMember).delete()
-        db.session.query(Project).delete()
-        db.session.query(User).delete()
-        db.session.commit()
+        _wipe(pg_app)
 
         counts = restore_backup(data, project_id=None, replace=False)
         assert isinstance(counts, dict)
