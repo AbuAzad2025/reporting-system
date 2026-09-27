@@ -13,6 +13,7 @@ from datetime import datetime
 from flask import Response, current_app, g, jsonify, request, send_file, render_template
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
+import logging
 import os
 import re
 import uuid
@@ -47,6 +48,8 @@ from app.services.reference_data import (
     TEST_VERDICTS_LIST,
     get_reference_table,
 )
+
+log = logging.getLogger(__name__)
 
 KIND_MODEL = {
     "site-inspections": M.SiteInspection,
@@ -390,8 +393,11 @@ def validate_input(kind: str, data: dict, partial: bool = False):
                 data.get("acceptance_max"), label="نتيجة القياس")
             if err:
                 errors.append(err)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Warning, not debug: this guard is what stops an out-of-range
+            # inspection result being stored, so a failure inside it must be
+            # visible rather than swallowed.
+            log.warning("inspection result validation did not run: %s", exc)
     for f in schema["dates"]:
         if f in data and data[f] not in ("", None):
             v = _parse_date(data[f], f, errors)

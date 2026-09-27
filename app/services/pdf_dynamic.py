@@ -139,8 +139,8 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             ]))
             story.append(logo_tbl)
             story.append(Spacer(1, 3 * mm))
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("dynamic PDF logo block skipped: %s", exc)
 
     # ---- corporate header (shared: project owner / consultant / contractor)
     try:
@@ -324,8 +324,8 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
             story.append(Spacer(1, 3 * mm))
             story.append(_kv_table(evm_rows, st))
             story.append(Spacer(1, 6 * mm))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("EVM block skipped in dynamic PDF: %s", exc)
 
     # ---- signatory block
     story.append(_section_title("التوقيع والاعتماد", st))

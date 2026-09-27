@@ -7,6 +7,7 @@ form passthrough.
 """
 import pytest
 
+from app.extensions import db
 from tests.conftest import login_as
 
 FLASK = pytest.importorskip("flask")
@@ -49,7 +50,7 @@ def _snapshot(app, record_id, model_name="RFI"):
     from app.ops import models as M
     model = getattr(M, model_name)
     with app.app_context():
-        row = model.query.get(record_id)
+        row = db.session.get(model, record_id)
         return {"status": row.status, "subject": row.subject,
                 "version": row.version}
 
@@ -190,8 +191,8 @@ class TestUiApprovalWorkflow:
         client.post(f"/ops/ui/rfis/{amid}/submit")
         client.post(f"/ops/ui/rfis/{amid}/approve", follow_redirects=True)
         with app.app_context():
-            assert RFI.query.get(rid).status == "amended"
-            assert RFI.query.get(amid).status == "approved"
+            assert db.session.get(RFI, rid).status == "amended"
+            assert db.session.get(RFI, amid).status == "approved"
 
 
 class TestMassAssignmentGuard:

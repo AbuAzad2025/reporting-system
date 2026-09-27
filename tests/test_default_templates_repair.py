@@ -95,8 +95,8 @@ class TestRepairOfDriftedRows:
             dropdown = DynamicField.query.filter(
                 DynamicField.field_type == "dropdown",
                 DynamicField.options.isnot(None)).first()
-            template_key = ReportTemplate.query.get(
-                dropdown.template_id).key
+            template_key = db.session.get(
+                ReportTemplate, dropdown.template_id).key
             key = dropdown.field_key
             wanted = list(dropdown.options)
         assert wanted

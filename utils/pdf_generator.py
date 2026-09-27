@@ -6,9 +6,19 @@
 - 4 dedicated layouts sharing one corporate header/footer + signatory block.
 """
 import io
+import logging
 import os
 import urllib.request
 from datetime import datetime
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
+                                TableStyle, HRFlowable)
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FONTS_DIR = os.path.join(BASE_DIR, "fonts")
@@ -24,9 +34,43 @@ FONT_BOLD = "Helvetica-Bold"
 _ARABIC_FONT_READY = False
 
 
+MAX_FONT_BYTES = 8 * 1024 * 1024
+FONT_FETCH_TIMEOUT = 15
+
+
+def _download_font(url: str, dest: str) -> None:
+    """Fetch one font over HTTPS with a hard size cap, or leave the file absent.
+
+    The downloaded bytes are later handed to ReportLab as a font, so this
+    treats the network as untrusted: only https is allowed (a plaintext fetch
+    could be swapped in transit), the response is bounded (an endless body
+    would otherwise fill the disk), and a failed fetch is not fatal because
+    the PDF engine falls back to a built-in font.
+    """
+    if not url.lower().startswith("https://"):
+        raise ValueError(f"refusing non-https font url: {url!r}")
+    request = urllib.request.Request(url, headers={"User-Agent": "azadexa-pdf"})
+    # nosec B310 — bandit's check is a static scheme test on the argument, and
+    # it cannot see that `url` is a module constant already restricted to https
+    # by the guard above, nor that the redirect target is re-validated below.
+    # The mitigation is enforced by tests in tests/test_font_download_hardening.py,
+    # not just asserted here.
+    with urllib.request.urlopen(request, timeout=FONT_FETCH_TIMEOUT) as response:  # nosec B310
+        final_url = response.geturl()
+        if not final_url.lower().startswith("https://"):
+            raise ValueError(f"refusing non-https redirect target: {final_url!r}")
+        declared = response.headers.get("Content-Length")
+        if declared is not None and int(declared) > MAX_FONT_BYTES:
+            raise ValueError(f"font too large ({declared} bytes): {url!r}")
+        payload = response.read(MAX_FONT_BYTES + 1)
+    if len(payload) > MAX_FONT_BYTES:
+        raise ValueError(f"font exceeded {MAX_FONT_BYTES} bytes: {url!r}")
+    with open(dest, "wb") as handle:
+        handle.write(payload)
+
+
 def ensure_fonts() -> None:
     """Download Arabic TTFs once if missing. Never raises — offline safe."""
-    global _ARABIC_FONT_READY
     if _ARABIC_FONT_READY:
         return
     try:
@@ -35,12 +79,12 @@ def ensure_fonts() -> None:
             dest = os.path.join(FONTS_DIR, filename)
             if not os.path.exists(dest) or os.path.getsize(dest) < 10_000:
                 try:
-                    urllib.request.urlretrieve(url, dest)
-                except Exception:
-                    pass  # offline — keep fallback font
+                    _download_font(url, dest)
+                except Exception as exc:
+                    logger.debug("font fetch skipped for %s: %s", filename, exc)
         _register_fonts()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("font directory setup skipped: %s", exc)
 
 
 def _register_fonts() -> None:
@@ -60,8 +104,8 @@ def _register_fonts() -> None:
             FONT_BOLD = "Amiri-Bold" if _ARABIC_FONT_READY else FONT_BOLD
         elif _ARABIC_FONT_READY:
             FONT_BOLD = "Amiri"  # no synthetic bold available; reuse regular
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("font registration skipped, using built-in font: %s", exc)
 
 
 def ar(text) -> str:
@@ -78,17 +122,12 @@ def ar(text) -> str:
         if any("\u0600" <= ch <= "\u06FF" for ch in s):
             s = get_display(arabic_reshaper.reshape(s))
         return s
-    except Exception:
+    except Exception as exc:
+        logger.debug("arabic shaping unavailable, passing text through: %s", exc)
         return s
 
 
 # ---------------------------------------------------------------- layout
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
-                                TableStyle, HRFlowable)
 
 NAVY = colors.HexColor("#1e3a5f")
 TEAL = colors.HexColor("#0e7c7b")
@@ -109,8 +148,8 @@ def _brand_logo(width_mm=30):
         if os.path.isfile(BRAND_LOGO):
             return Image(BRAND_LOGO, width=width_mm * mm,
                          height=width_mm * mm, hAlign="CENTER")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("brand logo unavailable in PDF: %s", exc)
     return None
 
 
@@ -122,8 +161,8 @@ def _custom_logo(path, width_mm=28):
         from reportlab.platypus import Image
         if os.path.isfile(str(path)):
             return Image(str(path), width=width_mm * mm, height=width_mm * mm, hAlign="CENTER")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("uploaded logo unusable in PDF (%s): %s", path, exc)
     return None
 
 TYPE_META = {
@@ -172,8 +211,8 @@ def _header_table(report, st):
             consultant = proj.consultant or "—"
             if not contractor or contractor == "—":
                 contractor = proj.contractor or "—"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("project header lookup skipped in PDF: %s", exc)
     header_data = [
         [Paragraph(ar("صاحب العمل / المالك"), st["cell_h"]),
          Paragraph(ar(project_owner), st["cell"]),

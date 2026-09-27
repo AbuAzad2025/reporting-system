@@ -10,6 +10,7 @@ from datetime import date
 
 import pytest
 
+from app.extensions import db
 from tests.conftest import login_as
 
 BAD_DATES = ["garbage", "2026-13-45", "2026/01/01", "01-01-2026",
@@ -149,7 +150,7 @@ class TestFloatColumnValidation:
         assert r.status_code == 200, r.get_json()
         assert r.get_json()["cube_28d"] == pytest.approx(31.75)
         with app.app_context():
-            row = SiteInspection.query.get(rid)
+            row = db.session.get(SiteInspection, rid)
             assert row.cube_28d == pytest.approx(31.75)
             assert isinstance(row.cube_28d, float)
 

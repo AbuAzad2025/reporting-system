@@ -203,7 +203,7 @@ def _branding_template_id(app, key):
     from app.models import Project
     tid = _template_id(app, key)
     with app.app_context():
-        if Project.query.get(tid) is None:
+        if db.session.get(Project, tid) is None:
             db.session.add(Project(id=tid, name="branding-holder-" + key))
             db.session.commit()
     return tid

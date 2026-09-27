@@ -9,7 +9,7 @@ reportlab==5.0.1
 pillow==12.3.0
 arabic-reshaper==3.0.0
 python-bidi==0.4.2
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 pytest==9.1.1
 pytest-cov==7.1.0
 psycopg2-binary>=2.9.13

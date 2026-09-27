@@ -6,7 +6,10 @@ postgresql:// URI is honoured directly. A stray global DATABASE_URL from
 another project (non-postgres, no opt-in) still falls back to local SQLite
 so dev runs are never hijacked.
 """
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 try:
     from dotenv import load_dotenv
@@ -17,8 +20,11 @@ try:
     load_dotenv(os.path.join(os.path.abspath(os.path.dirname(__file__)),
                              ".env"),
                 override=True)
-except Exception:
-    pass
+except Exception as exc:
+    # Not fatal — the app falls back to its documented defaults — but it used
+    # to fail completely silently, so a missing or malformed .env looked
+    # identical to a correctly loaded one.
+    logger.warning("could not load .env file (%s); falling back to defaults", exc)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 

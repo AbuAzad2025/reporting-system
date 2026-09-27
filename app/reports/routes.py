@@ -15,6 +15,7 @@ from flask import (render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 
+import logging
 import os
 import re
 import uuid
@@ -30,6 +31,8 @@ from utils.helpers import FIELD_SPECS
 from utils.pdf_generator import build_report_pdf
 from app.services.pdf_dynamic import build_dynamic_pdf
 from app.services.share import get_share_data
+
+log = logging.getLogger(__name__)
 
 # secure upload for dynamic table file cells (mirrors ops secure handling)
 ALLOWED_MIME_DYN = {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}
@@ -402,8 +405,9 @@ def _collect_dynamic(template, form):
                                 continue
                             try:
                                 file_obj.stream.seek(0)
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                # Non-seekable stream: read() below still works.
+                                log.debug("upload stream not seekable: %s", exc)
                             buf = file_obj.read()
                             if len(buf) > MAX_UPLOAD_DYN:
                                 errors.append(f"«{f.label_ar}» — الصف {idx + 1}: الملف يتجاوز 4MB.")
@@ -514,8 +518,8 @@ def dyn_new(template_key):
                 payload["geo_lat"] = request.form.get("geo_lat", "").strip()[:20]
             if request.form.get("geo_lng"):
                 payload["geo_lng"] = request.form.get("geo_lng", "").strip()[:20]
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("geolocation auto-tag skipped: %s", exc)
         if not project_name:
             errors.insert(0, "اسم المشروع حقل مطلوب.")
         if report_date is None:
