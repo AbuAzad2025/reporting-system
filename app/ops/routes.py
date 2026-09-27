@@ -358,13 +358,15 @@ def validate_input(kind: str, data: dict, partial: bool = False):
                 errors.append(f"«{flabel(f)}» حقل مطلوب.")
     for f, allowed in schema["enums"].items():
         if f in data and data[f] not in ("", None):
-            if str(data[f]).strip() not in allowed:
+            raw = str(data[f]).strip()
+            canonical = {v.lower(): v for v in allowed}.get(raw.lower())
+            if canonical is None:
                 labels = "، ".join(enum_display(kind, f, v) for v in allowed)
                 errors.append(
                     f"قيمة غير مسموحة في «{flabel(f)}» — المسموح: "
                     f"{labels}.")
             else:
-                cleaned[f] = str(data[f]).strip()
+                cleaned[f] = canonical
     for f, (lo, hi) in schema["numbers"].items():
         if f in data and data[f] not in ("", None):
             try:

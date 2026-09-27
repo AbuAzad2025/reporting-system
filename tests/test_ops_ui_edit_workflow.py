@@ -465,7 +465,7 @@ class TestUiEditUpdate:
         assert r.status_code == 200
         assert _flashes(client, r) == [(
             "danger", "قيمة غير مسموحة في «الأولوية» — المسموح: "
-            "low، normal، high، critical.")]
+            "منخفضة، عادية، عالية، حرجة.")]
         html = r.get_data(as_text=True)
         assert "✏️ تعديل" in html  # the edit form, not a redirect
         assert 'value="مسودة لم تُحفظ"' in html  # the user's input survives
@@ -510,7 +510,7 @@ class TestUiEditUpdate:
         assert r.status_code == 200
         assert _flashes(client, r) == [
             ("danger", "قيمة غير مسموحة في «الأولوية» — المسموح: "
-             "low، normal، high، critical."),
+             "منخفضة، عادية، عالية، حرجة."),
             ("danger", "«أيام التأخير» يجب أن يكون ≥ 0."),
             ("danger", "التاريخ غير صالح في «تاريخ الرد المطلوب» — "
              "الصيغة المطلوبة YYYY-MM-DD."),
@@ -627,7 +627,7 @@ class TestUiNew:
             "subject": "تداخل التكييف مع Beam",
             "question": "مجرى الهواء يمر داخل Beam؟",
             "ball_in_court": "consultant", "priority": "high",
-            "cost_impact": "pending", "discipline": "MEP",
+            "cost_impact": "pending", "discipline": "mep",
             "reply_due": date(2026, 8, 20), "delay_days": 0.0,
             "reviewed_by_id": None, "reviewed_at": None}
         page = client.get(r.headers["Location"])

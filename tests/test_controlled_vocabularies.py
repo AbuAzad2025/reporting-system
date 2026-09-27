@@ -78,12 +78,20 @@ class TestValidationAcceptsTheWholeVocabulary:
         assert errors == []
         assert cleaned["verdict"] == value
 
-    @pytest.mark.parametrize("bad", ["civil engineering", "مدني", "CIVIL"])
+    @pytest.mark.parametrize("bad", ["civil engineering", "مدني", "civil_civil"])
     def test_values_outside_the_vocabulary_are_refused(self, bad):
         _cleaned, errors = validate_input("rfis", dict(RFI_BASE,
                                                        discipline=bad))
         assert len(errors) == 1
         assert "غير مسموحة" in errors[0]
+
+    @pytest.mark.parametrize("raw,canonical", [
+        ("MEP", "mep"), ("  Civil  ", "civil"), ("Structural", "structural"),
+        ("OTHER", "other")])
+    def test_enum_input_is_normalised_to_the_canonical_key(self, raw, canonical):
+        cleaned, errors = validate_input("rfis", dict(RFI_BASE, discipline=raw))
+        assert errors == []
+        assert cleaned["discipline"] == canonical
 
     def test_blank_discipline_is_simply_absent(self):
         cleaned, errors = validate_input("rfis", dict(RFI_BASE, discipline=""))
