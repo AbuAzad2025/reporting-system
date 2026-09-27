@@ -35,11 +35,11 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "DB Setup"
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -77,11 +77,11 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "DB Setup"
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -118,11 +118,11 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "DB Setup"
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -159,11 +159,11 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "DB Setup"
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -200,11 +200,11 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "DB Setup"
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -241,11 +241,11 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "DB Setup"
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -282,11 +282,11 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "DB Setup"
         run: PGPASSWORD=postgres psql -h localhost -U postgres -d azadexa -c "CREATE DATABASE azadexa_test;"
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -304,9 +304,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -321,7 +321,7 @@ jobs:
           echo "::notice::Python security scan (bandit) completed — no critical vulnerabilities found (or non-blocking warnings recorded)"
       - name: "Upload Security Artifacts"
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bandit-security-report
           path: bandit-security-report.*
@@ -334,9 +334,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -361,9 +361,9 @@ jobs:
     if: success()
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
@@ -379,7 +379,7 @@ jobs:
             -k "not test_restore_postgresql_real"
       - name: "Upload Coverage"
         if: success() && hashFiles('coverage.xml') != '' && hashFiles('htmlcov/') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report-py312
           path: |
@@ -394,9 +394,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: "Python Setup"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with: { python-version: '3.12', cache: 'pip' }
       - name: "Install"
         run: |
