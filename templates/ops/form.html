@@ -29,9 +29,9 @@
         {% if key in schema.enums %}
         <select id="f_{{ key }}" name="{{ key }}" {% if _is_req %}required{% endif %} class="form-control bg-white">
           <option value="">— اختر —</option>
-          {% for opt in schema.enums[key] %}<option value="{{ opt }}" {% if _val|string == opt|string %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+          {% for opt in schema.enums[key] %}<option value="{{ opt }}" {% if _val|string == opt|string %}selected{% endif %}>{{ (enum_labels.get(key) or {}).get(opt, opt) }}</option>{% endfor %}
         </select>
-        <p class="form-hint">القيم المسموحة: {{ schema.enums[key]|join('، ') }}</p>
+        <p class="form-hint">القيم المسموحة: {% for opt in schema.enums[key] %}{{ (enum_labels.get(key) or {}).get(opt, opt) }}{% if not loop.last %}، {% endif %}{% endfor %}</p>
         {% elif key in schema.numbers %}
         <input id="f_{{ key }}" name="{{ key }}" type="number" step="any" dir="ltr" {% if _is_req %}required{% endif %} value="{{ _val }}" class="form-control text-left">
         {% elif key in schema.dates %}

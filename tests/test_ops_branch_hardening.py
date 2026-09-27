@@ -403,8 +403,8 @@ def test_create_form_encoded_body_is_still_validated(eng_client, app):
         "priority": "عاجل", "report_date": "2026-13-45"})
     assert r.status_code == 422
     details = r.get_json()["details"]
-    assert "قيمة غير مسموحة في «الأولوية» — المسموح: low، normal، high، critical." \
-        in details
+    assert "قيمة غير مسموحة في «الأولوية» — المسموح: " \
+           "منخفضة، عادية، عالية، حرجة." in details
     assert "التاريخ غير صالح في «تاريخ التقرير» — الصيغة المطلوبة YYYY-MM-DD." \
         in details
     assert _count(app, RFI) == before

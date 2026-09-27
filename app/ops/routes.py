@@ -41,6 +41,11 @@ from app.services.reference_data import (
     CONSULTANT_ACTIONS_LIST,
     SUB_RECOMMENDATIONS_LIST,
     EQUIPMENT_STATUS_LIST,
+    RFI_PRIORITY_LIST,
+    RFI_COST_IMPACT_LIST,
+    RFI_DISCIPLINE_LIST,
+    TEST_VERDICTS_LIST,
+    get_reference_table,
 )
 
 KIND_MODEL = {
@@ -60,7 +65,7 @@ SCHEMAS = {
     "site-inspections": {
         "required": ["project_id", "test_category", "test_type"],
         "enums": {"test_category": TEST_CATEGORIES_LIST,
-                  "verdict": ["pass", "fail", "pending"]},
+                  "verdict": TEST_VERDICTS_LIST},
         "numbers": {"result_value": (None, None),
                     "acceptance_min": (None, None),
                     "acceptance_max": (None, None),
@@ -78,8 +83,9 @@ SCHEMAS = {
     "rfis": {
         "required": ["project_id", "subject", "question"],
         "enums": {"ball_in_court": BALL_IN_COURT_LIST,
-                  "priority": ["low", "normal", "high", "critical"],
-                  "cost_impact": ["none", "pending", "confirmed"]},
+                  "priority": RFI_PRIORITY_LIST,
+                  "cost_impact": RFI_COST_IMPACT_LIST,
+                  "discipline": RFI_DISCIPLINE_LIST},
         "numbers": {"delay_days": (0, None)},
         "dates": ["report_date", "reply_due", "date_replied"],
     },
@@ -353,9 +359,10 @@ def validate_input(kind: str, data: dict, partial: bool = False):
     for f, allowed in schema["enums"].items():
         if f in data and data[f] not in ("", None):
             if str(data[f]).strip() not in allowed:
+                labels = "، ".join(enum_display(kind, f, v) for v in allowed)
                 errors.append(
                     f"قيمة غير مسموحة في «{flabel(f)}» — المسموح: "
-                    f"{'، '.join(allowed)}.")
+                    f"{labels}.")
             else:
                 cleaned[f] = str(data[f]).strip()
     for f, (lo, hi) in schema["numbers"].items():
@@ -478,6 +485,51 @@ def _serialize(kind, record):
     elif kind == "safety-reports":
         d["computed"] = {"is_closed": record.is_closed}
     return d
+
+
+#: (module, field) -> reference table. The pair is the key, not the field name
+#: alone: "recommendation" is a subcontractor verdict in one module and an
+#: engineering sign-off in another, so a flat field key would label one with
+#: the other's vocabulary.
+ENUM_LABEL_TABLES = {
+    ("site-inspections", "test_category"): "test_categories",
+    ("site-inspections", "verdict"): "test_verdicts",
+    ("material-submittals", "consultant_action"): "consultant_actions",
+    ("daily-reports", "weather"): "weather",
+    ("rfis", "ball_in_court"): "ball_in_court",
+    ("rfis", "priority"): "rfi_priority",
+    ("rfis", "cost_impact"): "rfi_cost_impact",
+    ("rfis", "discipline"): "rfi_discipline",
+    ("variation-orders", "category"): "vo_categories",
+    ("variation-orders", "recommendation"): "vo_recommendations",
+    ("safety-reports", "inspection_type"): "safety_inspection_types",
+    ("safety-reports", "risk_level"): "risk_levels",
+    ("safety-reports", "responsible"): "safety_responsible",
+    ("subcontractor-performances", "recommendation"): "sub_recommendations",
+}
+
+
+def enum_labels(kind: str) -> dict:
+    """Arabic display labels for a module's controlled vocabularies."""
+    out = {}
+    for field in SCHEMAS.get(kind, {}).get("enums", {}):
+        table_name = ENUM_LABEL_TABLES.get((kind, field))
+        if not table_name:
+            continue
+        table = get_reference_table(table_name)
+        if table:
+            out[field] = dict(table.choices("ar"))
+    return out
+
+
+def enum_display(kind: str, field: str, value: str) -> str:
+    """Human label for a stored enum value, falling back to the raw value."""
+    table_name = ENUM_LABEL_TABLES.get((kind, field))
+    if table_name:
+        table = get_reference_table(table_name)
+        if table:
+            return dict(table.choices("ar")).get(value, value)
+    return value
 
 
 def _resolve_kind(kind):
@@ -842,14 +894,14 @@ def ui_new(kind):
             from flask import flash, render_template as _rt
             for e in errors:
                 flash(e, "danger")
-            return _rt("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new",
+            return _rt("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, enum_labels=enum_labels(kind), projects=projects, form_data=data, mode="new",
                        fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         try:
             cleaned = _apply_project_link(current_user, cleaned)
         except Exception as exc:
             from flask import flash as _fl
             _fl(str(exc), "danger")
-            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new",
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, enum_labels=enum_labels(kind), projects=projects, form_data=data, mode="new",
                                    fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         obj = model(**{k: v for k, v in cleaned.items() if hasattr(model, k)})
         obj.signatory_name = current_user.full_name
@@ -862,12 +914,12 @@ def ui_new(kind):
             db.session.rollback()
             from flask import flash as _fl2
             _fl2("تعذر الحفظ — سجل مكرر.", "danger")
-            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="new",
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, enum_labels=enum_labels(kind), projects=projects, form_data=data, mode="new",
                                    fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         from flask import flash as _fl3, redirect, url_for
         _fl3("تم الحفظ بنجاح.", "success")
         return redirect(url_for("ops.ui_detail", kind=kind, obj_id=obj.id))
-    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data={}, mode="new",
+    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, enum_labels=enum_labels(kind), projects=projects, form_data={}, mode="new",
                            fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
 
 
@@ -918,7 +970,7 @@ def ui_edit(kind, obj_id):
             from flask import flash
             for e in errors:
                 flash(e, "danger")
-            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=data, mode="edit", record=record,
+            return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, enum_labels=enum_labels(kind), projects=projects, form_data=data, mode="edit", record=record,
                                    fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         if "project_id" in cleaned and int(cleaned["project_id"]) != record.project_id:
             tenant_create_guard(current_user, cleaned["project_id"])
@@ -938,7 +990,7 @@ def ui_edit(kind, obj_id):
         _fl("تم التحديث.", "success")
         return redirect(url_for("ops.ui_detail", kind=kind, obj_id=record.id))
     prefill = {c.key: (getattr(record, c.key) or "") for c in model.__table__.columns}
-    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, projects=projects, form_data=prefill, mode="edit", record=record,
+    return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, enum_labels=enum_labels(kind), projects=projects, form_data=prefill, mode="edit", record=record,
                            fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
 
 
