@@ -450,12 +450,16 @@ jobs:
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt pytest pytest-cov
       - name: "Generate Coverage"
+        # No PostgreSQL service in this job, so the real restore test is
+        # deselected here and executed for real in the postgres-restore job.
+        # NB: the explanation lives here, not inside the command below - a `#`
+        # comment on a backslash-continued line is swallowed by the shell, which
+        # silently drops the rest of the arguments and then tries to execute
+        # them as a command.
         run: |
           python -m pytest tests/ --cov=app \
             --cov-report=xml --cov-report=html --cov-report=term-missing \
             --cov-fail-under=80 \
-            # No PostgreSQL service in this job, so the real restore test is
-            # deselected here and run for real in the postgres-restore job.
             -k "not test_restore_postgresql_real"
       - name: "Upload Coverage"
         if: success() && hashFiles('coverage.xml') != '' && hashFiles('htmlcov/') != ''
