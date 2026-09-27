@@ -224,12 +224,18 @@ def _boot(tmp_path, monkeypatch, slug, auto_create="0", **overrides):
     Mirrors the ``isolated_app`` pattern of
     ``tests/test_app_admin_hardening.py``, but parameterised on
     ``AZADEXA_AUTO_CREATE`` so both sides of the boot gate can be exercised.
+
+    TESTING is False on purpose. These tests exist to exercise the *deployment*
+    boot path, and a deployed app is not in testing mode. The bootstrap
+    deliberately stands down under TESTING so the rest of the suite is never
+    touched by it, which means a TESTING=True app could never show the
+    auto-create branch at all.
     """
     from config import Config
     from app import create_app
 
     class BootConfig(Config):
-        TESTING = True
+        TESTING = False
         SECRET_KEY = "cli-boot-secret-3f7c92"
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path}/{slug}.db"
 
@@ -604,6 +610,13 @@ class TestAutoCreateGate:
 
     def test_one_creates_tables_and_seeds_templates_without_users(
             self, isolated_factory):
+        """Boot builds the schema, seeds reference data, adds no demo users.
+
+        The old contract was "no users on boot at all". It is now "no *demo*
+        users": the only account a fresh boot may create is a single platform
+        administrator, and never with a guessable password. That distinction is
+        the point of this test, so it is asserted in both directions.
+        """
         from app.models import ReportTemplate, User
         isolated = isolated_factory("1")
         assert _db_size(isolated) > 0
@@ -615,8 +628,15 @@ class TestAutoCreateGate:
                 EXPECTED_TEMPLATE_KEYS
             assert ReportTemplate.query.filter_by(is_active=True).count() == \
                 len(EXPECTED_TEMPLATE_KEYS)
-            # boot must never seed demo accounts silently
-            assert User.query.count() == 0
+
+            admins = User.query.filter_by(role="superadmin").all()
+            assert len(admins) == 1, "exactly one platform admin, or none"
+            # No demo accounts: the CLI `seed` command still owns those.
+            assert User.query.filter(User.role != "superadmin").count() == 0
+            # And the account it did create is not a backdoor.
+            for guess in ("", "admin", "admin123", "password", "password123",
+                          "superadmin", "12345678"):
+                assert not admins[0].check_password(guess)
 
     def test_both_branches_produce_different_schemas(self, tmp_path,
                                                      monkeypatch):
@@ -642,7 +662,7 @@ class TestAutoCreateGate:
             isolated = isolated_factory("1")
         # schema built before the seed attempt, templates simply missing
         assert set(EXPECTED_TABLES) <= _table_names(isolated)
-        assert any("default-template seed skipped" in r.message
+        assert any("reference data seed skipped" in r.message
                    for r in caplog.records)
         with isolated.app_context():
             assert ReportTemplate.query.count() == 0

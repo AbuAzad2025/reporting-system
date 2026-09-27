@@ -136,19 +136,20 @@ def create_app(config_class=Config):
                 "today": date.today().isoformat(),
                 "current_brand": brand}
 
-    # ---- first-boot: create tables + seed default dynamic templates
-    # Set AZADEXA_AUTO_CREATE=0 to skip (e.g. pure Alembic workflows where
-    # autogenerate must diff against an empty database).
-    if os.environ.get("AZADEXA_AUTO_CREATE", "1") == "1":
-        with app.app_context():
-            os.makedirs(os.path.join(BASE_DIR, "instance"), exist_ok=True)
-            db.create_all()
-            try:
-                from app.models import ReportTemplate, DynamicField
-                from app.services.default_templates import ensure_default_templates
-                ensure_default_templates(db, ReportTemplate, DynamicField)
-            except Exception as exc:  # never break boot on seed issues
-                app.logger.warning("default-template seed skipped: %s", exc)
+    # ---- zero-touch bootstrap (schema, first admin, reference data, storage)
+    # Runs automatically on every boot, so a fresh deployment serves traffic
+    # without a manual command first. Idempotent, and individually guarded: a
+    # failing step is logged and the rest still run. Disable with
+    # AZADEXA_AUTO_CREATE=0 (pure Alembic workflows where autogenerate must
+    # diff against an empty database), and it never runs under TESTING.
+    #
+    # Note on users: no demo accounts with weak passwords are seeded here. The
+    # only account created is a platform administrator, and only when none
+    # exists, using AZADEXA_SUPERADMIN_PASSWORD or a generated one-time random
+    # password. `flask seed` remains the explicit way to create demo users.
+    from app.bootstrap import ensure_ready
+
+    app.extensions["azadexa_bootstrap"] = ensure_ready(app)
 
     # ---- CLI helpers
     @app.cli.command("seed")
