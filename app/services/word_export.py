@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Sequence
 def _esc(value: object) -> str:
     """Escape text for an XML character-data node.
@@ -69,7 +69,7 @@ STYLES = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 
 def _core_props(title: str, author: str) -> str:
-    stamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<cp:coreProperties '
