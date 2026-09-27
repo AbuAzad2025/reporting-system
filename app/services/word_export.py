@@ -14,7 +14,12 @@ import io
 import zipfile
 from datetime import datetime
 from typing import Sequence
-from xml.sax.saxutils import escape
+# bandit flags B406 on this import. It is a false positive here: `escape` is an
+# output escaper for XML character data, not a parser, and this module only ever
+# writes .docx — it parses no untrusted XML. Every value reaching it is placed in
+# a text node (<w:t>, <dc:title>, <dc:creator>); the only attribute interpolations
+# are code-controlled literals (style="Title"/"Heading1").
+from xml.sax.saxutils import escape  # nosec B406
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 

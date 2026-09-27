@@ -318,7 +318,8 @@ jobs:
         run: |
           bandit -r app/ -f json -o bandit-security-report.json || true
           bandit -r app/ -f text -o bandit-security-report.txt || true
-          echo "::notice::Python security scan (bandit) completed — no critical vulnerabilities found (or non-blocking warnings recorded)"
+      - name: "Report Security Findings"
+        run: python .github/scripts/bandit_summary.py bandit-security-report.json
       - name: "Upload Security Artifacts"
         if: always()
         uses: actions/upload-artifact@v6
