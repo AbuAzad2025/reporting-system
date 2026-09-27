@@ -54,7 +54,15 @@ def clean_bootstrap_app(tmp_path):
             os.environ.pop("AZADEXA_AUTO_CREATE", None)
         else:
             os.environ["AZADEXA_AUTO_CREATE"] = previous
-    return app
+
+    # These fixtures build a real application per test; without disposing the
+    # engine each one leaks an open SQLite connection and the suite reports a
+    # ResourceWarning per test.
+    yield app
+
+    with app.app_context():
+        db.session.remove()
+        db.engine.dispose()
 
 
 # ------------------------------------------------------------------ guards
@@ -327,6 +335,121 @@ def test_a_taken_username_does_not_crash_the_boot(clean_bootstrap_app,
 ])
 def test_weak_password_detection(password, weak):
     assert bootstrap._weak_password(password) is weak
+
+
+def test_a_fresh_boot_stamps_alembic_head(clean_bootstrap_app):
+    """Tables built from the models must not collide with a later upgrade.
+
+    Without this, `flask db upgrade` on a bootstrapped database tries to
+    CREATE TABLE everything the baseline revision creates, and dies with
+    "already exists".
+    """
+    from alembic.script import ScriptDirectory
+    from alembic.config import Config as AlembicConfig
+    from sqlalchemy import text
+
+    result = clean_bootstrap_app.extensions["azadexa_bootstrap"]["steps"][
+        "schema"]
+    assert result["alembic_stamped"] is True
+
+    with clean_bootstrap_app.app_context():
+        from flask import current_app
+        directory = current_app.extensions["migrate"].directory
+        config = AlembicConfig(os.path.join(directory, "alembic.ini"))
+        config.set_main_option("script_location", directory)
+        expected = ScriptDirectory.from_config(config).get_heads()
+        rows = db.session.execute(text("SELECT * FROM alembic_version")).fetchall()
+
+    assert expected, "the repository is expected to carry a migration history"
+    assert [tuple(row) for row in rows] == [(head,) for head in expected]
+
+
+def test_an_existing_database_is_not_stamped(clean_bootstrap_app):
+    """Stamping is only a statement of fact about tables this run created."""
+    with clean_bootstrap_app.app_context():
+        from sqlalchemy import text
+        db.session.execute(text("DELETE FROM alembic_version"))
+        db.session.commit()
+
+    with clean_bootstrap_app.app_context():
+        second = bootstrap.ensure_schema(clean_bootstrap_app)
+
+    assert second["missing_tables"] == []
+    assert second["alembic_stamped"] is False
+
+
+@pytest.mark.parametrize("code,fragment,expected", [
+    ("3D000", 'FATAL: database "azadexa" does not exist', "CREATE DATABASE"),
+    (None, "connection to server at \"db\" (port 5432) failed: Connection refused",
+     "not reachable"),
+    (None, "FATAL: password authentication failed for user \"app\"",
+     "rejected the credentials"),
+])
+def test_a_driver_error_becomes_one_actionable_sentence(code, fragment,
+                                                        expected, caplog):
+    class FakeError(Exception):
+        def __init__(self, message, pgcode):
+            super().__init__(message)
+            self.orig = Exception(message)
+            self.pgcode = pgcode
+
+    class Recorder:
+        def error(self, *a, **k):
+            pass
+
+    with caplog.at_level("ERROR"):
+        message = bootstrap._diagnose_database_error(
+            FakeError(fragment, code), Recorder())
+    assert expected in message
+    assert len(message) < 200, "a diagnosis, not a stack trace"
+
+
+def test_a_database_error_never_stops_the_boot(tmp_path):
+    """An unreachable database must produce a report, not a dead server."""
+    from config import Config
+
+    class UnreachableConfig(Config):
+        TESTING = False
+        SECRET_KEY = "unreachable-probe-not-a-default"
+        # Port 1 is reserved and never listening.
+        SQLALCHEMY_DATABASE_URI = "postgresql://u:p@127.0.0.1:1/nope"
+
+    from app import create_app
+
+    app = create_app(UnreachableConfig)
+    report = app.extensions["azadexa_bootstrap"]
+
+    assert report["ran"] is True
+    assert report["healthy"] is False
+    assert report["steps"]["storage"]["errors"] == [], (
+        "storage provisioning does not need a database")
+    assert report["steps"]["schema"]["errors"], "the failure must be reported"
+    # And the application still answers requests.
+    assert app.test_client().get("/healthz").status_code == 200
+
+
+def test_boot_never_silences_the_application_logger(
+        clean_bootstrap_app, caplog):
+    """A real bug this suite caught.
+
+    Boot stamps Alembic head, which loads migrations/env.py, and Alembic's
+    fileConfig() defaults to disable_existing_loggers=True. That switches off
+    the Flask application logger for the rest of the process, and because
+    logging caches each level's answer, the silence outlives the manager's
+    disable level. The result was a boot sequence that reported its first steps
+    and then went completely mute, with no error raised anywhere.
+    """
+    import logging
+
+    logger = clean_bootstrap_app.logger
+    assert logger.isEnabledFor(logging.WARNING), (
+        "the application logger was disabled during boot")
+    assert not logger.disabled
+
+    with caplog.at_level(logging.WARNING):
+        logger.warning("probe: logger still works after boot")
+    assert any("probe: logger still works" in r.getMessage()
+               for r in caplog.records)
 
 
 # ------------------------------------------------------------------ reference

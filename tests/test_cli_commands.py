@@ -645,7 +645,10 @@ class TestAutoCreateGate:
         assert _db_size(skipped) == 0
         assert _db_size(built) > 0
         assert _table_names(skipped) == set()
-        assert _table_names(built) == set(EXPECTED_TABLES)
+        # The built database also carries alembic_version: the engine stamps
+        # the migration history when it creates the schema from the models, so
+        # a later `flask db upgrade` cannot collide with existing tables.
+        assert _table_names(built) == set(EXPECTED_TABLES) | {"alembic_version"}
         assert _table_names(skipped).isdisjoint(_table_names(built))
 
     def test_boot_survives_a_failing_default_template_seed(

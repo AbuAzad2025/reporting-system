@@ -181,6 +181,29 @@ def create_app(config_class=Config):
             print("Seeded: owner/owner123, admin/admin123, "
                   "engineer/site123, safety/safe123")
 
+    @app.cli.command("seed-operational-demo")
+    def seed_operational_demo_cmd():
+        """Seed the full Arabic demonstration dataset.
+
+        This is the former top-level ``seed.py``, now reachable through the
+        application instead of beside it. It creates the demo users, two demo
+        projects, tenant memberships, template submissions and sample records
+        across all nine operations modules. It is never run automatically:
+        sample contractual records have no business appearing in a real
+        project's database on boot.
+
+        Idempotent - safe to run more than once.
+        """
+        from app.services.demo_data import seed_operational_demo
+
+        with app.app_context():
+            report = seed_operational_demo()
+        print("Demo users    :", ", ".join(report["users"]))
+        print("Demo projects :", ", ".join(report["projects"]))
+        print("Ops records   :")
+        for kind, count in sorted(report["ops_counts"].items()):
+            print(f"    {kind:28s} {count}")
+
     @app.cli.command("seed-demo-reports")
     def seed_demo_reports():
         """Insert one sample dynamic submission per default template."""

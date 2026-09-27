@@ -1,30 +1,41 @@
-"""Azadexa seed — tiers, projects, memberships, dynamic templates + samples.
+"""Realistic Arabic demonstration dataset.
 
-Run:  python seed.py
-Login: owner/owner123 | admin/admin123 | engineer/site123 | safety/safe123
+This is the former top-level ``seed.py`` script, moved in here so that demo
+data has a home inside the application package instead of sitting beside it as
+a second, competing entry point.
 
-Seeds the nine operational modules end to end:
-  1. Site Inspection & Testing (concrete/soil/MEP + pour permits)
-  2. Material Submittal & Inspection Log (consultant A/B/C/D actions)
-  3. RFI Log (contractual cost/time impact)
-  4. Cost Variance & Re-estimation (currency + VO linkage)
-  5. Progress Billing & Cash Flow (measurement traceability)
-  6. Subcontractor Performance & Payment (penalties + recommendation)
-  7. Daily Site Diary (weather/manpower/plant/delays)
-  8. Variation Orders (cost + time impact + recommendation)
-  9. HSE Safety Reports (hazards, corrective actions, statistics)
+It is deliberately NOT part of the boot sequence. The self-healing bootstrap
+owns everything a system genuinely needs to run - schema, indexes, one platform
+administrator, reference templates and fields. This module is sample content:
+users with known passwords, two demo projects, and roughly twenty fabricated
+contractual records across the nine operations modules. Injecting those into a
+database on every boot would put fake RFIs and fake variation orders into
+whatever project the application is actually used for.
+
+Run it explicitly:
+
+    flask seed-operational-demo
+
+It is idempotent: every record is created only when it is missing, so running
+it twice does not duplicate anything.
 """
-from datetime import date, timedelta
-from app import create_app
-from app.extensions import db
-from app.models import User, Project, ReportTemplate, DynamicField, ReportSubmission
-from app.ops import models as OPS
-from app.ops.models import ProjectMember, OPS_MODULES
-from app.services.default_templates import ensure_default_templates
+from __future__ import annotations
 
-app = create_app()
-with app.app_context():
-    db.create_all()
+from datetime import date, timedelta
+
+
+def seed_operational_demo() -> dict:
+    """Create the demo users, projects, memberships, reports and ops records.
+
+    Must be called inside an application context, with the schema already
+    created. Reference templates come from the bootstrap engine, so this
+    module never seeds them itself.
+    """
+    from app.extensions import db
+    from app.models import (User, Project, ReportTemplate, ReportSubmission)
+    from app.ops import models as OPS
+    from app.ops.models import ProjectMember, OPS_MODULES
+    from app.services.default_templates import ensure_default_templates
 
     def ensure_user(username, email, full, role, pw):
         u = User.query.filter_by(username=username).first()
@@ -47,8 +58,6 @@ with app.app_context():
     # second engineer on a second project (tenant-isolation coverage)
     eng2 = ensure_user("engineer2", "eng2@site.com", "عمر خالد سعيد الحربي",
                        "site_engineer", "site123")
-
-    ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=owner.id)
 
     def ensure_project(name, **kw):
         p = Project.query.filter_by(name=name).first()
@@ -413,6 +422,8 @@ with app.app_context():
 
     from app.ops.routes import KIND_MODEL
     counts = {kind: KIND_MODEL[kind].query.count() for kind in OPS_MODULES}
-    print("Seed OK: owner/owner123 | admin/admin123 | "
-          "engineer/site123 | safety/safe123 | engineer2/site123")
-    print("Ops counts:", counts)
+    return {
+        "users": [u.username for u in (owner, admin, eng, eng2, safety)],
+        "projects": [proj.name, proj_b.name],
+        "ops_counts": counts,
+    }

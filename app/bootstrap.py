@@ -27,6 +27,7 @@ are not something an unauthenticated caller should be able to read.
 """
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from typing import Any
@@ -156,13 +157,100 @@ def _index_statements(table) -> list[tuple[str, str]]:
     return statements
 
 
+def _stamp_alembic_head(app, log) -> bool:
+    """Record Alembic head when this run created the tables from the models.
+
+    Returns True when a stamp was written. Any failure is reported by the
+    caller through the log; stamping is a convenience, never a blocker.
+    """
+    try:
+        from flask import current_app
+        from alembic import command as alembic_command
+        from alembic.config import Config as AlembicConfig
+        from alembic.script import ScriptDirectory
+
+        directory = current_app.extensions["migrate"].directory
+        config = AlembicConfig(os.path.join(directory, "alembic.ini"))
+        config.set_main_option("script_location", directory)
+        config.set_main_option("sqlalchemy.url",
+                               str(current_app.config["SQLALCHEMY_DATABASE_URI"]))
+        # `alembic.command.heads` prints and returns None; the revision list
+        # comes from the script directory.
+        heads = ScriptDirectory.from_config(config).get_heads()
+        if not heads:
+            log.info("bootstrap: no Alembic revisions to stamp")
+            return False
+
+        # Loading migrations/env.py runs logging.config.fileConfig(), which
+        # clears the root logger's handlers and resets its level to whatever
+        # alembic.ini says. Doing that to a running application is not this
+        # function's decision to make, so the root logger is put back exactly
+        # as it was found.
+        root = logging.getLogger()
+        saved_handlers = list(root.handlers)
+        saved_level = root.level
+        try:
+            alembic_command.stamp(config, "heads")
+        finally:
+            root.handlers[:] = saved_handlers
+            root.setLevel(saved_level)
+
+        log.warning(
+            "bootstrap: schema was created from the models, so Alembic history "
+            "was stamped at head (%s). Use `flask db migrate` to author the "
+            "matching revision.", ", ".join(heads))
+        return True
+    except Exception as exc:
+        log.warning("bootstrap: could not stamp Alembic head (%s). Run "
+                    "`flask db stamp head` before the first `flask db upgrade`, "
+                    "or the upgrade will collide with the existing tables.",
+                    exc)
+        return False
+
+
+def _diagnose_database_error(exc: Exception, log) -> str:
+    """Turn a driver error into one actionable sentence.
+
+    The three-argument form matters: PostgreSQL's "database does not exist"
+    (SQLSTATE 3D000) and "server unreachable" look identical in a stack trace
+    but need completely different fixes, and neither is guessable from
+    "OperationalError". Creating a database is a privileged action, so this
+    reports the exact statement rather than performing it behind the
+    operator's back.
+    """
+    code = getattr(exc, "pgcode", None) or ""
+    original = str(getattr(exc, "orig", exc)).splitlines()[0]
+
+    if code == "3D000":
+        message = ("the database does not exist on that server. Create it "
+                   "first, then restart: CREATE DATABASE azadexa;")
+        log.error("bootstrap: %s (driver said: %s)", message, original)
+        return message
+    if "does not exist" in original.lower() and "database" in original.lower():
+        message = ("the database does not exist on that server. Create it, "
+                   "then restart.")
+        log.error("bootstrap: %s (driver said: %s)", message, original)
+        return message
+    if "Connection refused" in original or "could not connect" in original.lower():
+        message = ("the database server is not reachable. Check that "
+                   "PostgreSQL is running and that DATABASE_URL is correct.")
+        log.error("bootstrap: %s (driver said: %s)", message, original)
+        return message
+    if "authentication failed" in original.lower() or "password" in original.lower():
+        message = ("the database rejected the credentials. Check the "
+                   "user/password in DATABASE_URL.")
+        log.error("bootstrap: %s (driver said: %s)", message, original)
+        return message
+    return original
+
+
 def ensure_schema(app) -> dict[str, Any]:
     """Create missing tables and missing declared indexes."""
     log = _log(app)
     result: dict[str, Any] = {
         "dialect": None, "missing_tables": [], "created_tables": [],
         "failed_tables": [], "created_indexes": [], "skipped_indexes": [],
-        "errors": [],
+        "alembic_stamped": False, "errors": [],
     }
 
     try:
@@ -194,6 +282,15 @@ def ensure_schema(app) -> dict[str, Any]:
             for name in result["failed_tables"]:
                 result["errors"].append(f"table {name} still missing after create_all")
                 log.error("bootstrap: table %s could not be created", name)
+
+            # Tables built from the models, with no Alembic history, would make
+            # a later `flask db upgrade` try to create them all again and fail
+            # on "already exists". Because this step is what created them, the
+            # database is at head by construction, so recording head is a
+            # statement of fact rather than a guess. Stamping is only done in
+            # that case: an existing database with an empty history is left
+            # alone, because that one really is a decision for an operator.
+            result["alembic_stamped"] = _stamp_alembic_head(app, log)
         else:
             log.info("bootstrap: schema complete (%d tables)", len(present))
 
@@ -225,7 +322,7 @@ def ensure_schema(app) -> dict[str, Any]:
                             ", ".join(result["created_indexes"]))
     except Exception as exc:
         db.session.rollback()
-        result["errors"].append(str(exc))
+        result["errors"].append(_diagnose_database_error(exc, log))
         log.error("bootstrap: schema check failed (%s)", exc)
 
     return result

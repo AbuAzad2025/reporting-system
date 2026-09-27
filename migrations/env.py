@@ -11,17 +11,22 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers .
-fileConfig(config.config_file_name)
+#
+# disable_existing_loggers must stay False. Alembic's default is True, which
+# switches off every logger that already exists - including the Flask
+# application logger. Any `flask db` command would then silence the app for the
+# rest of the process, and because logging caches each level's answer, the
+# silence survives even after the manager's disable level is cleared again.
+fileConfig(config.config_file_name, disable_existing_loggers=False)
 logger = logging.getLogger('alembic.env')
 
 
 def get_engine():
-    try:
-        # this works with Flask-SQLAlchemy<3 and Alchemical
-        return current_app.extensions['migrate'].db.get_engine()
-    except (TypeError, AttributeError):
-        # this works with Flask-SQLAlchemy>=3
-        return current_app.extensions['migrate'].db.engine
+    # Flask-SQLAlchemy 3.x removed `get_engine()` in favour of the `engine`
+    # property and warns when the old accessor is used. The bootstrap stamps
+    # Alembic on every fresh boot, so keeping the deprecated call here would
+    # emit that deprecation warning on every single boot.
+    return current_app.extensions['migrate'].db.engine
 
 
 def get_engine_url():

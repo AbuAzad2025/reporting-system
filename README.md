@@ -44,7 +44,7 @@ app/
 templates/  static/  fonts/  instance/
 app.py                 # thin entry (gunicorn app:app)
 config.py              # SQLite local / Postgres cloud (stray-DATABASE_URL safe)
-requirements.txt  seed.py  Procfile  render.yaml  Dockerfile
+requirements.txt  Procfile  render.yaml  Dockerfile
 ```
 
 ## 🚀 Local setup
@@ -52,8 +52,8 @@ requirements.txt  seed.py  Procfile  render.yaml  Dockerfile
 python -m venv venv
 # Windows: venv\Scripts\activate | Linux/macOS: source venv/bin/activate
 pip install -r requirements.txt
-python seed.py
-python app.py            # → http://127.0.0.1:5000
+flask seed-operational-demo     # optional: realistic Arabic demo dataset
+flask run                       # → http://127.0.0.1:5000
 ```
 
 ## 🗄️ Database & migrations (Flask-Migrate)
@@ -78,7 +78,7 @@ is ignored and SQLite is used instead.
   `USE_CLOUD_DB=1` · then `flask --app app db upgrade` once.
 - First registered account becomes **superadmin** automatically.
 
-## 🧪 Demo accounts (after `python seed.py`)
+## 🧪 Demo accounts (after `flask seed-operational-demo`)
 | Role | Username | Password |
 |---|---|---|
 | Platform Owner | `owner` | `owner123` |
