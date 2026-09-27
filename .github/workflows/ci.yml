@@ -12,7 +12,7 @@ jobs:
   # ── CRUD, Serial Numbers, Validation, Protection ──
   crud-serials-validation:
     name: "CRUD + Serial"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       postgres:
@@ -53,7 +53,7 @@ jobs:
   # ── End-to-End: Full Lifecycle (9 modules) ──
   e2e-full-lifecycle:
     name: "E2E Lifecycle"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: [crud-serials-validation]
     services:
@@ -95,7 +95,7 @@ jobs:
   # ── Isolation, RBAC, Permissions ──
   isolation-rbac:
     name: "Isolation + RBAC"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       postgres:
@@ -136,7 +136,7 @@ jobs:
   # ── Versioning, Archive, PDF ──
   versioning-archive-pdf:
     name: "Versioning + PDF"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       postgres:
@@ -177,7 +177,7 @@ jobs:
   # ── Feedback, Analytics, Remediation ──
   feedback-analytics-remediation:
     name: "Feedback + Analytics"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       postgres:
@@ -218,7 +218,7 @@ jobs:
   # ── Enterprise, Projects, Finance, UI Templates ──
   enterprise-projects-finance-ui:
     name: "Enterprise + Finance"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       postgres:
@@ -259,7 +259,7 @@ jobs:
   # ── Storage & Images ──
   storage-images:
     name: "Storage Images"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     services:
       postgres:
@@ -300,7 +300,7 @@ jobs:
   # ── Security Scan (bandit) ──
   security-scan-bandit:
     name: "Security Scan"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: "Checkout"
@@ -319,6 +319,10 @@ jobs:
           bandit -r app/ -f json -o bandit-security-report.json || true
           bandit -r app/ -f text -o bandit-security-report.txt || true
       - name: "Report Security Findings"
+        env:
+          # A scan finding must stop the pipeline: HIGH and MEDIUM are blocking.
+          # LOW stays advisory (5 known best-effort exception handlers).
+          BANDIT_FAIL_ON: HIGH,MEDIUM
         run: python .github/scripts/bandit_summary.py bandit-security-report.json
       - name: "Upload Security Artifacts"
         if: always()
@@ -331,7 +335,7 @@ jobs:
   # ── Lint & Format (flake8) ──
   lint-check-flake8:
     name: "Lint + Format"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: "Checkout"
@@ -353,7 +357,7 @@ jobs:
   # ── Coverage Report ──
   coverage-report-combined:
     name: "Coverage Report"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The combined run executes the whole suite in one process; the suite has
     # grown past the default 15m ceiling, so allow real headroom instead of
     # letting a green run be cancelled mid-report.
@@ -391,7 +395,7 @@ jobs:
   # ── Front-end Syntax Check ──
   frontend-syntax-check:
     name: "Frontend Syntax"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: "Checkout"
