@@ -28,41 +28,8 @@ def _announced_password(caplog):
     return None
 
 
-@pytest.fixture()
-def clean_bootstrap_app(tmp_path):
-    """A real (non-testing) app on its own empty database.
-
-    Built through the factory rather than by patching, because the whole claim
-    is that this happens automatically on boot.
-    """
-    from config import Config
-
-    class BootConfig(Config):
-        TESTING = False
-        SECRET_KEY = "bootstrap-test-secret-not-a-default"
-        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path}/instance/boot.db"
-        UPLOAD_FOLDER = str(tmp_path / "uploads")
-
-    from app import create_app
-
-    previous = os.environ.get("AZADEXA_AUTO_CREATE")
-    os.environ["AZADEXA_AUTO_CREATE"] = "1"
-    try:
-        app = create_app(BootConfig)
-    finally:
-        if previous is None:
-            os.environ.pop("AZADEXA_AUTO_CREATE", None)
-        else:
-            os.environ["AZADEXA_AUTO_CREATE"] = previous
-
-    # These fixtures build a real application per test; without disposing the
-    # engine each one leaks an open SQLite connection and the suite reports a
-    # ResourceWarning per test.
-    yield app
-
-    with app.app_context():
-        db.session.remove()
-        db.engine.dispose()
+# The `clean_bootstrap_app` fixture lives in tests/conftest.py so the success
+# paths and the failure paths of the engine share one definition.
 
 
 # ------------------------------------------------------------------ guards

@@ -4,12 +4,53 @@ Tenant map (fail-closed world):
   * Project A «Alpha Tower»   — engineer + safety are members
   * Project B «Beta Hospital» — engineer2 is the only field member
   * owner(superadmin)/admin   — platform managers (global bypass)
+
+It also owns `clean_bootstrap_app`, the only non-TESTING application the suite
+builds, because the bootstrap engine stands down under TESTING by design and
+therefore cannot be exercised through the ordinary `app` fixture.
 """
 import os
 
 import pytest
 
 from config import Config
+
+from app.extensions import db
+
+
+@pytest.fixture()
+def clean_bootstrap_app(tmp_path):
+    """A real, non-testing app on its own empty database.
+
+    Built through the factory rather than by patching, because the whole claim
+    under test is that this happens automatically on boot.
+    """
+    from app import create_app
+
+    class BootConfig(Config):
+        TESTING = False
+        SECRET_KEY = "bootstrap-test-secret-not-a-default"
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path}/instance/boot.db"
+        UPLOAD_FOLDER = str(tmp_path / "uploads")
+
+    previous = os.environ.get("AZADEXA_AUTO_CREATE")
+    os.environ["AZADEXA_AUTO_CREATE"] = "1"
+    try:
+        app = create_app(BootConfig)
+    finally:
+        if previous is None:
+            os.environ.pop("AZADEXA_AUTO_CREATE", None)
+        else:
+            os.environ["AZADEXA_AUTO_CREATE"] = previous
+
+    # One application per test means one engine per test; without disposing it
+    # each one leaks an open SQLite connection and the suite reports a
+    # ResourceWarning for every test that touches the bootstrap.
+    yield app
+
+    with app.app_context():
+        db.session.remove()
+        db.engine.dispose()
 
 
 class TestConfig(Config):
@@ -123,7 +164,16 @@ def app(tmp_path):
            hazard="غياب حواجز", risk_level="مرتفع")
         db.session.commit()
     yield app
-    if PG_TEST_URL:  # leave no residue in the shared PG test database
+    # Every test gets its own application, so every test also gets its own
+    # engine. Without disposing it, the pooled SQLite connections stay open and
+    # the suite reports a ResourceWarning for each one. The engine is only
+    # disposed in the SQLite case: in PostgreSQL mode the schema is shared and
+    # must be left for the next test to drop.
+    if not PG_TEST_URL:
+        with app.app_context():
+            db.session.remove()
+            db.engine.dispose()
+    else:  # leave no residue in the shared PG test database
         with app.app_context():
             db.session.remove()
             db.drop_all()
