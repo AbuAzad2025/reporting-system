@@ -112,34 +112,40 @@
 
   <div id="toast-root" aria-live="polite" class="no-print"></div>
   <script src="{{ asset_url('js/app.js') }}"></script>
-  <script>
-    // Theme toggle functionality
-    document.addEventListener('DOMContentLoaded', function() {
-      const themeToggle = document.getElementById('theme-toggle');
-      const htmlElement = document.documentElement;
-      
-      // Check for saved theme preference or use system preference
-      const savedTheme = localStorage.getItem('theme');
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      
-      if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
-        htmlElement.setAttribute('data-theme', 'dark');
-        themeToggle.checked = true;
-      }
-      
-      themeToggle.addEventListener('change', function() {
-        if (this.checked) {
-          htmlElement.setAttribute('data-theme', 'dark');
-          localStorage.setItem('theme', 'dark');
-        } else {
-          htmlElement.setAttribute('data-theme', 'light');
-          localStorage.setItem('theme', 'light');
-        }
+  <script type="module">
+    // Theme switching lives in a module so it can be tested. It used to be
+    // inline here, which is how the toggle came to write `data-theme` while
+    // the stylesheet listened for `.dark` - a broken dark theme that no test
+    // could see. tests/theme.test.js now pins the two together.
+    import { initTheme } from '{{ asset_url('js/theme.js') }}';
+
+    function boot() {
+      initTheme({
+        root: document.documentElement,
+        storage: window.localStorage,
+        // Passed unbound and unchecked: the module decides what to do with a
+        // browser that has no matchMedia, rather than this call site throwing
+        // before the module ever gets a chance to handle it.
+        matchMedia: window.matchMedia,
+        toggle: document.getElementById('theme-toggle'),
       });
-    });
-    
+    }
+
+    // The toggle is server-rendered in the header above, so it is already in
+    // the document. A module script is deferred and so runs after parsing, but
+    // check anyway rather than assume the ordering.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
+    }
+
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js', {scope: '/'}).catch(()=>{}));
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('{{ asset_url('sw.js') }}', { scope: '/' })
+          .catch(() => {});
+      });
     }
   </script>
   {% block scripts %}{% endblock %}

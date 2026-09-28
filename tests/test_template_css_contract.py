@@ -148,27 +148,88 @@ def test_no_selector_is_defined_twice_at_the_same_level(defined):
         f".{sel} in {', '.join(w)}" for sel, w in sorted(repeated.items()))
 
 
-def test_dark_mode_is_reachable_from_the_attribute_the_toggle_sets(defined):
+def test_dark_mode_is_reachable_from_the_attribute_the_toggle_sets():
     """The toggle writes data-theme; the stylesheet must listen to it.
 
-    The dark theme was implemented as `.dark { ... }` while the toggle in
-    base.html set `data-theme="dark"`, so no rule anywhere matched the value
-    the UI actually produced. The feature was inert: the switch flipped and
-    nothing happened.
+    The dark theme was implemented as `.dark { ... }` while the toggle set
+    `data-theme="dark"`, so no rule anywhere matched the value the UI actually
+    produced. The feature was inert: the switch flipped and nothing happened.
+
+    The logic now lives in static/js/theme.js, so the attribute is written
+    there; what is asserted is that the writer and the stylesheet agree.
     """
     css = _load_css()
     assert 'data-theme="dark"' in css, (
         "no stylesheet rule keys off [data-theme=\"dark\"], so the theme "
         "toggle cannot work")
+
+    module = io.open(os.path.join("static", "js", "theme.js"),
+                     encoding="utf-8").read()
+    assert "data-theme" in module, (
+        "the theme module must write the attribute the stylesheet reads")
+    assert "THEME_ATTRIBUTE" in module, (
+        "the attribute should be a named constant, not a literal in a call")
+
     base = io.open(os.path.join(TEMPLATES_DIR, "base.html"), encoding="utf-8").read()
     assert 'data-theme="light"' in base, (
-        "base.html should declare a default theme")
-    drives_attribute = (
-        "setAttribute('data-theme'" in base
-        or 'setAttribute("data-theme"' in base
-    )
-    assert drives_attribute, (
-        "the toggle should drive data-theme, which is what the CSS listens to")
+        "base.html should declare a default theme so the first paint is not "
+        "whatever the previous page left behind")
+    assert "theme.js" in base, (
+        "base.html must load the theme module, or the toggle does nothing")
+
+    # The service worker is the one asset that must not be cache-busted by a
+    # new path, or the browser would keep the old worker forever. It is
+    # registered through asset_url, so the URL stays /static/sw.js and only
+    # the query string changes.
+    assert "asset_url('sw.js')" in base, (
+        "the service worker should be registered through asset_url")
+
+
+def test_every_user_facing_control_is_in_the_control_family():
+    """No control may be styled by hand.
+
+    An audit found 56 inputs carrying ad-hoc classes across 35 different
+    spellings, plus one file input left with `text-xs` and nothing else. Every
+    user-facing control now belongs to the control family, so that a change to
+    the family reaches all of them.
+
+    File inputs are counted separately and are allowed their own class: they
+    must not carry `.form-control`, which sets `appearance: none` and so
+    removes the native "choose file" button. `.form-control-file` keeps that
+    button and matches the rest of the family.
+    """
+    control_re = re.compile(r"<(input|select|textarea)\b[^>]*>", re.S)
+    not_a_control = re.compile(r'type="(hidden|checkbox|radio|submit|button)"')
+    hand_styled = []
+    for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
+        for name in files:
+            if not name.endswith(".html"):
+                continue
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, TEMPLATES_DIR).replace("\\", "/")
+            text = io.open(path, encoding="utf-8").read()
+            text = re.sub(r"\{%.*?%\}", " ", text, flags=re.S)
+            text = re.sub(r"\{\{.*?\}\}", " ", text, flags=re.S)
+            for match in control_re.finditer(text):
+                tag = match.group(0)
+                if not_a_control.search(tag):
+                    continue
+                if "form-control" in tag or "form-control-file" in tag:
+                    continue
+                hand_styled.append("%s: %s" % (rel, " ".join(tag.split())[:80]))
+    assert not hand_styled, (
+        "these controls are not in the control family:\n  "
+        + "\n  ".join(hand_styled))
+
+    css = _load_css()
+    assert ".form-control-file" in css, (
+        "file inputs carry .form-control-file, but no such rule exists")
+    assert "::file-selector-button" in css, (
+        "the native file button is left unstyled, so it looks foreign next to "
+        "the rest of the form")
+    assert "appearance: none" not in css.split(".form-control-file")[1].split("}")[0], (
+        "appearance: none on the file input removes the native choose-file "
+        "button and leaves the control looking broken")
 
 
 def test_focus_is_always_visible(used):

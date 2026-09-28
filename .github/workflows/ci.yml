@@ -488,11 +488,35 @@ jobs:
           python -m pip install --force-reinstall --no-cache-dir click==8.5.0
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
       - name: "Check JS Syntax"
+        # Syntax is not behaviour. The old check ran `node --check` and, when
+        # it failed, printed a warning and let the job pass anyway - so a broken
+        # script reached production with a green build. This one fails.
         run: |
-          if command -v node >/dev/null 2>&1; then
-            echo "::notice::Node.js $(node --version) available — running basic JS syntax verification"
-            node --check static/js/app.js || echo "::warning::JS syntax note (optional, does not fail CI)"
-          else
-            echo "::warning::No node available — front-end syntax check SKIPPED (optional)"
+          if ! command -v node >/dev/null 2>&1; then
+            echo "::error::Node.js is required to check the front-end"
+            exit 1
           fi
-          echo "::notice::Front-end syntax verification COMPLETED"
+          node --check static/js/app.js
+          node --check static/sw.js
+          node --check static/js/theme.js
+
+  # ── Front-end behaviour (vitest) ──
+  frontend-behaviour-tests:
+    name: "Frontend Tests"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+      - name: "Node Setup"
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - name: "Install"
+        run: npm ci --no-audit --no-fund
+      - name: "Run vitest"
+        # The theme module's tests assert that the attribute the JavaScript
+        # writes is the one the stylesheet reads. That pairing is what broke
+        # dark mode and nothing else could have caught it.
+        run: npx vitest run --reporter=default

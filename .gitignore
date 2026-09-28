@@ -1,4 +1,7 @@
 __pycache__/
+# npm dependencies are installed from package-lock.json, which is committed
+# because CI runs `npm ci` and requires it.
+node_modules/
 *.pyc
 instance/*.db
 fonts/*.ttf

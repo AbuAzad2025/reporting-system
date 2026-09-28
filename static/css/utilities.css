@@ -424,6 +424,43 @@ summary:focus-visible,
 }
 .form-hint-error { color: var(--error); font-weight: 700; }
 
+/* File inputs join the control family but not .form-control itself: that rule
+   sets `appearance: none`, which strips the native "choose file" button and
+   leaves an input that looks broken. This keeps the native affordance and
+   brings the border, padding and focus ring in line with everything else. */
+.form-control-file {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--slate-800);
+  background-color: var(--slate-50);
+  border: 2px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.form-control-file:hover { border-color: var(--slate-300); }
+.form-control-file:focus {
+  outline: 0;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.25);
+}
+/* The button the browser draws, restyled so it does not look like a foreign
+   object next to the rest of the form. */
+.form-control-file::file-selector-button {
+  margin-inline-end: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-700);
+  background-color: var(--slate-200);
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.form-control-file::file-selector-button:hover { background-color: var(--slate-300); }
+
 /* Page heading, so every page opens identically. */
 .page-head {
   display: flex;
