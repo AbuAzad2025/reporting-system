@@ -1,0 +1,559 @@
+/* ============================================================
+   Azadexa Utility Layer
+   ------------------------------------------------------------
+   The templates in this project are written against a small utility
+   vocabulary - the kind of class names a utility-first framework would
+   generate. Until now only about a third of them existed in custom.css, so
+   more than two thousand class usages across the templates matched no rule
+   at all: the markup was authored to look designed and rendered unstyled,
+   silently, with nothing reporting an error.
+
+   Every rule here is expressed through the tokens declared in custom.css
+   (--slate-*, --navy, --teal, --space-*, --radius-*). That is what makes the
+   dark theme work: the .dark / [data-theme="dark"] block re-points those very
+   tokens, so a utility built on a token follows the theme automatically with
+   no second rule and no duplicated palette.
+
+   tests/test_template_css_contract.py fails if a template uses a class that
+   neither file defines, so this layer cannot silently fall behind again.
+   ============================================================ */
+
+/* ------------------------------------------------------------------ surfaces
+   A dedicated surface token rather than a literal white, so cards invert with
+   the theme instead of glaring out of a dark page. */
+:root {
+  --surface: #ffffff;
+  --surface-sunken: var(--slate-50);
+  --surface-raised: var(--slate-100);
+}
+
+[data-theme="dark"] {
+  --surface: #1e293b;
+  --surface-sunken: #0f172a;
+  --surface-raised: #334155;
+}
+
+.bg-white { background-color: var(--surface); }
+.bg-slate-50 { background-color: var(--slate-50); }
+.bg-slate-100 { background-color: var(--slate-100); }
+.bg-slate-200 { background-color: var(--slate-200); }
+.bg-slate-300 { background-color: var(--slate-300); }
+.bg-slate-500 { background-color: var(--slate-500); }
+.bg-slate-700 { background-color: var(--slate-700); }
+.bg-navy { background-color: var(--navy); }
+.bg-teal { background-color: var(--teal); }
+.bg-teal2 { background-color: var(--teal); }
+.bg-gold { background-color: var(--gold); }
+
+.bg-red-50 { background-color: #fef2f2; }
+.bg-red-100 { background-color: #fee2e2; }
+.bg-red-500 { background-color: #ef4444; }
+.bg-red-600 { background-color: #dc2626; }
+.bg-amber-50 { background-color: #fffbeb; }
+.bg-amber-100 { background-color: #fef3c7; }
+.bg-amber-500 { background-color: #f59e0b; }
+.bg-blue-50 { background-color: #eff6ff; }
+.bg-blue-100 { background-color: #dbeafe; }
+.bg-emerald-100 { background-color: #d1fae5; }
+.bg-emerald-500 { background-color: #10b981; }
+.bg-green-50 { background-color: #f0fdf4; }
+.bg-green-100 { background-color: #dcfce7; }
+.bg-sky-100 { background-color: #e0f2fe; }
+.bg-sky-500 { background-color: #0ea5e9; }
+.bg-indigo-600 { background-color: #4f46e5; }
+
+[data-theme="dark"] .bg-red-50 { background-color: #450a0a; }
+[data-theme="dark"] .bg-red-100 { background-color: #7f1d1d; }
+[data-theme="dark"] .bg-amber-50 { background-color: #451a03; }
+[data-theme="dark"] .bg-amber-100 { background-color: #78350f; }
+[data-theme="dark"] .bg-blue-50 { background-color: #172554; }
+[data-theme="dark"] .bg-blue-100 { background-color: #1e3a8a; }
+[data-theme="dark"] .bg-emerald-100 { background-color: #064e3b; }
+[data-theme="dark"] .bg-green-50 { background-color: #052e16; }
+[data-theme="dark"] .bg-green-100 { background-color: #14532d; }
+[data-theme="dark"] .bg-sky-100 { background-color: #0c4a6e; }
+
+.bg-white\/10 { background-color: rgba(255, 255, 255, 0.10); }
+.bg-white\/15 { background-color: rgba(255, 255, 255, 0.15); }
+.bg-white\/20 { background-color: rgba(255, 255, 255, 0.20); }
+.bg-white\/95 { background-color: rgba(255, 255, 255, 0.95); }
+.bg-red-500\/90 { background-color: rgba(239, 68, 68, 0.90); }
+.bg-teal2\/90 { background-color: rgba(14, 124, 123, 0.90); }
+.bg-\[\#a67c00\] { background-color: #a67c00; }
+.bg-\[\#1a1610\]\/60 { background-color: rgba(26, 22, 16, 0.60); }
+.bg-transparent { background-color: transparent; }
+
+.bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--from, var(--navy)), var(--to, var(--teal))); }
+.bg-gradient-to-r { background-image: linear-gradient(to right, var(--from, var(--navy)), var(--to, var(--teal))); }
+.from-navy { --from: var(--navy); }
+.to-teal2 { --to: var(--teal); }
+
+/* ------------------------------------------------------------------ type scale */
+.text-2xs { font-size: 0.625rem; line-height: 1rem; }
+.text-\[10px\] { font-size: 10px; }
+.text-\[11px\] { font-size: 11px; }
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+.text-5xl { font-size: 3rem; line-height: 1; }
+.leading-5 { line-height: 1.25rem; }
+.leading-6 { line-height: 1.5rem; }
+.tracking-tight { letter-spacing: -0.01em; }
+
+/* ------------------------------------------------------------------ weight */
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.font-extrabold { font-weight: 800; }
+.font-mono { font-family: var(--font-mono); }
+
+/* ------------------------------------------------------------------ colour */
+.text-navy { color: var(--navy); }
+.text-white { color: #ffffff; }
+.text-white\/85 { color: rgba(255, 255, 255, 0.85); }
+.text-teal2 { color: var(--teal); }
+.text-gold { color: var(--gold); }
+.text-slate-100 { color: var(--slate-100); }
+.text-slate-200 { color: var(--slate-200); }
+.text-slate-300 { color: var(--slate-300); }
+.text-slate-400 { color: var(--slate-400); }
+.text-slate-500 { color: var(--slate-500); }
+.text-slate-600 { color: var(--slate-600); }
+.text-slate-700 { color: var(--slate-700); }
+.text-slate-800 { color: var(--slate-800); }
+.text-red-500 { color: #ef4444; }
+.text-red-600 { color: #dc2626; }
+.text-red-700 { color: #b91c1c; }
+.text-red-800 { color: #991b1b; }
+.text-amber-600 { color: #d97706; }
+.text-amber-700 { color: #b45309; }
+.text-amber-800 { color: #92400e; }
+.text-blue-700 { color: #1d4ed8; }
+.text-blue-800 { color: #1e40af; }
+.text-emerald-600 { color: #059669; }
+.text-emerald-700 { color: #047857; }
+.text-emerald-800 { color: #065f46; }
+.text-sky-600 { color: #0284c7; }
+.text-sky-700 { color: #0369a1; }
+.text-green-700 { color: #15803d; }
+.text-green-800 { color: #166534; }
+.text-\[\#1a1610\] { color: #1a1610; }
+
+/* ------------------------------------------------------------------ borders */
+.border { border: 1px solid var(--slate-200); }
+.border-2 { border: 2px solid var(--slate-200); }
+.border-t { border-top: 1px solid var(--slate-200); }
+.border-b { border-bottom: 1px solid var(--slate-200); }
+.border-l { border-left: 1px solid var(--slate-200); }
+.border-t-4 { border-top: 4px solid var(--teal); }
+.border-slate-100 { border-color: var(--slate-100); }
+.border-slate-200 { border-color: var(--slate-200); }
+.border-slate-300 { border-color: var(--slate-300); }
+.border-teal2 { border-color: var(--teal); }
+.border-amber-200 { border-color: #fde68a; }
+.border-amber-400 { border-color: #fbbf24; }
+.border-green-200 { border-color: #bbf7d0; }
+.border-red-200 { border-color: #fecaca; }
+.border-blue-200 { border-color: #bfdbfe; }
+.border-\[\#a67c00\]\/30 { border-color: rgba(166, 124, 0, 0.30); }
+.outline-none { outline: 2px solid transparent; outline-offset: 2px; }
+.last\:border-0:last-child { border: 0; }
+
+/* ------------------------------------------------------------------ radius */
+.rounded-3xl { border-radius: var(--radius-3xl, 24px); }
+
+/* ------------------------------------------------------------------ layout */
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.col-span-1 { grid-column: span 1 / span 1; }
+.col-span-2 { grid-column: span 2 / span 2; }
+.flex-1 { flex: 1 1 0%; }
+.flex-shrink-0 { flex-shrink: 0; }
+.shrink-0 { flex-shrink: 0; }
+.gap-3 { gap: var(--space-3); }
+.block { display: block; }
+.inline { display: inline; }
+.hidden { display: none; }
+.sticky { position: sticky; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.cursor-pointer { cursor: pointer; }
+.select-none { user-select: none; }
+.object-cover { object-fit: cover; }
+.opacity-70 { opacity: 0.70; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.break-words { overflow-wrap: break-word; }
+.whitespace-nowrap { white-space: nowrap; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+.overflow-hidden { overflow: hidden; }
+.overflow-x-auto { overflow-x: auto; }
+.z-30 { z-index: 30; }
+.z-\[var\(--z-index-sticky\)\] { z-index: var(--z-index-sticky); }
+.underline { text-decoration: underline; }
+
+/* ------------------------------------------------------------------ spacing */
+.mx-auto { margin-left: auto; margin-right: auto; }
+.space-y-1 > * + * { margin-top: var(--space-1); }
+.space-y-2 > * + * { margin-top: var(--space-2); }
+.space-y-4 > * + * { margin-top: var(--space-4); }
+.space-y-5 > * + * { margin-top: var(--space-5); }
+.space-y-6 > * + * { margin-top: var(--space-6); }
+.py-0\.5 { padding-top: 2px; padding-bottom: 2px; }
+.py-2\.5 { padding-top: 10px; padding-bottom: 10px; }
+.pr-5 { padding-right: var(--space-5); }
+.pb-24 { padding-bottom: var(--space-24); }
+.min-h-\[48px\] { min-height: 48px; }
+.min-h-\[calc\(100vh-4rem\)\] { min-height: calc(100vh - 4rem); }
+.min-w-0 { min-width: 0; }
+
+/* ------------------------------------------------------------------ sizing */
+.w-full { width: 100%; }
+.h-auto { height: auto; }
+.w-4 { width: var(--space-4); }
+.w-5 { width: var(--space-5); }
+.w-8 { width: var(--space-8); }
+.w-9 { width: var(--space-9); }
+.w-10 { width: var(--space-10); }
+.w-12 { width: var(--space-12); }
+.w-20 { width: var(--space-20); }
+.w-24 { width: var(--space-24); }
+.w-40 { width: 40px; }
+.w-64 { width: 64px; }
+.h-3 { height: var(--space-3); }
+.h-4 { height: var(--space-4); }
+.h-5 { height: var(--space-5); }
+.h-9 { height: var(--space-9); }
+.h-10 { height: var(--space-10); }
+.h-20 { height: var(--space-20); }
+.h-24 { height: var(--space-24); }
+.h-\[3px\] { height: 3px; }
+.max-w-sm { max-width: 24rem; }
+.max-w-lg { max-width: 32rem; }
+.max-w-xl { max-width: 36rem; }
+.max-w-2xl { max-width: 42rem; }
+.max-w-3xl { max-width: 48rem; }
+.max-w-5xl { max-width: 64rem; }
+
+/* ------------------------------------------------------------------ states
+   Hover and focus rules, so an interactive element is visibly interactive
+   rather than merely looking like one. */
+.transition { transition: all var(--transition-normal); }
+.hover\:bg-slate-50:hover { background-color: var(--slate-50); }
+.hover\:bg-slate-100:hover { background-color: var(--slate-100); }
+.hover\:bg-slate-200:hover { background-color: var(--slate-200); }
+.hover\:bg-amber-100:hover { background-color: #fef3c7; }
+.hover\:bg-red-100:hover { background-color: #fee2e2; }
+.hover\:bg-red-600:hover { background-color: #dc2626; }
+.hover\:bg-red-700:hover { background-color: #b91c1c; }
+.hover\:bg-green-100:hover { background-color: #dcfce7; }
+.hover\:bg-blue-100:hover { background-color: #dbeafe; }
+.hover\:bg-teal2\/90:hover { background-color: rgba(14, 124, 123, 0.90); }
+.hover\:bg-\[\#2a2318\]:hover { background-color: #2a2318; }
+.hover\:bg-\[\#254a78\]:hover { background-color: #254a78; }
+.hover\:text-red-600:hover { color: #dc2626; }
+.hover\:underline:hover { text-decoration: underline; }
+.hover\:shadow-md:hover { box-shadow: var(--shadow-md); }
+.hover\:brightness-110:hover { filter: brightness(1.10); }
+.hover\:brightness-105:hover { filter: brightness(1.05); }
+.hover\:opacity-100:hover { opacity: 1; }
+.hover\:scale-\[1\.01\]:hover { transform: scale(1.01); }
+.focus\:border-teal2:focus { border-color: var(--teal); }
+
+/* A single visible focus ring for anything that is not a .form-control, which
+   already carries its own. Keyboard users otherwise lose the cursor entirely. */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ------------------------------------------------------------------ responsive
+   The single-column-first contract: a form or a page is one column on a phone
+   and widens where there is room. The base rules above already assume
+   mobile-first, so these only ever add columns back. */
+@media (min-width: 640px) {
+  .sm\:block { display: block; }
+  .sm\:flex-row { flex-direction: row; }
+  .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sm\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sm\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .sm\:col-span-2 { grid-column: span 2 / span 2; }
+}
+
+@media (min-width: 768px) {
+  .md\:hidden { display: none; }
+  .md\:flex { display: flex; }
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .md\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .md\:col-span-1 { grid-column: span 1 / span 1; }
+  .md\:col-span-2 { grid-column: span 2 / span 2; }
+  .md\:col-span-4 { grid-column: span 4 / span 4; }
+  .md\:p-8 { padding: var(--space-8); }
+  .md\:p-10 { padding: var(--space-10); }
+  .md\:pb-10 { padding-bottom: var(--space-10); }
+  .md\:bottom-4 { bottom: var(--space-4); }
+  .md\:text-base { font-size: 1rem; line-height: 1.5rem; }
+  .md\:text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .md\:text-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .md\:text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+}
+
+/* ------------------------------------------------------------------ position */
+.fixed { position: fixed; }
+.top-0 { top: 0; }
+.top-9 { top: var(--space-9); }
+.top-\[74px\] { top: 74px; }
+.bottom-0 { bottom: 0; }
+.bottom-20 { bottom: var(--space-20); }
+.bottom-full { bottom: 100%; }
+.left-0 { left: 0; }
+.right-3 { right: var(--space-3); }
+.inset-x-0 { left: 0; right: 0; }
+.z-\[var\(--z-index-fixed\)\] { z-index: var(--z-index-fixed); }
+.backdrop-blur { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+
+/* ------------------------------------------------------------------ more sizing */
+.inline-block { display: inline-block; }
+.max-w-xs { max-width: 20rem; }
+.max-w-md { max-width: 28rem; }
+.max-w-6xl { max-width: 72rem; }
+.max-w-full { max-width: 100%; }
+.max-h-64 { max-height: 16rem; }
+.min-h-\[56px\] { min-height: 56px; }
+.min-w-\[110px\] { min-width: 110px; }
+.min-w-\[180px\] { min-width: 180px; }
+
+
+/* ------------------------------------------------------------------ misc */
+.list-disc { list-style-type: disc; }
+.break-all { word-break: break-all; }
+.leading-tight { line-height: 1.25; }
+.leading-7 { line-height: 1.75rem; }
+.opacity-60 { opacity: 0.60; }
+.space-y-3 > * + * { margin-top: var(--space-3); }
+.accent-teal-600 { accent-color: var(--teal); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-\[0_-4px_20px_rgba\(0\,0\,0\,\.12\)\] { box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12); }
+.transition-normal { transition: all var(--transition-normal); }
+.from-transparent { --from: transparent; }
+.via-\[var\(--gold\)\] { --via: var(--gold); }
+.to-transparent { --to: transparent; }
+.bg-sky-600 { background-color: #0284c7; }
+
+/* Tailwind marks an override with a leading bang; these two are used that way
+   in the templates, so they must win over the rule they are correcting. */
+.\!min-h-0 { min-height: 0 !important; }
+.\!py-2 { padding-top: var(--space-2) !important; padding-bottom: var(--space-2) !important; }
+
+/* ------------------------------------------------------------------ project
+   Component classes the templates were already written against. */
+.btn-navy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background-color: var(--navy);
+  color: #ffffff;
+  font-weight: 700;
+  border: 0;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background-color var(--transition-normal);
+}
+.btn-navy:hover { background-color: var(--navy-light); }
+.btn-navy:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background-color: transparent;
+  color: var(--navy);
+  font-weight: 700;
+  border: 2px solid var(--slate-200);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color var(--transition-normal),
+              background-color var(--transition-normal);
+}
+.btn-ghost:hover { border-color: var(--teal); background-color: var(--slate-50); }
+
+/* Shared badge shape, then one colour rule per variant. Written as separate
+   single-selector rules so the duplicate-selector guard can tell a deliberate
+   override apart from an accidental copy. */
+.badge-required,
+.badge-optional {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  line-height: 1.4;
+}
+
+.badge-required { background-color: #fee2e2; color: #b91c1c; }
+.badge-optional { background-color: var(--slate-100); color: var(--slate-500); }
+[data-theme="dark"] .badge-required { background-color: #7f1d1d; color: #fecaca; }
+[data-theme="dark"] .badge-optional { background-color: var(--slate-200); color: var(--slate-500); }
+
+/* Marks a field the system fills in itself, so the user knows not to type it. */
+.field-auto {
+  background-color: var(--slate-100);
+  color: var(--slate-500);
+  cursor: not-allowed;
+}
+
+.error-hero {
+  font-size: clamp(3rem, 12vw, 6rem);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--navy);
+  opacity: 0.12;
+  user-select: none;
+}
+.error-code {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--slate-400);
+  letter-spacing: 0.2em;
+}
+
+.row-num {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  text-align: center;
+  width: 3rem;
+}
+
+/* Layout primitives the templates name directly. */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-index-sticky);
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--slate-200);
+  box-shadow: var(--shadow-sm);
+}
+
+.section-body { padding: var(--space-5); }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+/* Inline help under a field. Present in a template that had no rule for it, so
+   the guidance it carries was written but never seen. */
+.form-hint {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: 0.8125rem;
+  color: var(--slate-500);
+}
+
+/* Flash messages: readable, and colour is never the only signal. */
+.flash-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  border-inline-start: 4px solid var(--slate-300);
+  background-color: var(--surface);
+  color: var(--slate-800);
+  font-weight: 600;
+}
+.flash-msg-success { border-inline-start-color: var(--success); }
+.flash-msg-danger { border-inline-start-color: var(--error); }
+.flash-msg-warning { border-inline-start-color: var(--warning); }
+.flash-msg-info { border-inline-start-color: var(--info); }
+
+/* A count on a nav or tab link. */
+.badge-count {
+  display: inline-block;
+  min-width: 1.5rem;
+  padding: 0 var(--space-2);
+  border-radius: 9999px;
+  background-color: var(--teal);
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Disclosure chevron: a CSS triangle, so it needs no icon font and no image. */
+.chev {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-inline: 5px solid transparent;
+  border-top: 6px solid currentColor;
+  transition: transform var(--transition-normal);
+}
+[aria-expanded="true"] > .chev { transform: rotate(180deg); }
+
+/* A table that is readable on a phone: the horizontal scroll is on the
+   wrapper so the page itself never scrolls sideways. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll table { min-width: 44rem; }
+
+/* Consistent empty state: one message, one action, no orphan text. */
+.empty-state {
+  padding: var(--space-12) var(--space-5);
+  text-align: center;
+  color: var(--slate-500);
+}
+.empty-state-title { font-weight: 700; color: var(--slate-700); margin-bottom: var(--space-1); }
+.empty-state-hint { font-size: 0.875rem; }
+
+/* ------------------------------------------------------------------ print
+   Printed pages carry the content and nothing else. */
+@media print {
+  .no-print,
+  .btn,
+  .btn-navy,
+  .btn-ghost,
+  .theme-toggle,
+  nav,
+  footer { display: none !important; }
+
+  body { background: #ffffff !important; color: #000000 !important; font-size: 11pt; }
+  .card,
+  .table { border: 1px solid #999 !important; box-shadow: none !important; break-inside: avoid; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8pt; color: #555; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+}
+
+/* ------------------------------------------------------------------ reduced
+   Respect a stated preference for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

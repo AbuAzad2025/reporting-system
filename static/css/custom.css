@@ -87,8 +87,16 @@
   --z-index-toast: 2000;
 }
 
-/* Dark Mode Variables */
-.dark {
+/* Dark Mode Variables
+
+   The theme toggle in base.html drives this through the `data-theme`
+   attribute on <html>, not through a class. Scoping dark mode to `.dark`
+   alone therefore left the whole feature inert: the attribute flipped and no
+   rule anywhere read it. Both selectors are kept so either mechanism works -
+   `.dark` for anything that toggles a class, `[data-theme]` for the toggle
+   that actually ships. */
+.dark,
+[data-theme="dark"] {
   --navy: #3b5a78;
   --navy-light: #5a7a98;
   --navy-dark: #1e3a5f;
