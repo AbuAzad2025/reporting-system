@@ -189,7 +189,13 @@ class TestUploadFormContract:
         rid = _rfi(client, app)
         login_as(client, "t_eng")
         html = _detail(client, "rfis", rid)
-        accept = re.search(r'<input type="file"[^>]*accept="([^"]+)"', html)
+        # Attribute order is not a security property, so the tag is matched
+        # first and accept is read from inside it. Pinning the order here would
+        # make any harmless attribute reordering look like the upload
+        # constraint had been removed.
+        tag = re.search(r'<input\b[^>]*\btype="file"[^>]*>', html)
+        assert tag, "no file input found on the upload form"
+        accept = re.search(r'accept="([^"]+)"', tag.group(0))
         assert accept, "file input must constrain the picker"
         for mime in ("image/jpeg", "image/png", "image/gif", "image/webp",
                      "application/pdf"):

@@ -245,9 +245,15 @@ def test_every_template_compiles():
     Compiling every template is cheap and makes the whole class of structural
     damage fail immediately, whatever did it.
     """
-    from jinja2 import Environment, FileSystemLoader, TemplateSyntaxError
+    from jinja2 import Environment, FileSystemLoader, TemplateSyntaxError, select_autoescape
 
-    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
+    # Autoescape is not a detail here. Flask enables it for .html, and bandit
+    # rightly flags a bare Environment() that does not - so the check compiles
+    # templates under the same rules the application renders them with, and a
+    # regression in escaping would surface here rather than as an XSS.
+    env = Environment(
+        loader=FileSystemLoader(TEMPLATES_DIR),
+        autoescape=select_autoescape(default_for_string=True, default=True))
     broken = []
     for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
         for name in sorted(files):
