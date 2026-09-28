@@ -10,4 +10,7 @@ app/backups/
 uploads/
 htmlcov/
 coverage.xml
+# local coverage data files (the binary one pytest-cov writes per run)
+.coverage
+.coverage.*
 bandit-security-report.*
