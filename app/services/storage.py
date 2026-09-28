@@ -87,21 +87,6 @@ def _gcs_blob(client: Any, key: str) -> Any:
     return _gcs_bucket(client).blob(key)
 
 
-def _s3_object(client: Any, key: str) -> Any:
-    """Return S3 object handle."""
-    return client.Object(_bucket_name(), key)
-
-
-def _azure_blob(client: Any, key: str) -> Any:
-    """Return Azure blob handle."""
-    return _blob_container(client).get_blob_client(blob=key)
-
-
-def _gcs_blob_handle(client: Any, key: str) -> Any:
-    """Return GCS blob handle."""
-    return _gcs_blob(client, key)
-
-
 CLOUD_KEY_PREFIX = "backups/"
 
 
@@ -124,12 +109,12 @@ def _s3_key(key: str) -> str:
 
 
 def _azure_key(key: str) -> str:
-    """Return Azure blob key with prefix."""
+    """Return Azure Blob key with prefix."""
     return _cloud_key(key)
 
 
 def _gcs_key(key: str) -> str:
-    """Return GCS blob key with prefix."""
+    """Return GCS key with prefix."""
     return _cloud_key(key)
 
 
@@ -171,11 +156,25 @@ def _s3_upload(data: bytes, key: str) -> str:
 
 
 def _s3_download(key: str) -> bytes:
-    """Download from S3 and return bytes."""
+    """Download from S3 and return bytes.
+
+    Uses the client's own verb rather than a resource handle: ``Object()`` is
+    a method on the boto3 *resource*, so the previous ``client.Object(...)``
+    raised AttributeError on every download and delete, long after the upload
+    itself had succeeded.
+    """
     client = _s3_client()
-    s3_key = _s3_key(key)
-    obj = _s3_object(client, s3_key)
-    return obj.get()["Body"].read()
+    return client.get_object(Bucket=_bucket_name(), Key=_s3_key(key))["Body"].read()
+
+
+def _azure_blob(client: Any, key: str) -> Any:
+    """Return Azure blob handle."""
+    return _blob_container(client).get_blob_client(blob=key)
+
+
+def _gcs_blob_handle(client: Any, key: str) -> Any:
+    """Return GCS blob handle."""
+    return _gcs_blob(client, key)
 
 
 def _azure_upload(data: bytes, key: str) -> str:
@@ -236,14 +235,18 @@ def _safe_component(value: str, fallback: str) -> str:
 
 
 def upload_image(project_name: str, filename: str, data: bytes) -> str:
-    """Upload image organized by project / date / sequential number."""
-    from datetime import datetime, timezone
+    """Store a project image and return a path relative to the backup root.
+
+    This used to return an absolute filesystem path, which was then written
+    into ``Project.logo_path``. Every stored logo was therefore tied to one
+    machine: a move, a container, or a second host broke them all, and no
+    browser could be given a URL for one. The key is now relative, and
+    ``app.services.branding`` resolves it for both the web and the PDF.
+    """
     safe_project = _safe_component(project_name, "project")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     base_dir = os.path.join(BACKUP_LOCAL_DIR, "images", safe_project, today)
     os.makedirs(base_dir, exist_ok=True)
-    # Sequential naming to avoid repeats; the stem comes from user input, so
-    # strip any directory/traversal part before it reaches os.path.join.
     raw = os.path.basename(str(filename).replace("\\", "/"))
     stem, ext = os.path.splitext(raw)
     stem = _safe_component(stem, "image")
@@ -256,7 +259,10 @@ def upload_image(project_name: str, filename: str, data: bytes) -> str:
         if not os.path.exists(path):
             with open(path, "wb") as fh:
                 fh.write(_to_bytes(data))
-            return path
+            # os.path.relpath raises when the two paths sit on different
+            # Windows drives, which is exactly the case this key must survive:
+            # it is built from known components, so join them directly.
+            return "/".join(("images", safe_project, today, new_name))
         seq += 1
 
 
@@ -327,7 +333,7 @@ def delete(key: str) -> None:
         blob = _gcs_blob_handle(client, _gcs_key(key))
         blob.delete()
     else:
-        os.remove(_local_key(key))
+        os.remove(_safe_local_path(key))
 
 
 __all__ = [
@@ -335,5 +341,6 @@ __all__ = [
     "download",
     "list_backups",
     "delete",
+    "upload_image",
     "BACKUP_LOCAL_DIR",
 ]

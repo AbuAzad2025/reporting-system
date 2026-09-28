@@ -63,13 +63,15 @@ def backup_dir(tmp_path, monkeypatch):
 
 # ---- fake cloud SDKs ------------------------------------------------------
 
-class _S3Object:
+class _Body:
+    """The streaming body a real get_object response carries."""
+
     def __init__(self, store, ref):
         self._store = store
         self._ref = ref
 
-    def get(self):
-        return {"Body": io.BytesIO(self._store[self._ref])}
+    def read(self):
+        return self._store[self._ref]
 
 
 class FakeS3Client:
@@ -84,9 +86,13 @@ class FakeS3Client:
         self.keys.append(Key)
         self.objects[(Bucket, Key)] = bytes(Body)
 
-    def Object(self, Bucket, Key):
+    def get_object(self, Bucket, Key):
+        # A real low-level client returns the body under "Body". The fake used
+        # to expose an Object() method instead, which is a boto3 *resource*
+        # API - the service code called it on a client and every S3 download
+        # raised AttributeError, so the fake was agreeing with broken code.
         self.keys.append(Key)
-        return _S3Object(self.objects, (Bucket, Key))
+        return {"Body": _Body(self.objects, (Bucket, Key))}
 
     def list_objects_v2(self, Bucket, Prefix):
         self.keys.append(Prefix)
@@ -377,16 +383,20 @@ def test_upload_image_sanitizes_traversal_filename(backup_dir):
     posix_escape = storage.upload_image("Alpha Tower", "../../../etc/evil.jpg", b"pwned")
     windows_escape = storage.upload_image("Alpha Tower", "..\\..\\win.jpg", b"pwned")
 
-    for path in (posix_escape, windows_escape):
-        parts = os.path.relpath(path, str(backup_dir)).split(os.sep)
+    for key in (posix_escape, windows_escape):
+        assert not os.path.isabs(key), (
+            "the key written to the database has to be relative; an absolute "
+            "path is bound to one machine and breaks on the next deploy")
+        parts = key.split("/")
         assert parts[0] == "images"
         assert parts[1] == "Alpha_Tower"
         assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", parts[2])
         assert ".." not in parts
-        assert os.path.basename(path) in ("evil_001.jpg", "win_001.jpg")
+        assert os.path.basename(key) in ("evil_001.jpg", "win_001.jpg")
+        assert _read(str(backup_dir / key)) is not None
 
     assert os.path.basename(posix_escape) == "evil_001.jpg"
-    assert _read(posix_escape) == b"pwned"
+    assert _read(str(backup_dir / posix_escape)) == b"pwned"
     # nothing escaped into the images tree or its parents
     assert not (backup_dir / "evil_001.jpg").exists()
     assert not (backup_dir / "images" / "evil_001.jpg").exists()
@@ -404,13 +414,14 @@ def test_upload_image_numbers_sequentially_per_project_and_date(backup_dir):
     assert [os.path.basename(p) for p in (first, second, third)] == [
         "photo_001.jpg", "photo_002.jpg", "photo_003.jpg"]
     assert len({os.path.dirname(p) for p in (first, second, third)}) == 1
-    assert [_read(p) for p in (first, second, third)] == [b"one", b"two", b"three"]
+    assert [_read(str(backup_dir / p)) for p in (first, second, third)] == [
+        b"one", b"two", b"three"]
 
     # a different project restarts the sequence in its own directory
     other = storage.upload_image("Beta Hospital", "photo.jpg", b"beta")
     assert os.path.dirname(other) != os.path.dirname(first)
     assert os.path.basename(other) == "photo_001.jpg"
-    assert _read(other) == b"beta"
+    assert _read(str(backup_dir / other)) == b"beta"
 
 
 def test_upload_image_handles_degenerate_filenames(backup_dir):
@@ -419,12 +430,10 @@ def test_upload_image_handles_degenerate_filenames(backup_dir):
              for name in names]
 
     assert len(set(paths)) == len(names)
-    for path in paths:
-        rel = os.path.relpath(path, str(backup_dir))
-        assert ".." not in rel.split(os.sep)
-        assert os.path.dirname(path).startswith(
-            str(backup_dir / "images" / "Alpha_Tower"))
-        assert _read(path) == b"bytes"
+    for key in paths:
+        assert ".." not in key.split("/")
+        assert key.split("/")[1] == "Alpha_Tower"
+        assert _read(str(backup_dir / key)) == b"bytes"
     assert os.path.basename(paths[3]) == "logo_001.jpg"  # no extension -> .jpg
     assert os.path.basename(paths[5]) == "deep_001.PNG"  # case preserved
 
