@@ -1,10 +1,7 @@
 {% extends "base.html" %}
 {% block title %}التقارير الديناميكية{% endblock %}
 {% block page_header %}
-<div class="page-header">
-  <h1>📋 التقارير الديناميكية</h1>
-  <p>قوالب معتمدة من مدير المنصة — اختر القالب وعبّئه من الموقع. كل بطاقة تعرض عدد الحقول وتقاريرك الحالية.</p>
-</div>
+  {{ page_head('التقارير', 'قوالب معتمدة من مدير المنصة — اختر القالب وعبّئه من الموقع.') }}
 {% endblock %}
 {% block content %}
 {# Tenant branding applied live — header/footer colors override template gradient if active #}

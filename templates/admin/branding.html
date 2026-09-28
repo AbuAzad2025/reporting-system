@@ -1,45 +1,82 @@
 {% extends "base.html" %}
-{% block title %}تخصيص المظهر — {{ tpl.name_ar }}{% endblock %}
+{% block title %}هوية المشروع{% endblock %}
 {% block page_header %}
-<div class="page-header">
-  <h1>🎨 تخصيص المظهر للمشروع</h1>
-  <p>تغيير الشعار والألوان والترويسة والذيل. التعديلات تُطبَّق فوراً على تقارير هذا المشروع.</p>
-</div>
+  {{ page_head('هوية المشروع', 'الشعار والترويسة والذيل كما تظهر في الواجهة والطباعة وملف PDF.') }}
 {% endblock %}
 {% block content %}
-<div class="max-w-xl mx-auto mt-3">
-  <form method="POST" class="card p-5 space-y-4">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div>
-      <label class="form-label" for="company_name_ar">اسم الشركة / المشروع (عربي)</label>
-      <input id="company_name_ar" name="company_name_ar" value="{{ brand.company_name_ar }}" class="form-control">
+<form method="POST" enctype="multipart/form-data" class="surface-card section-body grid gap-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="form-group">
+    <label class="form-label" for="project_id">المشروع</label>
+    <select id="project_id" name="project_id" class="form-control" required>
+      {% for p in projects %}
+        <option value="{{ p.id }}" {% if p.id == selected_project_id %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="form-group">
+      <label class="form-label" for="company_name_ar">اسم الجهة (عربي)</label>
+      <input id="company_name_ar" name="company_name_ar" value="{{ brand.company_name_ar if brand else '' }}" class="form-control">
     </div>
-    <div>
-      <label class="form-label" for="company_name_en">اسم الشركة (إنجليزي)</label>
-      <input id="company_name_en" name="company_name_en" value="{{ brand.company_name_en }}" class="form-control" dir="ltr">
+    <div class="form-group">
+      <label class="form-label" for="company_name_en">اسم الجهة (إنجليزي)</label>
+      <input id="company_name_en" name="company_name_en" dir="ltr" value="{{ brand.company_name_en if brand else '' }}" class="form-control">
     </div>
-    <div>
-      <label class="form-label" for="primary_color">اللون الأساسي (HEX)</label>
-      <input id="primary_color" name="primary_color" type="text" value="{{ brand.primary_color }}" class="form-control font-mono">
+  </div>
+
+  <fieldset class="fieldset form-group border border-slate-200 rounded-lg p-4">
+    <legend>الشعارات</legend>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="form-group">
+        <label class="form-label" for="logo">الشعار الأساسي</label>
+        <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp" class="form-control-file">
+        {% if brand and brand.logo_path %}
+          <img src="/uploads/branding/{{ brand.logo_path }}" alt="الشعار الحالي" class="logo-preview">
+          <label class="check-inline"><input type="checkbox" name="clear_logo" value="1"> إزالة الشعار الحالي</label>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="logo2">الشعار الثانوي (الجهة المالكة / ministry)</label>
+        <input type="file" id="logo2" name="logo2" accept="image/png,image/jpeg,image/webp" class="form-control-file">
+        {% if brand and brand.logo2_path %}
+          <img src="/uploads/branding/{{ brand.logo2_path }}" alt="الشعار الثانوي" class="logo-preview">
+        {% endif %}
+      </div>
     </div>
-    <div>
-      <label class="form-label" for="secondary_color">اللون الثانوي (HEX)</label>
-      <input id="secondary_color" name="secondary_color" type="text" value="{{ brand.secondary_color }}" class="form-control font-mono">
+    <p class="form-hint">PNG أو JPEG أو WebP، حتى 2 ميجابايت. SVG غير مقبول لأنه برنامج يُنفَّذ في متصفح من يطّلع عليه.</p>
+  </fieldset>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="form-group">
+      <label class="form-label" for="primary_color">اللون الأساسي</label>
+      <input id="primary_color" name="primary_color" type="color" value="{{ brand.primary_color if brand else '#1e3a5f' }}" class="form-control">
     </div>
-    <div>
-      <label class="form-label" for="logo_path">رابط الشعار (اختياري)</label>
-      <input id="logo_path" name="logo_path" value="{{ brand.logo_path }}" class="form-control">
+    <div class="form-group">
+      <label class="form-label" for="secondary_color">اللون الثانوي</label>
+      <input id="secondary_color" name="secondary_color" type="color" value="{{ brand.secondary_color if brand else '#c9a227' }}" class="form-control">
     </div>
-    <div>
-      <label class="form-label" for="custom_header_text_ar">نص الترويسة (عربي)</label>
-      <textarea id="custom_header_text_ar" name="custom_header_text_ar" rows="2" class="form-control">{{ brand.custom_header_text_ar }}</textarea>
-    </div>
-    <div>
-      <label class="form-label" for="custom_footer_notes">ملاحظات الذيل</label>
-      <textarea id="custom_footer_notes" name="custom_footer_notes" rows="2" class="form-control">{{ brand.custom_footer_notes }}</textarea>
-    </div>
-    <button class="btn btn-primary w-full">💾 حفظ التخصيص</button>
-  </form>
-  <p class="text-[11px] text-slate-400 mt-3">⚠️ التخصيص يطبَّق فوراً على جميع تقارير المشروع (PDF + عرض الويب). لا تُغيَّر القوالب الافتراضية للمنصة.</p>
-</div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="custom_header_text_ar">نص الترويسة (عربي)</label>
+    <textarea id="custom_header_text_ar" name="custom_header_text_ar" rows="2" class="form-control">{{ brand.custom_header_text_ar if brand else '' }}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="custom_header_text_en">نص الترويسة (إنجليزي)</label>
+    <textarea id="custom_header_text_en" name="custom_header_text_en" dir="ltr" rows="2" class="form-control">{{ brand.custom_header_text_en if brand else '' }}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="custom_footer_notes">ملاحظات الذيل</label>
+    <textarea id="custom_footer_notes" name="custom_footer_notes" rows="2" class="form-control">{{ brand.custom_footer_notes if brand else '' }}</textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="disclaimer_text">إخلاء مسؤولية (يظهر في الطباعة)</label>
+    <textarea id="disclaimer_text" name="disclaimer_text" rows="2" class="form-control">{{ brand.disclaimer_text if brand else '' }}</textarea>
+  </div>
+
+  <button class="btn btn-primary">حفظ الهوية</button>
+</form>
 {% endblock %}

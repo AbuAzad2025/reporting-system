@@ -1,10 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if mode=='new' %}إنشاء{% else %}تعديل{% endif %} {{ kind_title }}{% endblock %}
 {% block page_header %}
-<div class="page-header">
-  <h1>{% if mode=='new' %}➕ إنشاء{% else %}✏️ تعديل{% endif %} {{ kind_title }}</h1>
-  <p>الحقول المميزة <span class="badge badge-required">*</span> إجبارية، والباقي اختياري.</p>
-</div>
+  {{ page_head(('تعديل ' if mode != 'new' else 'إنشاء ') ~ kind_title, 'الحقول المميزة بعلامة نجمة إجبارية، والباقي اختياري.') }}
 {% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">

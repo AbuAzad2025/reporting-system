@@ -24,6 +24,7 @@ TEMPLATES_DIR = "templates"
 STATIC_DIR = os.path.join("static", "css")
 
 CLASS_ATTR = re.compile(r'class\s*=\s*"([^"]*)"')
+_COMPOSED_CLASS = re.compile(r'class\s*=\s*"([^"]*?)(?:-)?\s*\{\{')
 CSS_SELECTOR = re.compile(r'\.((?:[a-zA-Z0-9_-]|\\.)+)')
 
 
@@ -58,8 +59,13 @@ def _used_classes():
     quote inside a Jinja tag - which is what the flash markup in base.html does
     - and every class after that point escapes the audit entirely. That is not
     hypothetical: it hid the flash colours the first time this was measured.
+
+    Stripping then leaves the static half of a composed class behind:
+    ``flash-msg flash-{{ cat }}`` yields ``flash-``. Those are recorded
+    separately, because the full name only exists after rendering.
     """
     usage = collections.defaultdict(set)
+    prefixes = collections.defaultdict(set)
     for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
         for name in files:
             if not name.endswith(".html"):
@@ -67,12 +73,21 @@ def _used_classes():
             path = os.path.join(dirpath, name)
             rel = os.path.relpath(path, TEMPLATES_DIR).replace("\\", "/")
             text = io.open(path, encoding="utf-8").read()
+
+            for stem in _COMPOSED_CLASS.findall(text):
+                parts = stem.split()
+                if parts:
+                    prefixes[parts[-1].rstrip("-")].add(rel)
+
             text = re.sub(r"\{%.*?%\}", " ", text, flags=re.S)
             text = re.sub(r"\{\{.*?\}\}", " ", text, flags=re.S)
             for match in CLASS_ATTR.finditer(text):
                 for token in match.group(1).split():
-                    if token:
-                        usage[token].add(rel)
+                    if not token or token.endswith("-"):
+                        continue
+                    usage[token].add(rel)
+
+    usage.update({f"prefix:{k}": v for k, v in prefixes.items()})
     return usage
 
 
@@ -90,7 +105,7 @@ def test_every_template_class_is_defined(defined, used):
     """The whole point: a class in a template must match a real rule."""
     undefined = {
         cls: sorted(files) for cls, files in used.items()
-        if cls not in defined
+        if not cls.startswith("prefix:") and cls not in defined
     }
     if undefined:
         report = "\n".join(
@@ -103,6 +118,25 @@ def test_every_template_class_is_defined(defined, used):
             f"nowhere. They render as no-ops:\n{report}")
 
 
+def test_every_composed_class_family_is_styled(defined, used):
+    """A class assembled at runtime still has to match a rule.
+
+    ``class="flash-msg flash-{{ cat }}"`` cannot be checked by name, because
+    the name only exists once Jinja has run. What can be checked is that the
+    family has rules at all, so ``flash-success`` is not a silent no-op
+    because nobody wrote the four colour variants.
+    """
+    orphans = [
+        f"  .{stem}* composed in {', '.join(sorted(files)[:3])}"
+        for name, files in used.items()
+        if name.startswith("prefix:")
+        for stem in [name[len("prefix:"):]]
+        if not any(cls.startswith(stem) for cls in defined)
+    ]
+    assert not orphans, (
+        "composed classes with no matching rule:\n" + "\n".join(orphans))
+
+
 def test_the_utilities_stylesheet_is_loaded(used):
     """A defined class is still dead if no template loads the stylesheet.
 
@@ -112,6 +146,9 @@ def test_the_utilities_stylesheet_is_loaded(used):
     base = io.open(os.path.join(TEMPLATES_DIR, "base.html"), encoding="utf-8").read()
     assert "utilities.css" in base, (
         "utilities.css is not referenced by base.html, so none of it applies")
+    for sheet in ("custom.css", "layout.css"):
+        assert sheet in base, (
+            "%s is not referenced by base.html, so none of it applies" % sheet)
 
 
 def test_no_selector_is_defined_twice_at_the_same_level(defined):

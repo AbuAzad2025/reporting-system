@@ -2,13 +2,7 @@
 {% if mode == 'new' %}{% set pagetitle = 'تعبئة ' + tpl.name_ar %}{% else %}{% set pagetitle = 'تعديل ' + tpl.name_ar %}{% endif %}
 {% block title %}{{ pagetitle }}{% endblock %}
 {% block page_header %}
-<div class="page-header flex items-center justify-between gap-3 flex-wrap">
-  <div class="min-w-0">
-    <h1>{{ tpl.icon }} {{ pagetitle }}</h1>
-    <p>{{ tpl.description }} — الحقول المميزة <span class="badge badge-required">*</span>"*</span> إجبارية، والباقي اختياري.</p>
-  </div>
-  <a href="{{ url_for('reports.dyn_list') }}" class="btn btn-ghost text-xs !min-h-0 !py-2">→ رجوع للقوالب</a>
-</div>
+  {{ page_head(pagetitle, tpl.description, url_for('reports.dyn_list'), 'رجوع للقوالب') }}
 {% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">

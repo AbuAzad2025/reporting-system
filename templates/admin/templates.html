@@ -9,7 +9,7 @@
   <div class="flex gap-2 flex-wrap">
     <a href="{{ url_for('admin.template_new') }}" class="bg-teal2 text-white text-sm font-extrabold px-4 py-3 rounded-xl">➕ قالب جديد</a>
     <a href="{{ url_for('admin.dashboard') }}" class="bg-slate-100 text-sm font-bold px-4 py-3 rounded-xl">→ اللوحة</a>
-    <a href="{{ url_for('admin.branding', template_id=templates[0].id if templates else 0) }}" class="bg-[#a67c00] text-[#1a1610] text-sm font-extrabold px-4 py-3 rounded-xl">🎨 تخصيص المظهر</a>
+    <a href="{{ url_for('admin.branding') }}" class="bg-[#a67c00] text-[#1a1610] text-sm font-extrabold px-4 py-3 rounded-xl">🎨 هوية المشروع</a>
   </div>
 </div>
 
