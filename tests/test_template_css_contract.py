@@ -163,8 +163,11 @@ def test_dark_mode_is_reachable_from_the_attribute_the_toggle_sets(defined):
     base = io.open(os.path.join(TEMPLATES_DIR, "base.html"), encoding="utf-8").read()
     assert 'data-theme="light"' in base, (
         "base.html should declare a default theme")
-    assert "setAttribute('data-theme'" in base or \
-           'setAttribute("data-theme"' in base, (
+    drives_attribute = (
+        "setAttribute('data-theme'" in base
+        or 'setAttribute("data-theme"' in base
+    )
+    assert drives_attribute, (
         "the toggle should drive data-theme, which is what the CSS listens to")
 
 
