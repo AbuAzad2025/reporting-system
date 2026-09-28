@@ -300,19 +300,14 @@ def projects():
         elif Project.query.filter_by(name=name).first():
             flash("يوجد مشروع بنفس الاسم.", "danger")
         else:
-            # ensure logo columns exist on old DBs (SQLite/Postgres)
-            try:
-                from sqlalchemy import text as _text
-                db.session.execute(_text("ALTER TABLE projects ADD COLUMN logo_path VARCHAR(500) DEFAULT ''"))
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
-            try:
-                from sqlalchemy import text as _text2
-                db.session.execute(_text2("ALTER TABLE projects ADD COLUMN logo2_path VARCHAR(500) DEFAULT ''"))
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+            # No schema surgery here. This used to ALTER TABLE projects to add
+            # logo_path/logo2_path "for old databases", which could never run:
+            # both columns are declared on the model and created by the
+            # baseline Alembic migration, so any database this app can reach
+            # already has them - and if one did not, the Project query two lines
+            # above would have raised before reaching the ALTER. It also meant an
+            # implicit commit in the middle of a request. Schema changes belong
+            # in a migration; the baseline covers this case.
             proj = Project(
                 name=name, location=request.form.get("location", "").strip(),
                 contractor=request.form.get("contractor", "").strip(),
@@ -335,14 +330,11 @@ def projects():
                         path = upload_image(name or "project", f.filename, data)
                         setattr(proj, attr, path)
             except Exception as exc:
-                # column may not exist on old DB — create it on the fly
-                try:
-                    from sqlalchemy import text as _text
-                    db.session.execute(_text("ALTER TABLE projects ADD COLUMN logo_path VARCHAR(500) DEFAULT ''"))
-                    db.session.execute(_text("ALTER TABLE projects ADD COLUMN logo2_path VARCHAR(500) DEFAULT ''"))
-                    db.session.commit()
-                except Exception:
-                    db.session.rollback()
+                # A storage failure must not lose the project being created.
+                # The column is not re-added here: it is declared on the model
+                # and created by the migration, so "the column may not exist" is
+                # not a failure this handler can cause or cure.
+                db.session.rollback()
                 log.warning("logo upload skipped: %s", exc)
             db.session.add(proj)
             db.session.commit()
