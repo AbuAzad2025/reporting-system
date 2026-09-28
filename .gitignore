@@ -2,9 +2,13 @@ __pycache__/
 # npm dependencies are installed from package-lock.json, which is committed
 # because CI runs `npm ci` and requires it.
 node_modules/
+# fonts/*.ttf is deliberately NOT ignored. Amiri (SIL OFL 1.1) is committed
+# with its licence because PDF generation downloads it on first use, and a
+# field deployment on a restricted network cannot reach GitHub. When the
+# download fails the font falls back to Helvetica, which has no Arabic glyphs,
+# so every Arabic report renders blank - silently, at debug log level.
 *.pyc
 instance/*.db
-fonts/*.ttf
 .env
 venv/
 .venv/

@@ -21,5 +21,11 @@ pytest-cov==7.1.0
 SQLAlchemy==2.0.52
 psycopg2-binary==2.9.12
 psycopg==3.2.13
-gunicorn==26.2.0; sys_platform != "win32"
-flake8==7.3.0; sys_platform != "win32"
+  gunicorn==26.2.0; sys_platform != "win32"
+  flake8==7.3.0; sys_platform != "win32"
+  # Lets the suite read the text back out of a generated PDF. Asserting that a
+  # tenant's name reached the document is the only way to catch a report that
+  # still carries the vendor's identity, and that is a legal question, not a
+  # cosmetic one.
+  pypdf==6.4.0
+

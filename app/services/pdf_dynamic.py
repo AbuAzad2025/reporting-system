@@ -41,6 +41,24 @@ def _resolve_upload_abs(key: str) -> str | None:
     return abs_path if os.path.isfile(abs_path) else None
 
 
+def _branding_for(project_id):
+    """The project's identity, with a usable fallback outside a request."""
+    from flask import current_app, has_app_context
+    if has_app_context():
+        from app.services.branding import branding_for_project
+        return branding_for_project(project_id)
+    class _Fallback:
+        company_ar = "جهة الإشراف / المالك"
+        company_en = ""
+        logo_path = None
+        logo2_path = None
+        header_ar = ""
+        header_en = ""
+        footer_notes = ""
+        disclaimer = ""
+    return _Fallback()
+
+
 def _readable_image(abs_path: str) -> bool:
     """True when ReportLab will actually be able to draw the file.
 
@@ -96,59 +114,68 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     st = _styles()
     adapter = _DynReportAdapter(submission, template)
     payload = submission.data or {}
+    brand = _branding_for(submission.project_id)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
-                            bottomMargin=36,
-                            title=f"Azadexa-{template.key}-{submission.id}",
-                            author="AZAD Intelligent Systems")
+                            bottomMargin=36, title=f"{brand.company_ar}-"
+                            f"{template.key}-{submission.id}",
+                            author=brand.company_en or brand.company_ar)
     story = []
 
-    # ---- custom logos header (user-uploaded) — professional dual-logo bar
+    # ---- letterhead: the tenant's own logos, or the platform's if none.
     try:
         from app.models import Project
         from app.extensions import db as _db
         from utils.pdf_generator import _custom_logo, _brand_logo
         proj = _db.session.get(Project, submission.project_id) if submission.project_id else None
-        logo1 = getattr(proj, 'logo_path', '') if proj else ''
-        logo2 = getattr(proj, 'logo2_path', '') if proj else ''
-        # fallback to env or default brand
-        img1 = _custom_logo(logo1) if logo1 else None
-        img2 = _custom_logo(logo2) if logo2 else None
-        if not img1:
-            img1 = _brand_logo(22)
-        # if only one logo, still render header with company names
-        if img1 or img2:
-            # Professional header: client/owner (right) + contractor (left),
-            # sourced from the project record — never hardcoded to one vendor.
-            from flask import current_app as _cap
-            _cfg = _cap.config if _cap else {}
-            _company_ar = str(_cfg.get("COMPANY_NAME_AR") or "جهة الإشراف / المالك")
-            _company_en = str(_cfg.get("COMPANY_NAME_EN") or "")
-            _contractor = (submission.contractor or payload.get("contractor") or "").strip() or "المقاول المنفذ"
-            left_title = Paragraph(ar(_company_ar) + ("<br/>" + _company_en if _company_en else ""), st["cell_small"])
-            right_title = Paragraph(ar(_contractor), st["cell_small"])
-            # use simple table with images on top row and titles bottom
-            logo_tbl = Table([[img1 or Paragraph("", st["cell"]), img2 or Paragraph("", st["cell"])],
-                              [left_title, right_title]], colWidths=[95 * mm, 95 * mm])
+        img1 = _custom_logo(brand.logo_path)
+        img2 = _custom_logo(brand.logo2_path)
+        # Draw the letterhead whenever there is identity to show, not only
+        # when a logo file happens to exist. A tenant who named their company
+        # and added header text, but never uploaded a file, was getting a
+        # report with no letterhead at all.
+        if img1 or img2 or brand.company_ar or brand.header_ar or brand.header_en:
+            contractor = (submission.contractor
+                          or payload.get("contractor") or "").strip()
+            rows = [[img1 or Paragraph("", st["cell"]),
+                     img2 or Paragraph("", st["cell"])]]
+            org = Paragraph(ar(brand.company_ar)
+                            + ("<br/>" + brand.company_en if brand.company_en else ""),
+                            st["cell_small"])
+            other = Paragraph(
+                ar(contractor or (proj.contractor if proj else "")
+                   or "المقاول المنفذ"),
+                st["cell_small"])
+            rows.append([org, other])
+            if brand.header_ar or brand.header_en:
+                rows.append([Paragraph(ar(brand.header_ar), st["cell_small"]),
+                             Paragraph(brand.header_en or "", st["cell_small"])])
+            logo_tbl = Table(rows, colWidths=[95 * mm, 95 * mm])
             logo_tbl.setStyle(TableStyle([
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ]))
             story.append(logo_tbl)
             story.append(Spacer(1, 3 * mm))
     except Exception as exc:
-        log.debug("dynamic PDF logo block skipped: %s", exc)
+        # The letterhead is the most visible part of the document. A failure
+        # here used to be logged at debug level, so a report went out with no
+        # header and nothing anywhere said why.
+        log.warning("dynamic PDF letterhead failed: %s", exc, exc_info=True)
 
     # ---- corporate header (shared: project owner / consultant / contractor)
     try:
         header_tbl = _header_table(adapter, st)
-    except Exception:
+    except Exception as exc:
+        log.warning("dynamic PDF header table failed: %s", exc, exc_info=True)
         header_tbl = None
-    story.append(header_tbl)
-    story.append(Spacer(1, 4 * mm))
+    if header_tbl is not None:
+        story.append(header_tbl)
+        story.append(Spacer(1, 4 * mm))
     story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#c9a227")))
     story.append(Spacer(1, 4 * mm))
     # ---- project general data — production headers for all report types
@@ -358,6 +385,10 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     def _foot(c, d):
         _footer(c, d, serial=serial, timestamp=stamp,
                 project_name=submission.project_name,
-                report_type=template.name_ar)
+                report_type=template.name_ar,
+                org_ar=brand.company_ar, org_en=brand.company_en,
+                notes=brand.footer_notes,
+                platform_line=(brand.disclaimer
+                                or "Generated via Azadexa Reporting Platform"))
     doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
     return buf.getvalue()

@@ -70,7 +70,14 @@ def _download_font(url: str, dest: str) -> None:
 
 
 def ensure_fonts() -> None:
-    """Download Arabic TTFs once if missing. Never raises — offline safe."""
+    """Make the Arabic font available, downloading it only if it is missing.
+
+    Never raises. The font ships in the repository precisely so this normally
+    does nothing: a field deployment cannot reach GitHub, and when the fetch
+    fails the fallback is Helvetica, which has no Arabic glyphs at all - so
+    every Arabic report would come out blank while the job reported success.
+    That failure is logged as a warning, not at debug.
+    """
     if _ARABIC_FONT_READY:
         return
     try:
@@ -81,10 +88,18 @@ def ensure_fonts() -> None:
                 try:
                     _download_font(url, dest)
                 except Exception as exc:
-                    logger.debug("font fetch skipped for %s: %s", filename, exc)
+                    logger.warning(
+                        "could not fetch %s (%s); Arabic text in a PDF needs it "
+                        "and will not render without it", filename, exc)
         _register_fonts()
+        if not _ARABIC_FONT_READY:
+            logger.warning(
+                "no Arabic font registered; PDFs will use %s and every Arabic "
+                "label will be missing. Place Amiri-Regular.ttf in %s.",
+                FONT_NORMAL, FONTS_DIR)
     except Exception as exc:
-        logger.debug("font directory setup skipped: %s", exc)
+        logger.warning("font directory setup failed (%s); PDFs will have no "
+                       "Arabic glyphs", exc)
 
 
 def _register_fonts() -> None:
@@ -105,7 +120,8 @@ def _register_fonts() -> None:
         elif _ARABIC_FONT_READY:
             FONT_BOLD = "Amiri"  # no synthetic bold available; reuse regular
     except Exception as exc:
-        logger.debug("font registration skipped, using built-in font: %s", exc)
+        logger.warning("Arabic font registration failed (%s); PDFs will have "
+                       "no Arabic glyphs", exc)
 
 
 def ar(text) -> str:
@@ -141,29 +157,48 @@ BRAND_EN = "AZAD Intelligent Systems"
 BRAND_LOGO = os.path.join(BASE_DIR, "static", "img", "brand", "azad-logo.png")
 
 
+def _scaled_image(path, max_width_mm=28, max_height_mm=14):
+    """An Image flowable that keeps the file's aspect ratio.
+
+    Every logo was previously forced into a square box, so any wordmark wider
+    than it is tall came out vertically stretched on the letterhead of every
+    report. The height is derived from the real pixel dimensions, and both
+    dimensions are capped so a very wide logo cannot push the header off the
+    page.
+    """
+    from reportlab.lib.utils import ImageReader
+    from reportlab.platypus import Image
+    try:
+        reader = ImageReader(str(path))
+        iw, ih = reader.getSize()
+    except Exception as exc:
+        logger.warning("logo unreadable (%s): %s", path, exc)
+        return None
+    if not iw or not ih:
+        return None
+    width = max_width_mm
+    height = width * ih / iw
+    if height > max_height_mm:
+        height = max_height_mm
+        width = height * iw / ih
+    return Image(str(path), width=width * mm, height=height * mm, hAlign="CENTER")
+
+
 def _brand_logo(width_mm=30):
     """Company logo flowable, or None when the asset is missing."""
-    try:
-        from reportlab.platypus import Image
-        if os.path.isfile(BRAND_LOGO):
-            return Image(BRAND_LOGO, width=width_mm * mm,
-                         height=width_mm * mm, hAlign="CENTER")
-    except Exception as exc:
-        logger.debug("brand logo unavailable in PDF: %s", exc)
-    return None
+    if not os.path.isfile(BRAND_LOGO):
+        return None
+    return _scaled_image(BRAND_LOGO, width_mm, width_mm)
 
 
 def _custom_logo(path, width_mm=28):
-    """User-uploaded logo — returns Image flowable or None."""
+    """User-uploaded logo, keeping its proportions."""
     if not path:
         return None
-    try:
-        from reportlab.platypus import Image
-        if os.path.isfile(str(path)):
-            return Image(str(path), width=width_mm * mm, height=width_mm * mm, hAlign="CENTER")
-    except Exception as exc:
-        logger.debug("uploaded logo unusable in PDF (%s): %s", path, exc)
-    return None
+    if not os.path.isfile(str(path)):
+        logger.warning("configured logo is missing from disk: %s", path)
+        return None
+    return _scaled_image(path, width_mm, 14)
 
 TYPE_META = {
     "daily": ("التقرير اليومي للتقدم", "Daily Progress Report"),
@@ -339,12 +374,17 @@ SECTION_ORDER = {
 
 
 def _footer(canvas, doc, serial="", timestamp="", project_name="",
-            report_type=""):
-    """Full corporate footer: serial, timestamp, page, project context.
+            report_type="", org_ar="", org_en="", notes="",
+            platform_line=None):
+    """Corporate footer: serial, timestamp, page, project context.
 
     ``serial`` is the complete document number including its module prefix
     (CVR-, RFI-, VOR- ...); the caller owns the prefix, so a Variation Order
     is never stamped with an inspection number.
+
+    The organisation and the platform line are supplied by the caller. They used
+    to be the vendor's name and copyright on every document, which a tenant
+    with its own identity could not change.
     """
     canvas.saveState()
     canvas.setFillColor(NAVY)
@@ -354,19 +394,20 @@ def _footer(canvas, doc, serial="", timestamp="", project_name="",
     canvas.line(0, 30, A4[0], 30)
     canvas.setFillColor(colors.white)
     canvas.setFont(FONT_BOLD, 8)
-    canvas.drawString(10 * mm, 22, BRAND_AR)
+    canvas.drawString(10 * mm, 22, org_ar or BRAND_AR)
     canvas.setFont(FONT_NORMAL, 7)
-    canvas.drawString(10 * mm, 13,
-                      "Generated securely via Azadexa Cloud Platform")
+    if platform_line:
+        canvas.drawString(10 * mm, 13, platform_line)
     canvas.setFont(FONT_NORMAL, 7.5)
     canvas.drawCentredString(A4[0] / 2, 22,
                              f"{serial or '—'}  •  {timestamp}")
-    canvas.drawRightString(A4[0] - 10 * mm, 22,
-                            f"Page {doc.page}")
+    canvas.drawRightString(A4[0] - 10 * mm, 22, f"Page {doc.page}")
     canvas.setFont(FONT_NORMAL, 6.5)
-    canvas.drawCentredString(A4[0] / 2, 13,
-                             f"{project_name or '—'}  •  {report_type or '—'}  •  "
-                             "© 2026 AZAD Intelligent Systems — All rights reserved")
+    canvas.drawCentredString(
+        A4[0] / 2, 13,
+        f"{project_name or '—'}  •  {report_type or '—'}  •  "
+        f"{org_en or BRAND_EN}"
+        + (f"  •  {notes}" if notes else ""))
     canvas.restoreState()
 
 
@@ -431,5 +472,110 @@ def build_report_pdf(report, author_name: str = "", generated_at: str = "") -> b
     def _foot(c, d):
         _footer(c, d, serial=serial, timestamp=stamp,
                 project_name=report.project_name, report_type=report.type_ar)
+    doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
+    return buf.getvalue()
+
+
+def build_report_pdf_branded(report, brand, author_name: str = "",
+                             generated_at: str = "") -> bytes:
+    """Render a report with the project's own identity in the letterhead and footer.
+
+    ``build_report_pdf`` keeps the platform identity, which is what a
+    single-tenant deployment wants. This variant is what a tenant gets when
+    they have uploaded their own logo and named their organisation: the
+    document is then theirs, not the vendor's.
+    """
+    st = _styles()
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
+                            leftMargin=10 * mm, topMargin=12 * mm,
+                            bottomMargin=36,
+                            title=f"{brand.company_ar}-{report.id}",
+                            author=brand.company_en or brand.company_ar)
+    story = []
+
+    logo = _custom_logo(brand.logo_path)
+    logo2 = _custom_logo(brand.logo2_path)
+    # The letterhead is drawn whenever there is any identity to show. It used
+    # to require an uploaded logo, so a tenant who named their organisation and
+    # added a header line but had no logo file got a report carrying no
+    # identity at all.
+    if logo or logo2 or brand.company_ar or brand.header_ar or brand.header_en:
+        rows = [[logo or Paragraph("", st["cell"]),
+                 logo2 or Paragraph("", st["cell"])]]
+        rows.append([
+            Paragraph(ar(brand.company_ar)
+                      + ("<br/>" + brand.company_en if brand.company_en else ""),
+                      st["cell_small"]),
+            Paragraph(ar(report.project_name or "المقاول المنفذ"), st["cell_small"])])
+        if brand.header_ar or brand.header_en:
+            rows.append([Paragraph(ar(brand.header_ar), st["cell_small"]),
+                         Paragraph(brand.header_en or "", st["cell_small"])])
+        table = Table(rows, colWidths=[95 * mm, 95 * mm])
+        table.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(table)
+        story.append(Spacer(1, 3 * mm))
+
+    story.append(_header_table(report, st))
+    story.append(Spacer(1, 4 * mm))
+    story.append(HRFlowable(width="100%", thickness=1.2, color=GOLD))
+    story.append(Spacer(1, 4 * mm))
+    story.append(_info_table(report, st))
+    story.append(Spacer(1, 5 * mm))
+
+    section_title, fields = SECTION_ORDER.get(
+        report.report_type, ("تفاصيل التقرير", []))
+    story.append(_section_title(section_title, st))
+    story.append(Spacer(1, 3 * mm))
+    payload = report.data or {}
+    items = []
+    for key, label in fields:
+        val = payload.get(key, "")
+        if key == "progress_percent" and val not in ("", None):
+            val = f"{val} %"
+        items.append((label, val))
+    story.append(_kv_table(items, st))
+    story.append(Spacer(1, 6 * mm))
+
+    story.append(_section_title("التوقيع والاعتماد", st))
+    story.append(Spacer(1, 3 * mm))
+    signatory = report.signatory_name or author_name or "—"
+    stamp = generated_at or ""
+    sig_rows = [
+        [Paragraph(ar(stamp), st["cell"]),
+         Paragraph(ar("تاريخ ووقت الإصدار"), st["cell_h"])],
+        [Paragraph(ar(signatory), st["cell"]),
+         Paragraph(ar("مُعد التقرير / الموقّع الرسمي"), st["cell_h"])],
+    ]
+    sig = Table(sig_rows, colWidths=[140 * mm, 50 * mm])
+    sig.setStyle(TableStyle([
+        ("BACKGROUND", (1, 0), (1, -1), colors.HexColor("#fff7dd")),
+        ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#b9c6d2")),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(sig)
+    story.append(Spacer(1, 4 * mm))
+    if brand.disclaimer:
+        story.append(Paragraph(ar(brand.disclaimer), st["cell_small"]))
+
+    serial = f"RPT-{report.id:06d}" if report.id else "RPT-000000"
+    stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    def _foot(c, d):
+        _footer(c, d, serial=serial, timestamp=stamp,
+                project_name=report.project_name, report_type=report.type_ar,
+                org_ar=brand.company_ar, org_en=brand.company_en,
+                notes=brand.footer_notes,
+                platform_line=(brand.disclaimer
+                                or "Generated via Azadexa Reporting Platform"))
     doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
     return buf.getvalue()
