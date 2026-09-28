@@ -1,24 +1,79 @@
-// Azadexa PWA — offline-first for field reports
-const CACHE = "azadexa-v1";
-const OFFLINE_URLS = ["/", "/static/css/custom.css", "/static/js/app.js", "/static/manifest.json"];
+/* Azadexa service worker: static assets only.
+ *
+ * The previous version cached every same-origin GET, navigations included, and
+ * answered from the cache before the network. Three consequences, all of them
+ * real rather than theoretical:
+ *
+ *   - a user editing a record navigated back and was shown the cached page,
+ *     because the cached copy always won;
+ *   - authenticated HTML stayed in the cache after logout, so on a shared
+ *     device the next person to open the application could be served the
+ *     previous user's pages;
+ *   - the cache name never changed, so a new worker re-populated the same
+ *     cache and the stale entries survived every deployment.
+ *
+ * Documents are now always network-first and never stored. Only versioned
+ * static assets are cached, and only after a successful response.
+ */
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(OFFLINE_URLS)).then(() => self.skipWaiting()));
+const CACHE = 'azadexa-static-v2';
+
+const PRECACHE = [
+  '/static/css/custom.css',
+  '/static/css/utilities.css',
+  '/static/css/layout.css',
+  '/static/js/app.js',
+  '/static/js/theme.js',
+  '/static/manifest.json',
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+  );
 });
-self.addEventListener("activate", (e) => {
-  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
+  );
 });
-self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  // only handle same-origin GET
-  if (e.request.method !== "GET" || url.origin !== location.origin) return;
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const fetched = fetch(e.request).then((res) => {
-        if (res.ok) caches.open(CACHE).then((c) => c.put(e.request, res.clone()));
-        return res;
-      }).catch(() => cached);
-      return cached || fetched;
+
+function isStaticAsset(url) {
+  return url.pathname.startsWith('/static/')
+    || url.pathname.startsWith('/uploads/branding/');
+}
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  if (!isStaticAsset(url)) return;
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      });
+      return cached || network;
     })
   );
 });

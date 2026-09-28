@@ -555,16 +555,8 @@ summary:focus-visible,
   width: 3rem;
 }
 
-/* Layout primitives the templates name directly. */
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-index-sticky);
-  background-color: var(--surface);
-  border-bottom: 1px solid var(--slate-200);
-  box-shadow: var(--shadow-sm);
-}
-
+/* Layout primitives the templates name directly. The header, navigation and
+   footer themselves live in layout.css, which owns the application frame. */
 .section-body { padding: var(--space-5); }
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
@@ -578,30 +570,11 @@ summary:focus-visible,
   color: var(--slate-500);
 }
 
-/* Flash messages: readable, and colour is never the only signal. */
-.flash-msg {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-  border-radius: var(--radius-lg);
-  border-inline-start: 4px solid var(--slate-300);
-  background-color: var(--surface);
-  color: var(--slate-800);
-  font-weight: 600;
-}
-.flash-msg-success { border-inline-start-color: var(--success); }
-.flash-msg-danger { border-inline-start-color: var(--error); }
-.flash-msg-warning { border-inline-start-color: var(--warning); }
-.flash-msg-info { border-inline-start-color: var(--info); }
-
-/* A count on a nav or tab link. */
 .badge-count {
   display: inline-block;
   min-width: 1.5rem;
   padding: 0 var(--space-2);
-  border-radius: 9999px;
+  border-radius: 999px;
   background-color: var(--teal);
   color: #ffffff;
   font-size: 0.6875rem;
@@ -634,26 +607,38 @@ summary:focus-visible,
 .empty-state-title { font-weight: 700; color: var(--slate-700); margin-bottom: var(--space-1); }
 .empty-state-hint { font-size: 0.875rem; }
 
-/* ------------------------------------------------------------------ print
-   Printed pages carry the content and nothing else. */
-@media print {
-  .no-print,
-  .btn,
-  .btn-navy,
-  .btn-ghost,
-  .theme-toggle,
-  nav,
-  footer { display: none !important; }
-
-  body { background: #ffffff !important; color: #000000 !important; font-size: 11pt; }
-  .card,
-  .table { border: 1px solid #999 !important; box-shadow: none !important; break-inside: avoid; }
-  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8pt; color: #555; }
-  thead { display: table-header-group; }
-  tr { break-inside: avoid; }
+/* A labelled group of fields, and a group of controls that belong together.
+   Both appear in markup the audit found with no rule at all. */
+.form-group { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.fieldset { border: 0; margin: 0; padding: 0; }
+.fieldset > legend {
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--slate-600);
+  margin-bottom: var(--space-3);
 }
 
-/* ------------------------------------------------------------------ reduced
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--slate-600);
+}
+.check-inline input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: var(--teal); }
+
+.logo-preview {
+  max-width: 7.5rem;
+  max-height: 4rem;
+  object-fit: contain;
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: var(--space-1);
+}
+
+/* ------------------------------------------------------------------ motion
    Respect a stated preference for less motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -665,3 +650,4 @@ summary:focus-visible,
     scroll-behavior: auto !important;
   }
 }
+
