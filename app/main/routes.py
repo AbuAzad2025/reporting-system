@@ -496,3 +496,18 @@ def project_backup_import(project_id):
     summary = ", ".join(f"{k}: {v}" for k, v in counts.items())
     flash(f"تم استعادة المشروع «{project.name}» — {summary}", "success")
     return redirect(url_for("main.project_detail", project_id=project_id))
+
+
+@bp.route("/uploads/branding/<path:filename>")
+def branding_asset(filename):
+    """Serve a stored brand logo.
+
+    Logos live outside the static tree because each tenant uploads their own.
+    The lookup is confined to the branding directory and only ever returns a
+    file whose bytes were sniffed as an image on the way in.
+    """
+    from flask import send_from_directory
+    from app.services.branding import asset_root
+    response = send_from_directory(asset_root(), filename, max_age=86400)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response

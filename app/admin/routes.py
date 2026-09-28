@@ -20,6 +20,7 @@ from app.utils.decorators import (template_manager_required, roles_required,
 from app.ops.isolation import roles_required_json
 from app.services.db_lookup import get_or_404
 from app.services.default_templates import ensure_default_templates
+from app.services.branding import LogoRejected, store_logo
 
 log = logging.getLogger(__name__)
 
@@ -312,30 +313,20 @@ def projects():
                 name=name, location=request.form.get("location", "").strip(),
                 contractor=request.form.get("contractor", "").strip(),
                 client=request.form.get("client", "").strip())
-            # handle custom header logos (professional)
-            try:
-                from app.services.storage import upload_image
-                for field_name, attr in [("logo", "logo_path"), ("logo2", "logo2_path")]:
-                    f = request.files.get(field_name)
-                    if f and f.filename:
-                        # validate image type
-                        ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else "png"
-                        if ext not in ("png", "jpg", "jpeg", "webp", "svg"):
-                            flash(f"صيغة الشعار {f.filename} غير مدعومة (png/jpg/webp/svg فقط).", "warning")
-                            continue
-                        data = f.read()
-                        if len(data) > 5 * 1024 * 1024:
-                            flash("حجم الشعار يجب ألا يتجاوز 5MB.", "warning")
-                            continue
-                        path = upload_image(name or "project", f.filename, data)
-                        setattr(proj, attr, path)
-            except Exception as exc:
-                # A storage failure must not lose the project being created.
-                # The column is not re-added here: it is declared on the model
-                # and created by the migration, so "the column may not exist" is
-                # not a failure this handler can cause or cure.
-                db.session.rollback()
-                log.warning("logo upload skipped: %s", exc)
+            # Logos are stored as keys relative to the branding directory.
+            # SVG is not accepted: it is a program, and one served from this
+            # origin runs with the session of whoever opens the page.
+            for field_name, attr in (("logo", "logo_path"),
+                                     ("logo2", "logo2_path")):
+                upload = request.files.get(field_name)
+                if not upload or not upload.filename:
+                    continue
+                try:
+                    key = store_logo(None, upload.filename, upload.read())
+                except LogoRejected as exc:
+                    flash(f"الشعار: {exc}", "warning")
+                    continue
+                setattr(proj, attr, key)
             db.session.add(proj)
             db.session.commit()
             flash(f"تمت إضافة المشروع «{name}».", "success")
@@ -596,33 +587,82 @@ def api_analytics():
     return jsonify(_ops_analytics())
 
 
-@bp.route("/branding/<int:template_id>", methods=["GET", "POST"])
+@bp.route("/branding", methods=["GET", "POST"])
 @login_required
 @template_manager_required
-def branding(template_id):
-    """Tenant branding customization for the report identity."""
-    tpl = get_or_404(ReportTemplate, template_id)
+def branding():
+    """Brand identity for a project, as it appears on screen and in print.
+
+    This used to live at ``/branding/<template_id>`` and write the template id
+    into ``TenantBranding.project_id``. Those are unrelated identifiers, so the
+    row landed on whichever project happened to share that number, and the
+    resolver - which looks up the projects a user actually belongs to - never
+    found it. The page told the administrator the change applied to every
+    report in the project, and none of it took effect.
+
+    Identity belongs to a project, so the route says so, and the project is
+    chosen explicitly rather than inferred.
+    """
     from app.models import TenantBranding
-    brand = (db.session.query(TenantBranding)
-             .filter_by(project_id=tpl.id, is_active=True).first())
-    # Initialize brand row if missing (idempotent for demo)
-    if brand is None:
-        brand = TenantBranding(project_id=tpl.id, is_active=True)
-        db.session.add(brand)
-        db.session.commit()
+    from app.services.branding import (LogoRejected, delete_logo, store_logo,
+                                       normalise_hex)
+
+    projects = Project.query.filter_by(is_active=True).order_by(
+        Project.name).all()
+    if not projects:
+        flash("أضف مشروعاً أولاً قبل ضبط الهوية.", "warning")
+        return redirect(url_for("admin.projects"))
+
+    def _selected():
+        raw = (request.form.get("project_id") or request.args.get("project_id")
+               or "").strip()
+        return int(raw) if raw.isdigit() else projects[0].id
+
+    project_id = _selected()
+    if project_id not in {p.id for p in projects}:
+        flash("المشروع المطلوب غير موجود.", "danger")
+        return redirect(url_for("admin.branding"))
+
     if request.method == "POST":
-        brand.company_name_ar = request.form.get("company_name_ar", "").strip()
-        brand.company_name_en = request.form.get("company_name_en", "").strip()
-        brand.logo_path = request.form.get("logo_path", "").strip()
-        brand.primary_color = request.form.get("primary_color", "#1e3a5f").strip() or "#1e3a5f"
-        brand.secondary_color = request.form.get("secondary_color", "#c9a227").strip() or "#c9a227"
-        brand.custom_header_text_ar = request.form.get("custom_header_text_ar", "").strip()
-        brand.custom_footer_notes = request.form.get("custom_footer_notes", "").strip()
-        brand.disclaimer_text = request.form.get("disclaimer_text", "").strip()
+        brand = (db.session.query(TenantBranding)
+                 .filter_by(project_id=project_id, is_active=True).first())
+        if brand is None:
+            brand = TenantBranding(project_id=project_id, is_active=True)
+            db.session.add(brand)
+        for field in ("company_name_ar", "company_name_en",
+                      "custom_header_text_ar", "custom_header_text_en",
+                      "custom_footer_notes", "disclaimer_text"):
+            setattr(brand, field, request.form.get(field, "").strip())
+        brand.primary_color = normalise_hex(
+            request.form.get("primary_color"), "#1e3a5f")
+        brand.secondary_color = normalise_hex(
+            request.form.get("secondary_color"), "#c9a227")
+
+        for form_field, attr in (("logo", "logo_path"), ("logo2", "logo2_path")):
+            upload = request.files.get(form_field)
+            if not upload or not upload.filename:
+                continue
+            try:
+                key = store_logo(None, upload.filename, upload.read())
+            except LogoRejected as exc:
+                flash(str(exc), "danger")
+                continue
+            delete_logo(getattr(brand, attr) or "")
+            setattr(brand, attr, key)
+
+        if request.form.get("clear_logo") and not request.files.get("logo"):
+            delete_logo(brand.logo_path or "")
+            brand.logo_path = ""
+
         db.session.commit()
-        flash("تم حفظ تخصيص المظهر للمشروع.", "success")
-        return redirect(url_for("admin.templates"))
-    return render_template("admin/branding.html", tpl=tpl, brand=brand)
+        flash("تم حفظ هوية المشروع. تظهر في الترويسة والذيل والطباعة وملف PDF.",
+              "success")
+        return redirect(url_for("admin.branding", project_id=project_id))
+
+    brand = (db.session.query(TenantBranding)
+             .filter_by(project_id=project_id, is_active=True).first())
+    return render_template("admin/branding.html", brand=brand,
+                           projects=projects, selected_project_id=project_id)
 
 
 @bp.route("/analytics")

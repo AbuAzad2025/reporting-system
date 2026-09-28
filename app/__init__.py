@@ -108,6 +108,13 @@ def create_app(config_class=Config):
         flash(login_manager.login_message, login_manager.login_message_category)
         return redirect(url_for(login_manager.login_view))
 
+    # The shared macros are available in every template. Importing them per
+    # template meant a page using page_head() without the import raised
+    # UndefinedError only when that page was rendered, and nothing failed at
+    # build time.
+    macros = app.jinja_env.get_template("_macros.html")
+    app.jinja_env.globals.update(macros.module.__dict__)
+
     # ---- blueprints (spec layout: auth / admin / reports + main)
     from app.auth import bp as auth_bp
     from app.main import bp as main_bp
@@ -144,23 +151,12 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_globals():
         cfg = app.config
-        brand = None
-        if current_user.is_authenticated:
-            from app.models import TenantBranding
-            # Brand from user's linked project (simplest: user owns a project)
-            # For platform managers: first active branding; for users: by user role/project
-            brand = (TenantBranding.query
-                     .filter_by(is_active=True)
-                     .order_by(TenantBranding.created_at.desc()).first())
-        # Apply brand identity: company names override config if set.
-        brand_ar = (brand.company_name_ar if brand and brand.company_name_ar
-                    else cfg.get("COMPANY_NAME_AR"))
-        brand_en = (brand.company_name_en if brand and brand.company_name_en
-                    else cfg.get("COMPANY_NAME_EN"))
+        from app.services.branding import resolve_brand
+        brand = resolve_brand(current_user)
         return {"REPORT_TYPES": REPORT_TYPES, "ROLES": ROLES,
                 "APP_NAME_AR": cfg.get("APP_NAME_AR"),
-                "COMPANY_NAME_AR": brand_ar,
-                "COMPANY_NAME_EN": brand_en,
+                "COMPANY_NAME_AR": brand.company_ar,
+                "COMPANY_NAME_EN": brand.company_en,
                 "DEVELOPER_AR": cfg.get("DEVELOPER_AR"),
                 "CONTACT_EMAIL": cfg.get("CONTACT_EMAIL"),
                 "CONTACT_PHONE": cfg.get("CONTACT_PHONE"),

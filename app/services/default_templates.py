@@ -3,6 +3,8 @@
 Used by seed + 'reset to defaults' admin action. Field dicts:
   key / label_ar / type / required / options / placeholder
 """
+import re
+
 from utils.helpers import FIELD_SPECS
 from app.models import TenantBranding, TenantTemplateOverride
 
@@ -750,21 +752,24 @@ OBSOLETE_DAILY_KEYS = {
 
 
 def apply_tenant_branding(tpl, branding: "TenantBranding") -> None:
-    """Apply tenant branding to a ReportTemplate (in memory for PDF/DocX).
+    """Adopt a tenant's colours for a template, in memory only.
 
-    Called by pdf_dynamic and docx_exporter before rendering;
-    does NOT persist to DB (so original system template stays intact).
+    Never called before now, and it would have raised on its first line:
+    ``branding.gradient`` does not exist on TenantBranding - ``gradient`` is a
+    column on ReportTemplate - so the whole tenant-branding-to-PDF path was
+    dead code and the PDF fell back to hardcoded vendor identity.
+
+    It also overwrote ``tpl.name_ar`` with the tenant's header text, which
+    renamed the report type itself in every picker and list on the way past.
+    The header text belongs in the header; the template keeps its own name.
     """
     if branding is None:
         return
-    if branding.gradient and branding.primary_color:
-        # Custom gradient from primary -> secondary
-        tpl.gradient = f"from-[{branding.primary_color.lstrip('#')}] to-[{branding.secondary_color.lstrip('#')}]"
-    else:
-        # Only update text/icon if explicitly customized
-        pass
-    if branding.custom_header_text_ar:
-        tpl.name_ar = branding.custom_header_text_ar[:200]
+    primary = str(getattr(branding, "primary_color", "") or "")
+    secondary = str(getattr(branding, "secondary_color", "") or "")
+    if re.match(r"\A#[0-9a-fA-F]{6}\Z", primary) and \
+            re.match(r"\A#[0-9a-fA-F]{6}\Z", secondary):
+        tpl.gradient = f"from-[{primary.lstrip('#')}] to-[{secondary.lstrip('#')}]"
 
 
 def build_tenant_fields(tpl, override: "TenantTemplateOverride") -> list:

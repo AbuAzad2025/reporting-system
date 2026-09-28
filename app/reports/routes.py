@@ -232,7 +232,15 @@ def pdf(report_id):
     if not current_user.is_admin and r.user_id != current_user.id:
         abort(404)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    data = build_report_pdf(r, author_name=r.signatory_name, generated_at=stamp)
+    from app.models import Project
+    from app.services.branding import branding_for_project
+    from utils.pdf_generator import build_report_pdf_branded
+    # The legacy Report table is keyed by project_name, not project_id, so the
+    # tenant is resolved through the project of that name.
+    project = Project.query.filter_by(name=r.project_name).first()
+    brand = branding_for_project(project.id if project else None)
+    data = build_report_pdf_branded(r, brand, author_name=r.signatory_name,
+                                    generated_at=stamp)
     return Response(data, mimetype="application/pdf",
                     headers={"Content-Disposition":
                              f"inline; filename=report-{r.id}.pdf"})
