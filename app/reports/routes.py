@@ -345,11 +345,13 @@ def _collect_dynamic(template, form):
             # Indexed extraction: photo-only rows survive (uploads live in
             # request.files, not the form) and file keys keep original
             # indices even when empty rows are dropped.
-            try:
-                from flask import request as _req
-                _files = getattr(_req, "files", None)
-            except Exception:
-                _files = None
+            #
+            # A plain attribute read, not getattr behind a try/except. This
+            # runs inside a request handler where `request.files` is part of
+            # the context's contract, so the guard could never fire; a guard
+            # that cannot fail only advertises a failure mode nobody has to
+            # think about.
+            _files = request.files
             pairs = _extract_table_rows(f, form, files=_files, indexed=True)
             # Tripwire against silent data loss: if the browser submitted
             # non-empty cells under this table's prefix but zero rows were
