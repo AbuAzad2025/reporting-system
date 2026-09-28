@@ -1,28 +1,46 @@
 {% extends "base.html" %}
+{% from "_macros.html" import field, card, checkbox, submit_btn %}
 {% block title %}تسجيل الدخول{% endblock %}
 {% block content %}
-<div class="max-w-md mx-auto bg-white rounded-3xl shadow-xl p-6 md:p-8 mt-6">
-  <div class="text-center mb-5">
-    <img src="{{ url_for('static', filename='img/brand/azad-logo.png') }}" alt="{{ COMPANY_NAME_AR }}" class="w-24 h-24 rounded-3xl object-cover mx-auto shadow">
-    <h1 class="text-xl font-extrabold text-navy mt-2">تسجيل الدخول</h1>
-    <p class="text-sm text-slate-500">{{ APP_NAME_AR }}</p>
-  </div>
-  <form method="POST" class="space-y-4">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div>
-      <label class="font-bold text-sm">اسم المستخدم أو البريد الإلكتروني</label>
-      <input name="username" required autocomplete="username" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="مثال: engineer">
+<div class="max-w-md mx-auto mt-6 md:mt-12">
+  {% call card() %}
+    <div class="text-center mb-5">
+      <img src="{{ url_for('static', filename='img/brand/azad-logo.png') }}"
+           alt="{{ COMPANY_NAME_AR }}"
+           class="w-24 h-24 rounded-3xl object-cover mx-auto shadow">
+      <h1 class="text-xl font-extrabold text-navy mt-2">تسجيل الدخول</h1>
+      <p class="text-sm text-slate-500">{{ APP_NAME_AR }}</p>
     </div>
-    <div class="relative">
-      <label class="font-bold text-sm">كلمة المرور</label>
-      <input name="password" id="password" type="password" required autocomplete="current-password" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-teal2 outline-none" placeholder="••••••">
-      <button type="button" onclick="document.getElementById('password').type=document.getElementById('password').type==='password'?'text':'password';this.textContent=document.getElementById('password').type==='text'?'إخفاء':'إظهار';" class="absolute right-3 top-9 text-xs text-teal2 font-bold hover:underline">إظهار</button>
-    </div>
-    <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
-      <input type="checkbox" name="remember" id="remember" class="w-4 h-4 rounded border-slate-300 text-teal2"> تذكرني
-    </label>
-    <button class="w-full bg-navy text-white font-extrabold py-4 rounded-2xl text-lg hover:bg-[#254a78]">دخول ➜</button>
-  </form>
-  <p class="text-center text-sm mt-4">ليس لديك حساب؟ <a href="{{ url_for('auth.register') }}" class="text-teal2 font-bold">سجل الآن</a></p>
+
+    <form method="POST" class="space-y-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      {{ field('username', 'اسم المستخدم أو البريد الإلكتروني',
+               type='text', required=True, placeholder='مثال: engineer',
+               extra='autocomplete="username"') }}
+
+      <div class="relative">
+        {{ field('password', 'كلمة المرور', type='password', required=True,
+                 placeholder='••••••',
+                 extra='autocomplete="current-password"') }}
+        <button type="button" class="password-toggle"
+                aria-label="إظهار كلمة المرور" aria-pressed="false"
+                onclick="var p=document.getElementById('f-password');var s=p.type==='password';p.type=s?'text':'password';this.setAttribute('aria-pressed',String(s));this.textContent=s?'إخفاء':'إظهار';">
+          إظهار
+        </button>
+      </div>
+
+      {{ checkbox('remember', 'تذكرني') }}
+
+      <div>
+        {{ submit_btn('دخول', 'w-full justify-center') }}
+      </div>
+    </form>
+
+    <p class="text-center text-sm mt-4">
+      ليس لديك حساب؟
+      <a href="{{ url_for('auth.register') }}" class="text-teal2 font-bold">سجل الآن</a>
+    </p>
+  {% endcall %}
 </div>
 {% endblock %}

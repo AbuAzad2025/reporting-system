@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>{% block title %}{{ APP_NAME_AR }}{% endblock %} — {{ APP_NAME_AR }}</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/brand/favicon.png') }}">
-  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/utilities.css') }}">
+  <link rel="icon" type="image/png" href="{{ asset_url('img/brand/favicon.png') }}">
+  <link rel="manifest" href="{{ asset_url('manifest.json') }}">
+  <link rel="stylesheet" href="{{ asset_url('css/custom.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('css/utilities.css') }}">
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-[calc(100vh-4rem)] pb-24 md:pb-10">
   <a href="#main-content" class="skip-link">تخطَّ إلى المحتوى</a>
@@ -27,7 +27,7 @@
   <header class="app-header sticky top-0 z-[var(--z-index-sticky)] shadow-md">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
       <a href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('main.index') }}" class="flex items-center gap-2 min-w-0">
-        <img src="{{ url_for('static', filename='img/brand/azad-logo-dark.png') }}" alt="AZAD" class="w-10 h-10 rounded-xl object-cover shrink-0" onerror="this.style.display='none'">
+        <img src="{{ asset_url('img/brand/azad-logo-dark.png') }}" alt="AZAD" class="w-10 h-10 rounded-xl object-cover shrink-0" onerror="this.style.display='none'">
         <div class="min-w-0">
           <div class="font-bold text-sm md:text-base leading-tight truncate">{{ APP_NAME_AR }}</div>
           <div class="text-[11px] opacity-70 truncate">{{ COMPANY_NAME_AR }}</div>
@@ -111,7 +111,7 @@
   </footer>
 
   <div id="toast-root" aria-live="polite" class="no-print"></div>
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ asset_url('js/app.js') }}"></script>
   <script>
     // Theme toggle functionality
     document.addEventListener('DOMContentLoaded', function() {

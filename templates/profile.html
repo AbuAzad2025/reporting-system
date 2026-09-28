@@ -20,9 +20,9 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <!-- Avatar -->
     <div>
-      <label class="font-bold text-sm">الصورة الشخصية</label>
+      <label class="font-bold text-sm" for="f-avatar">الصورة الشخصية</label>
       <div class="mt-2 flex items-center gap-4">
-        <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="border-2 border-slate-200 rounded-xl px-4 py-3 w-full max-w-xs" onchange="previewAvatar(this)">
+        <input id="f-avatar" type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="form-control w-full max-w-xs" onchange="previewAvatar(this)">
         {% if current_user.avatar %}
         <form method="POST" action="{{ url_for('main.remove_avatar') }}" class="inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -38,23 +38,23 @@
     <!-- Basic Info -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label class="font-bold text-sm">الاسم الرباعي * <span class="text-red-500">(يُختم على التقارير)</span></label>
-        <input name="full_name" required value="{{ current_user.full_name }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+        <label class="font-bold text-sm" for="f-full_name">الاسم الرباعي * <span class="text-red-500">(يُختم على التقارير)</span></label>
+        <input id="f-full_name" name="full_name" required value="{{ current_user.full_name }}" class="form-control w-full">
       </div>
       <div>
-        <label class="font-bold text-sm">المسمى الوظيفي</label>
-        <input name="job_title" value="{{ current_user.job_title or '' }}" placeholder="مثال: مهندس مدني أول" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+        <label class="font-bold text-sm" for="f-job_title">المسمى الوظيفي</label>
+        <input id="f-job_title" name="job_title" value="{{ current_user.job_title or '' }}" placeholder="مثال: مهندس مدني أول" class="form-control w-full">
       </div>
       <div>
-        <label class="font-bold text-sm">القسم / الإدارة</label>
-        <input name="department" value="{{ current_user.department or '' }}" placeholder="مثال: إدارة المشاريع" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+        <label class="font-bold text-sm" for="f-department">القسم / الإدارة</label>
+        <input id="f-department" name="department" value="{{ current_user.department or '' }}" placeholder="مثال: إدارة المشاريع" class="form-control w-full">
       </div>
       <div>
-        <label class="font-bold text-sm">الشهادات / التراخيص المهنية</label>
-        <input name="certification" value="{{ current_user.certification or '' }}" placeholder="مثال: PMP, LEED GA, رخصة مزاولة" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+        <label class="font-bold text-sm" for="f-certification">الشهادات / التراخيص المهنية</label>
+        <input id="f-certification" name="certification" value="{{ current_user.certification or '' }}" placeholder="مثال: PMP, LEED GA, رخصة مزاولة" class="form-control w-full">
       </div>
       <div>
-        <label class="font-bold text-sm">الجوال</label>
-        <input name="phone" dir="ltr" value="{{ current_user.phone or '' }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-left">
+        <label class="font-bold text-sm" for="f-phone">الجوال</label>
+        <input id="f-phone" name="phone" dir="ltr" value="{{ current_user.phone or '' }}" class="form-control w-full text-left">
       </div
 {% endblock %}

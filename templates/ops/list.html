@@ -2,7 +2,7 @@
 {% block title %}{{ kind_title }}{% endblock %}
 {% block content %}
 <div class="max-w-6xl mx-auto space-y-4">
-  <div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between">
+  <div class="surface-card p-5 flex items-center justify-between">
     <div>
       <h1 class="font-extrabold text-lg text-navy">{{ kind_title }}</h1>
       <p class="text-xs text-slate-500">{{ total }} سجل • مشاريعك فقط</p>
@@ -10,7 +10,7 @@
     <a href="{{ url_for('ops.ui_new', kind=kind) }}" class="bg-teal2 text-white font-bold px-5 py-3 rounded-xl">＋ جديد</a>
   </div>
 
-  <div class="bg-white rounded-3xl shadow p-5">
+  <div class="surface-card p-5">
     <div class="flex gap-2 mb-3">
       <a href="?status=" class="px-3 py-2 rounded-xl text-xs font-bold {% if not status_filter %}bg-navy text-white{% else %}bg-slate-100{% endif %}">الكل</a>
       <a href="?status=draft" class="px-3 py-2 rounded-xl text-xs font-bold {% if status_filter=='draft' %}bg-amber-500 text-white{% else %}bg-slate-100{% endif %}">مسودة</a>

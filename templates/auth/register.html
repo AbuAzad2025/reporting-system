@@ -1,65 +1,54 @@
 {% extends "base.html" %}
+{% from "_macros.html" import field, select, card, submit_btn %}
 {% block title %}إنشاء حساب{% endblock %}
 {% block content %}
-<div class="max-w-lg mx-auto bg-white rounded-3xl shadow-xl p-6 md:p-8 mt-6">
-  <div class="text-center mb-5">
-    <div class="text-4xl">📝</div>
-    <h1 class="text-xl font-extrabold text-navy mt-2">إنشاء حساب جديد</h1>
-    <p class="text-sm text-slate-500">الاسم الرباعي سيظهر كموقّع رسمي على كل تقاريرك</p>
-  </div>
-  <form method="POST" class="space-y-4">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div>
-      <label class="font-bold text-sm">الاسم الرباعي (الاسم الكامل أربعة مقاطع) *</label>
-      <input name="full_name" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="مثال: محمد أحمد علي حسن">
+<div class="max-w-lg mx-auto mt-6 md:mt-12">
+  {% call card() %}
+    <div class="text-center mb-5">
+      <div class="text-4xl">📝</div>
+      <h1 class="text-xl font-extrabold text-navy mt-2">إنشاء حساب جديد</h1>
+      <p class="text-sm text-slate-500">الاسم الرباعي سيظهر كموقّع رسمي على كل تقاريرك</p>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label class="font-bold text-sm">اسم المستخدم *</label>
-        <input name="username" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+
+    <form method="POST" class="space-y-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      {{ field('full_name', 'الاسم الرباعي (أربعة مقاطع)', required=True,
+               placeholder='مثال: محمد أحمد علي حسن', extra='autocomplete="name"') }}
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {{ field('username', 'اسم المستخدم', required=True,
+                 extra='autocomplete="username"') }}
+        {{ field('email', 'البريد الإلكتروني', type='email', required=True,
+                 extra='dir="ltr" class="text-left" autocomplete="email"') }}
       </div>
-      <div>
-        <label class="font-bold text-sm">البريد الإلكتروني *</label>
-        <input name="email" type="email" required dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none text-left">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {{ field('password', 'كلمة المرور (8 أحرف فأكثر)', type='password',
+                 required=True, extra='autocomplete="new-password"') }}
+        {{ field('confirm', 'تأكيد كلمة المرور', type='password', required=True,
+                 extra='autocomplete="new-password"') }}
       </div>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label class="font-bold text-sm">كلمة المرور (8+ أحرف) *</label>
-        <input name="password" type="password" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {{ field('phone', 'الجوال (اختياري)', extra='dir="ltr" class="text-left" autocomplete="tel"') }}
+        {{ field('company', 'الشركة / الجهة (اختياري)', extra='autocomplete="organization"') }}
       </div>
-      <div>
-        <label class="font-bold text-sm">تأكيد كلمة المرور *</label>
-        <input name="confirm" type="password" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
-      </div>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label class="font-bold text-sm">الجوال (اختياري)</label>
-        <input name="phone" dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none text-left">
-      </div>
-      <div>
-        <label class="font-bold text-sm">الشركة / الجهة (اختياري)</label>
-        <input name="company" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
-      </div>
-    </div>
-    <div>
-      <label class="font-bold text-sm">الدور</label>
-      <select name="role" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none bg-white">
-        {% if role_choices %}
-          {% for val, label in role_choices %}
-          <option value="{{ val }}">{{ label }}</option>
-          {% endfor %}
-        {% else %}
-        <option value="site_engineer">مهندس موقع</option>
-        <option value="safety_officer">مسؤول سلامة</option>
-        <option value="project_manager">مدير مشروع</option>
-        {% endif %}
-      </select>
-      <p class="text-[11px] text-slate-400 mt-1">أول حساب في المنصة يصبح مالك المنصة (Superadmin) تلقائياً.</p>
-    </div>
-    <button class="w-full bg-teal2 text-white font-extrabold py-4 rounded-2xl text-lg hover:brightness-110">إنشاء الحساب ✅</button>
-  </form>
-  <p class="text-center text-sm mt-4">لديك حساب؟ <a href="{{ url_for('auth.login') }}" class="text-teal2 font-bold">سجل الدخول</a></p>
+
+      {% set roles = role_choices if role_choices else [
+        ('site_engineer', 'مهندس موقع'),
+        ('safety_officer', 'مسؤول سلامة'),
+        ('project_manager', 'مدير مشروع')] %}
+      {{ select('role', 'الدور', roles,
+                hint='أول حساب في المنصة يصبح مالك المنصة (Superadmin) تلقائياً.') }}
+
+      {{ submit_btn('إنشاء الحساب ✅', 'w-full justify-center') }}
+    </form>
+
+    <p class="text-center text-sm mt-4">
+      لديك حساب؟
+      <a href="{{ url_for('auth.login') }}" class="text-teal2 font-bold">سجل الدخول</a>
+    </p>
+  {% endcall %}
 </div>
 {% endblock %}

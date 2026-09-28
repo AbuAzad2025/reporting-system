@@ -5,20 +5,20 @@
   <h1 class="font-extrabold text-lg text-navy">🏗️ إدارة المشاريع</h1>
   <form method="POST" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input name="name" required placeholder="اسم المشروع *" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
-    <input name="location" placeholder="الموقع" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
-    <input name="contractor" placeholder="المقاول" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <input aria-label="اسم المشروع" name="name" required placeholder="اسم المشروع *" class="form-control">
+    <input aria-label="الموقع" name="location" placeholder="الموقع" class="form-control">
+    <input aria-label="المقاول" name="contractor" placeholder="المقاول" class="form-control">
     <div class="flex gap-2">
-      <input name="client" placeholder="المالك" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+      <input aria-label="العميل" name="client" placeholder="المالك" class="form-control flex-1">
       <button class="bg-teal2 text-white font-extrabold px-5 rounded-xl">➕</button>
     </div>
     <div class="sm:col-span-2">
-      <label class="text-[11px] font-bold text-slate-600">شعار المشروع (يظهر في هيدر PDF) <span class="font-normal text-slate-400">PNG/JPG ≤5MB</span></label>
-      <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-xs bg-white">
+      <label class="text-[11px] font-bold text-slate-600" for="f-logo">شعار المشروع (يظهر في هيدر PDF) <span class="font-normal text-slate-400">PNG/JPG ≤5MB</span></label>
+      <input id="f-logo" type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="form-control w-full">
     </div>
     <div class="sm:col-span-2">
-      <label class="text-[11px] font-bold text-slate-600">شعار ثانٍ (الوزارة/المالك)</label>
-      <input type="file" name="logo2" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-xs bg-white">
+      <label class="text-[11px] font-bold text-slate-600" for="f-logo2">شعار ثانٍ (الوزارة/المالك)</label>
+      <input id="f-logo2" type="file" name="logo2" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="form-control w-full">
     </div>
   </form>
 </div>

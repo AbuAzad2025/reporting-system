@@ -13,28 +13,28 @@
   <h2 class="font-extrabold text-sm text-navy mb-3">➕ إضافة حقل جديد</h2>
   <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div>
-      <label class="font-bold text-xs">مفتاح الحقل (لاتيني، بدون مسافات) *</label>
-      <input name="field_key" required dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-left text-sm" placeholder="manpower">
+      <label class="font-bold text-xs" for="f-field_key">مفتاح الحقل (لاتيني، بدون مسافات) *</label>
+      <input id="f-field_key" name="field_key" required dir="ltr" class="form-control w-full text-left" placeholder="manpower">
     </div>
     <div>
-      <label class="font-bold text-xs">التسمية العربية *</label>
-      <input name="label_ar" required class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm" placeholder="القوى العاملة">
+      <label class="font-bold text-xs" for="f-label_ar">التسمية العربية *</label>
+      <input id="f-label_ar" name="label_ar" required class="form-control w-full" placeholder="القوى العاملة">
     </div>
     <div>
       <label class="font-bold text-xs">النوع</label>
-      <select name="field_type" id="field_type" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 bg-white text-sm">
+      <select aria-label="نوع الحقل" name="field_type" id="field_type" class="form-control w-full">
         {% for k, v in FIELD_TYPES.items() %}
         <option value="{{ k }}">{{ v }}</option>
         {% endfor %}
       </select>
     </div>
     <div>
-      <label class="font-bold text-xs">خيارات القائمة (افصل بفاصلة) — للنوع dropdown فقط</label>
-      <input name="options" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm" placeholder="ممتاز, جيد, ضعيف">
+      <label class="font-bold text-xs" for="f-options">خيارات القائمة (افصل بفاصلة) — للنوع dropdown فقط</label>
+      <input id="f-options" name="options" class="form-control w-full" placeholder="ممتاز, جيد, ضعيف">
     </div>
     <div id="columns_box" class="sm:col-span-2 hidden">
-      <label class="font-bold text-xs">أعمدة جدول البنود — سطر لكل عمود: <bdi dir="ltr">key | التسمية | type | required | خيارات</bdi></label>
-      <textarea name="columns" rows="3" dir="ltr" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left" placeholder="name | الاسم | text | required&#10;role | المهنة | dropdown | required | مهندس, فني, عامل&#10;count | العدد | number | required"></textarea>
+      <label class="form-label" for="f-columns">أعمدة جدول البنود — سطر لكل عمود: <bdi dir="ltr">key | التسمية | type | required | خيارات</bdi></label>
+      <textarea id="f-columns" name="columns" rows="3" dir="ltr" class="form-control w-full text-left" placeholder="name | الاسم | text | required&#10;role | المهنة | dropdown | required | مهندس, فني, عامل&#10;count | العدد | number | required"></textarea>
       <p class="text-[11px] text-slate-400 mt-1">الأنواع: text / number / dropdown / date — يمكن إضافة أعمدة لاحقاً من الأسفل.</p>
     </div>
     <script>
@@ -42,18 +42,18 @@
     function t(){b.classList.toggle('hidden',s.value!=='table');}s.addEventListener('change',t);t();})();
     </script>
     <div class="sm:col-span-2">
-      <label class="font-bold text-xs">نص مساعد (placeholder)</label>
-      <input name="placeholder" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm">
+      <label class="font-bold text-xs" for="f-placeholder">نص مساعد (placeholder)</label>
+      <input id="f-placeholder" name="placeholder" class="form-control w-full">
     </div>
     <div>
-      <label class="font-bold text-xs">قواعد التحقق (JSON-schema خفيف — اختياري)</label>
+      <label class="font-bold text-xs" for="f-rule_min">قواعد التحقق (JSON-schema خفيف — اختياري)</label>
       <div class="grid grid-cols-2 gap-2 mt-1">
-        <input name="rule_min" dir="ltr" placeholder="min (للأرقام)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
-        <input name="rule_max" dir="ltr" placeholder="max (للأرقام)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
-        <input name="rule_min_length" dir="ltr" placeholder="min_length (للنص)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
-        <input name="rule_max_length" dir="ltr" placeholder="max_length (للنص)" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
+        <input id="f-rule_min" name="rule_min" dir="ltr" placeholder="min (للأرقام)" class="form-control text-left">
+        <input aria-label="القيمة القصوى" name="rule_max" dir="ltr" placeholder="max (للأرقام)" class="form-control text-left">
+        <input aria-label="أقل طول مسموح" name="rule_min_length" dir="ltr" placeholder="min_length (للنص)" class="form-control text-left">
+        <input aria-label="أقصى طول مسموح" name="rule_max_length" dir="ltr" placeholder="max_length (للنص)" class="form-control text-left">
       </div>
-      <input name="rule_pattern" dir="ltr" placeholder="pattern (regex اختياري)" class="mt-2 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-left">
+      <input aria-label="نمط التحقق" name="rule_pattern" dir="ltr" placeholder="pattern (regex اختياري)" class="form-control w-full text-left">
     </div>
     <label class="flex items-center gap-2 text-sm font-bold"><input type="checkbox" name="required" value="1" class="w-5 h-5"> حقل مطلوب</label>
     <button class="sm:col-span-2 bg-teal2 text-white font-extrabold py-3 rounded-2xl">➕ إضافة الحقل</button>
@@ -81,10 +81,10 @@
         <div class="text-[11px] text-amber-600 font-bold">⚠️ بلا أعمدة — لن يظهر الجدول حتى تضيف عموداً.</div>
         {% endfor %}
         <form method="POST" action="{{ url_for('admin.field_column_add', field_id=f.id) }}" class="grid grid-cols-2 sm:grid-cols-6 gap-1 mt-2">
-          <input name="col_key" required dir="ltr" placeholder="key" class="border rounded-lg px-2 py-2 text-[11px] text-left">
-          <input name="col_label" required placeholder="التسمية" class="border rounded-lg px-2 py-2 text-[11px]">
-          <select name="col_type" class="border rounded-lg px-1 py-2 text-[11px] bg-white"><option value="text">نص</option><option value="number">رقم</option><option value="dropdown">قائمة</option><option value="date">تاريخ</option></select>
-          <input name="col_options" placeholder="خيارات، ..." class="border rounded-lg px-2 py-2 text-[11px]">
+          <input aria-label="مفتاح العمود" name="col_key" required dir="ltr" placeholder="key" class="form-control text-left">
+          <input aria-label="عنوان العمود" name="col_label" required placeholder="التسمية" class="form-control">
+          <select aria-label="نوع العمود" name="col_type" class="form-control"><option value="text">نص</option><option value="number">رقم</option><option value="dropdown">قائمة</option><option value="date">تاريخ</option></select>
+          <input aria-label="خيارات العمود" name="col_options" placeholder="خيارات، ..." class="form-control">
           <label class="flex items-center gap-1 text-[11px] font-bold"><input type="checkbox" name="col_required" value="1" class="w-4 h-4"> مطلوب</label>
           <button class="bg-teal2 text-white text-[11px] font-extrabold px-2 py-2 rounded-lg">➕ عمود</button>
         </form>

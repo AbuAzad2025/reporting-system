@@ -17,11 +17,42 @@ from app.extensions import db, login_manager, migrate
 csrf = CSRFProtect()
 
 
+def _register_asset_cache_busting(app):
+    """Give every static URL a version, so a deploy is visible immediately.
+
+    Without it the browser keeps serving the stylesheet it already has, and a
+    fix that is committed and merged appears to do nothing until a hard
+    refresh. The version is the file's mtime, which is stable for a given
+    build and changes exactly when the asset does. It is resolved once per
+    process per file, so this costs one stat per asset, not one per request.
+    """
+    from flask import url_for
+
+    cache: dict[str, str] = {}
+
+    def asset_url(filename: str) -> str:
+        version = cache.get(filename)
+        if version is None:
+            try:
+                path = os.path.join(app.static_folder, filename)
+                version = str(int(os.path.getmtime(path)))
+            except OSError:
+                # A missing asset should still produce a URL; the browser will
+                # report the 404, which is more useful than a 500 here.
+                version = "0"
+            cache[filename] = version
+        return url_for("static", filename=filename, v=version)
+
+    app.jinja_env.globals["asset_url"] = asset_url
+    return asset_url
+
+
 def create_app(config_class=Config):
     app = Flask(__name__,
                 template_folder=os.path.join(BASE_DIR, "templates"),
                 static_folder=os.path.join(BASE_DIR, "static"))
     app.config.from_object(config_class)
+    _register_asset_cache_busting(app)
 
     db.init_app(app)
     login_manager.init_app(app)

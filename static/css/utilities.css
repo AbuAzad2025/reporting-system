@@ -310,6 +310,7 @@ summary:focus-visible,
   .md\:col-span-4 { grid-column: span 4 / span 4; }
   .md\:p-8 { padding: var(--space-8); }
   .md\:p-10 { padding: var(--space-10); }
+  .md\:mt-12 { margin-top: var(--space-12); }
   .md\:pb-10 { padding-bottom: var(--space-10); }
   .md\:bottom-4 { bottom: var(--space-4); }
   .md\:text-base { font-size: 1rem; line-height: 1.5rem; }
@@ -367,6 +368,76 @@ summary:focus-visible,
 
 /* ------------------------------------------------------------------ project
    Component classes the templates were already written against. */
+
+/* Reveal-control for a password field.
+
+   The previous version positioned this with a magic offset (top-9) tuned to
+   one particular input height, so it drifted as soon as the field padding or
+   the label text changed. It is now aligned to the middle of the control with
+   flexbox, and given a real hit area. */
+.password-toggle {
+  position: absolute;
+  inset-inline-end: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--teal);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.password-toggle:hover { text-decoration: underline; }
+.password-toggle:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+/* The card an input sits in, so the toggle can centre on the control rather
+   than on the whole block. */
+.table-field { position: relative; }
+
+/* The one card. A hand-written "bg-white rounded-3xl shadow p-5" appeared in
+   fourteen places, which is fourteen chances to drift apart. */
+.surface-card {
+  background-color: var(--surface);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-3xl, 24px);
+  box-shadow: var(--shadow-sm);
+}
+.surface-card > .surface-card-head {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--slate-200);
+  background-color: var(--surface-sunken);
+}
+.surface-card > .surface-card-head h2 { margin: 0; }
+.surface-card:hover { box-shadow: var(--shadow-md); }
+
+/* A form control that the server rejected. Marked by a border and an icon
+   rule, not by colour alone. */
+.form-control-invalid,
+.form-control-invalid:focus {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.20);
+}
+.form-hint-error { color: var(--error); font-weight: 700; }
+
+/* Page heading, so every page opens identically. */
+.page-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-6) 0 var(--space-4);
+}
+.page-head-back {
+  align-self: flex-start;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--teal);
+}
+.page-head-back:hover { text-decoration: underline; }
 .btn-navy {
   display: inline-flex;
   align-items: center;

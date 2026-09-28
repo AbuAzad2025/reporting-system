@@ -189,3 +189,253 @@ def test_print_hides_the_chrome(used):
     print_block = css.split("@media print")[-1] if "@media print" in css else ""
     assert print_block, "no @media print block: printed pages carry the nav"
     assert ".no-print" in print_block
+
+
+# --------------------------------------------------------------- form fields
+
+CONTROL = re.compile(r"<(input|select|textarea)\b[^>]*>", re.S)
+LABEL = re.compile(r"<label\b[^>]*>", re.S)
+#: Controls that carry no visible text and so are labelled by wrapping, an
+#: aria-label, or are not really user input.
+UNLABELLED_OK = re.compile(
+    r'type="(hidden|checkbox|radio|submit|button)"|aria-label=|aria-labelledby=')
+
+
+def test_no_tag_was_spliced_into_an_attribute_value():
+    """A closing quote immediately followed by a tag name means a tag was cut.
+
+    Two refactoring passes in this session each broke templates differently.
+    One rebuilt an opening tag by replacing only the bracket, producing
+    `<input id="x"input ...>`. The other applied offsets taken from a
+    Jinja-stripped copy of the file to the unstripped text, so an edit landed
+    in the middle of an attribute and left `aria-label="..."input` behind. The
+    first shape is caught by the malformed-tag check above; this one has no
+    bracket at all and needs its own rule, which is why it is stated
+    separately rather than assumed to be covered.
+    """
+    spliced = re.compile(
+        r'"(?:aria-label|id|name|value|placeholder|type|class)="[^"]*"'
+        r'(?:</?)?(?:input|select|textarea|label|option|form|div|span|a)\b')
+    offenders = []
+    for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
+        for name in files:
+            if not name.endswith(".html"):
+                continue
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, TEMPLATES_DIR).replace("\\", "/")
+            for lineno, line in enumerate(
+                    io.open(path, encoding="utf-8"), start=1):
+                match = spliced.search(line)
+                if match:
+                    offenders.append(f"{rel}:{lineno} "
+                                     f"{line[max(0, match.start() - 20):match.start() + 60].strip()}")
+    assert not offenders, (
+        f"{len(offenders)} spliced tag(s):\n  " + "\n  ".join(offenders[:10]))
+
+
+def test_every_template_compiles():
+    """A template that will not parse is a 500 on the page that renders it.
+
+    This is the check whose absence let a broken edit reach the suite: a
+    refactoring pass deleted an {% endfor %} and a closing </select> from
+    archive.html and spliced an <input> into their place. Nothing failed until
+    a test happened to render that page, and the failure surfaced as a Jinja
+    nesting error three files away from the cause.
+
+    Compiling every template is cheap and makes the whole class of structural
+    damage fail immediately, whatever did it.
+    """
+    from jinja2 import Environment, FileSystemLoader, TemplateSyntaxError
+
+    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
+    broken = []
+    for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
+        for name in sorted(files):
+            if not name.endswith(".html"):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, name),
+                                  TEMPLATES_DIR).replace("\\", "/")
+            try:
+                env.get_template(rel)
+            except TemplateSyntaxError as exc:
+                broken.append(f"{rel} line {exc.lineno}: {exc.message}")
+            except Exception as exc:  # noqa: BLE001 - report, never mask
+                broken.append(f"{rel}: {type(exc).__name__}: {exc}")
+
+    assert not broken, "templates will not compile:\n  " + "\n  ".join(broken)
+
+
+def test_every_template_keeps_its_blocks_balanced():
+    """A structural sanity check that does not depend on Jinja.
+
+    A template whose block tags are unbalanced is broken even if the parser is
+    lenient about it, and counting them is the cheapest way to catch a lost
+    {% endfor %} before it reaches a page.
+    """
+    openers = {"block": "endblock", "for": "endfor", "if": "endif",
+               "block_inner": "endblock"}
+    problems = []
+    for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
+        for name in sorted(files):
+            if not name.endswith(".html"):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, name),
+                                  TEMPLATES_DIR).replace("\\", "/")
+            text = io.open(os.path.join(dirpath, name), encoding="utf-8").read()
+            tags = re.findall(r"\{%-?\s*(\w+)", text)
+            closes = re.findall(r"\{%-?\s*end(\w+)", text)
+            for tag, closer in openers.items():
+                # 'block' also matches the inner {% block x %} of {% call %}
+                if tag == "block_inner":
+                    continue
+                opened = tags.count(tag)
+                closed = closes.count(tag)
+                if opened != closed:
+                    problems.append(
+                        f"{rel}: {opened} '{tag}' vs {closed} 'end{tag}'")
+    assert not problems, "unbalanced template blocks:\n  " + "\n  ".join(
+        problems[:12])
+
+
+def test_no_template_contains_a_malformed_tag():
+    """A tag must not swallow another tag.
+
+    Added after a refactoring script rebuilt opening tags by replacing only the
+    leading bracket, which produced `<input id="f-x"input name="x">` in 34
+    places across 9 templates. The corruption check that existed at the time
+    only looked for markup inside a class attribute and did not see it, so the
+    broken templates passed every test in the suite and would have shipped.
+
+    The shape to catch is a `<` appearing between an opening bracket and its
+    closing `>`, which covers both the duplicated tag name above and one tag
+    swallowing the next.
+    """
+    malformed = re.compile(r"<([a-zA-Z][\w-]*)\b[^<>]{0,400}?<[a-zA-Z/]")
+    offenders = []
+    for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
+        for name in files:
+            if not name.endswith(".html"):
+                continue
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, TEMPLATES_DIR).replace("\\", "/")
+            text = io.open(path, encoding="utf-8").read()
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                match = malformed.search(line)
+                if match:
+                    offenders.append(
+                        f"{rel}:{lineno} {line[max(0, match.start() - 8):match.start() + 70].strip()}")
+    assert not offenders, (
+        f"{len(offenders)} malformed tag(s):\n  " + "\n  ".join(offenders[:10]))
+
+
+def test_every_field_is_visibly_labelled_and_bound_to_its_control():
+    """Clicking a label must focus its field, and a screen reader must link them.
+
+    The templates were written with <label class="font-bold text-sm">Username
+    </label> and no `for`, next to an input with no `id`. The label looked like
+    a label and was connected to nothing: clicking the text did nothing, and
+    assistive technology had no name for the field. The shared macros in
+    _macros.html bind them by id, and this is what stops the copies creeping
+    back.
+    """
+    offenders = []
+    for dirpath, _dirs, files in os.walk(TEMPLATES_DIR):
+        for name in files:
+            if not name.endswith(".html"):
+                continue
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, TEMPLATES_DIR).replace("\\", "/")
+            text = io.open(path, encoding="utf-8").read()
+            text = re.sub(r"\{%.*?%\}", " ", text, flags=re.S)
+            text = re.sub(r"\{\{.*?\}\}", " ", text, flags=re.S)
+
+            # A control is fine if it is inside a <label> element.
+            wrapped = set()
+            for label in LABEL.finditer(text):
+                for control in CONTROL.finditer(label.group(0)):
+                    wrapped.add(control.start())
+
+            labelled_ids = set()
+            for label in LABEL.finditer(text):
+                for attr in ("for", re.compile(r'for="([^"]+)"')):
+                    pass
+                m = re.search(r'for="([^"]+)"', label.group(0))
+                if m:
+                    labelled_ids.add(m.group(1))
+
+            for control in CONTROL.finditer(text):
+                tag = control.group(0)
+                if UNLABELLED_OK.search(tag):
+                    continue
+                has_id = re.search(r'id="([^"]+)"', tag)
+                if has_id and has_id.group(1) in labelled_ids:
+                    continue
+                offenders.append(f"{rel}: {tag[:90]}")
+
+    assert not offenders, (
+        f"{len(offenders)} control(s) have no bound label:\n  "
+        + "\n  ".join(offenders[:12])
+        + ("\n  ... and more" if len(offenders) > 12 else ""))
+
+
+def test_static_assets_are_cache_busted():
+    """A merged stylesheet fix must be visible without a hard refresh."""
+    base = io.open(os.path.join(TEMPLATES_DIR, "base.html"), encoding="utf-8").read()
+    assert "asset_url(" in base, (
+        "base.html should load stylesheets through asset_url so they carry a "
+        "version; otherwise a deployed fix stays invisible to browsers")
+    # The helper has to exist, or the template renders a literal 500.
+    init = io.open(os.path.join("app", "__init__.py"), encoding="utf-8").read()
+    assert "asset_url" in init, "asset_url is not registered on the app"
+    assert 'jinja_env.globals["asset_url"]' in init, (
+        "asset_url must be a Jinja global for base.html to use it")
+
+
+def test_asset_version_tracks_the_file():
+    """The version must follow the asset, not the process start."""
+    import importlib
+    import os as _os
+    import sys
+    import tempfile
+
+    sys.path.insert(0, _os.path.abspath("."))
+    try:
+        module = importlib.import_module("app")
+    finally:
+        sys.path.pop(0)
+
+    from flask import Flask
+
+    probe = Flask(__name__, static_folder=_os.path.join("static"))
+    module._register_asset_cache_busting(probe)
+
+    with probe.test_request_context():
+        from flask import render_template_string
+
+        first = render_template_string("{{ asset_url('css/utilities.css') }}")
+        assert "?v=" in first, f"no version in {first}"
+
+        # A second call in the same process must reuse the resolved version.
+        second = render_template_string("{{ asset_url('css/utilities.css') }}")
+        assert first == second, "the version is not being cached per process"
+
+    with tempfile.NamedTemporaryFile(suffix=".css", delete=True) as tmp:
+        rendered = None
+        probe2 = Flask(__name__, static_folder=tmp.name)
+        module._register_asset_cache_busting(probe2)
+        with probe2.test_request_context():
+            rendered = render_template_string("{{ asset_url('missing.css') }}")
+        assert "?v=0" in rendered, (
+            "a missing asset must still yield a URL, not raise")
+
+
+def test_the_shared_macros_exist():
+    """The component layer is the single spelling; it has to be present."""
+    macros = io.open(os.path.join(TEMPLATES_DIR, "_macros.html"),
+                     encoding="utf-8").read()
+    for name in ("field", "select", "textarea", "card", "empty_state",
+                 "submit_btn", "checkbox", "page_head"):
+        assert f"macro {name}(" in macros, f"macro {name} is missing"
+    # A macro that emits a control must bind it to a label.
+    assert 'for="{{ control_id }}"' in macros, (
+        "the field macro must bind its label to the control")

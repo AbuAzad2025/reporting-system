@@ -23,7 +23,7 @@
       {% if u.id != current_user.id %}
       <div class="flex gap-1 items-center flex-wrap">
         <form method="POST" action="{{ url_for('admin.user_role', user_id=u.id) }}" class="flex gap-1">
-          <select name="role" class="text-xs border-2 border-slate-200 rounded-xl px-2 py-2 bg-white min-w-[180px]">
+          <select aria-label="الدور"select name="role" class="form-control">
             {% for k, v in ROLES.items() if k != 'user' %}
             <option value="{{ k }}" {% if u.role==k %}selected{% endif %}>{{ v }}</option>
             {% endfor %}

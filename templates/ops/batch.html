@@ -6,8 +6,8 @@
   <p class="text-xs text-slate-500 mb-4">غلاف + ملخص مالي + فهرس مرقّم + قسم لكل تقرير ضمن الفترة</p>
   <form method="POST" action="{{ url_for('ops.batch_export') }}" class="space-y-4">
     <div>
-      <label class="font-bold text-sm">المشروع (اتركه فارغاً لكل مشاريعك)</label>
-      <select name="project_id" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 bg-white">
+      <label class="font-bold text-sm" for="f-project_id">المشروع (اتركه فارغاً لكل مشاريعك)</label>
+      <select id="f-project_id" name="project_id" class="form-control w-full">
         <option value="">— كل المشاريع —</option>
         {% for p in projects %}
         <option value="{{ p.id }}">{{ p.name }}</option>
@@ -16,12 +16,12 @@
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="font-bold text-sm">من تاريخ</label>
-        <input name="from" type="date" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+        <label class="font-bold text-sm" for="f-from">من تاريخ</label>
+        <input id="f-from" name="from" type="date" class="form-control w-full">
       </div>
       <div>
-        <label class="font-bold text-sm">إلى تاريخ</label>
-        <input name="to" type="date" value="{{ today }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3">
+        <label class="font-bold text-sm" for="f-to">إلى تاريخ</label>
+        <input id="f-to" name="to" type="date" value="{{ today }}" class="form-control w-full">
       </div>
     </div>
     <div>

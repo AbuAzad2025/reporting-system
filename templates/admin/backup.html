@@ -21,7 +21,7 @@
       <p class="text-sm text-slate-500 mb-4">رفع ملف ZIP سابق واستعادة البيانات.</p>
       <form method="post" action="{{ url_for('admin.backup_import') }}" enctype="multipart/form-data" class="space-y-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input class="w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white" type="file" name="backup_file" accept=".zip,application/zip" required>
+        <input aria-label="ملف النسخة الاحتياطية" class="form-control w-full" type="file" name="backup_file" accept=".zip,application/zip" required>
         <button type="submit" class="w-full bg-amber-500 text-white font-extrabold py-3 rounded-xl hover:brightness-110">استعادة الآن</button>
       </form>
     </div>

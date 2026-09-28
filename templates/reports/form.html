@@ -18,20 +18,20 @@
   <form method="POST" class="bg-white rounded-3xl shadow p-5 mt-3 space-y-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div class="sm:col-span-2">
-        <label class="font-bold text-sm">اسم المشروع *</label>
-        <input name="project_name" required value="{{ form_data.get('project_name','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="مثال: مشروع برج النخيل السكني">
+        <label class="font-bold text-sm" for="f-project_name">اسم المشروع *</label>
+        <input id="f-project_name" name="project_name" required value="{{ form_data.get('project_name','') }}" class="form-control w-full" placeholder="مثال: مشروع برج النخيل السكني">
       </div>
       <div>
-        <label class="font-bold text-sm">تاريخ التقرير *</label>
-        <input name="report_date" type="date" required value="{{ form_data.get('report_date', today) }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none">
+        <label class="font-bold text-sm" for="f-report_date">تاريخ التقرير *</label>
+        <input id="f-report_date" name="report_date" type="date" required value="{{ form_data.get('report_date', today) }}" class="form-control w-full">
       </div>
       <div>
-        <label class="font-bold text-sm">الموقع</label>
-        <input name="location" value="{{ form_data.get('location','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="المدينة / الحي">
+        <label class="font-bold text-sm" for="f-location">الموقع</label>
+        <input id="f-location" name="location" value="{{ form_data.get('location','') }}" class="form-control w-full" placeholder="المدينة / الحي">
       </div>
       <div class="sm:col-span-2">
-        <label class="font-bold text-sm">المقاول</label>
-        <input name="contractor" value="{{ form_data.get('contractor','') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="اسم المقاول الرئيسي">
+        <label class="font-bold text-sm" for="f-contractor">المقاول</label>
+        <input id="f-contractor" name="contractor" value="{{ form_data.get('contractor','') }}" class="form-control w-full" placeholder="اسم المقاول الرئيسي">
       </div>
     </div>
 
@@ -39,13 +39,13 @@
 
     {% for key, label, kind in specs %}
     <div>
-      <label class="font-bold text-sm">{{ label }}{% if key in ['manpower','works_completed'] and report_type=='daily' %} *{% endif %}</label>
+      <label class="form-label" for="f-{{ key }}">{{ label }}{% if key in ['manpower','works_completed'] and report_type=='daily' %} <span class="badge-required">مطلوب</span>{% endif %}</label>
       {% if kind == 'textarea' %}
-      <textarea name="{{ key }}" rows="3" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none field-auto" placeholder="اكتب {{ label }}...">{{ form_data.get(key,'') }}</textarea>
+      <textarea id="f-{{ key }}" name="{{ key }}" rows="3" class="form-control w-full" placeholder="اكتب {{ label }}...">{{ form_data.get(key,'') }}</textarea>
       {% elif kind == 'number' %}
-      <input name="{{ key }}" type="number" min="0" max="100" step="0.1" dir="ltr" value="{{ form_data.get(key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none text-left" placeholder="0 - 100">
+      <input id="f-{{ key }}" name="{{ key }}" type="number" min="0" max="100" step="0.1" dir="ltr" value="{{ form_data.get(key,'') }}" class="form-control w-full text-left" placeholder="0 - 100" aria-label="{{ label }}">
       {% else %}
-      <input name="{{ key }}" value="{{ form_data.get(key,'') }}" class="mt-1 w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-teal2 outline-none" placeholder="{{ label }}">
+      <input id="f-{{ key }}" name="{{ key }}" value="{{ form_data.get(key,'') }}" class="form-control w-full" placeholder="{{ label }}">
       {% endif %}
     </div>
     {% endfor %}

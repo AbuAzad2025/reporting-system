@@ -10,14 +10,14 @@
   <form method="GET" class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-3">
     <input type="hidden" name="src" value="{{ src }}">
     {% if src == 'dyn' %}
-    <select name="tpl" aria-label="القالب" class="col-span-2 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+    <select name="tpl" aria-label="القالب" class="form-control col-span-2 md:col-span-1">
       <option value="">كل القوالب</option>
       {% for t in templates %}
       <option value="{{ t.key }}" {% if f_tpl==t.key %}selected{% endif %}>{{ t.name_ar }}</option>
       {% endfor %}
     </select>
     {% else %}
-    <select name="type" aria-label="نوع التقرير" class="col-span-2 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+    <select name="type" aria-label="نوع التقرير" class="form-control col-span-2 md:col-span-1">
       <option value="">كل الأنواع</option>
       {% for k, v in types.items() %}
       <option value="{{ k }}" {% if f_type==k %}selected{% endif %}>{{ v }}</option>
@@ -25,25 +25,25 @@
     </select>
     {% endif %}
     {% if projects %}
-    <select name="project" aria-label="المشروع" class="col-span-2 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+    <select name="project" aria-label="المشروع" class="form-control col-span-2 md:col-span-1">
       <option value="">كل المشاريع</option>
       {% for p in projects %}
       <option value="{{ p.id }}" {% if f_project==p.id|string %}selected{% endif %}>{{ p.name }}</option>
       {% endfor %}
     </select>
     {% endif %}
-    <select name="sort" aria-label="ترتيب حسب" class="col-span-1 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+    <select name="sort" aria-label="ترتيب حسب" class="form-control col-span-1 md:col-span-1">
       <option value="date" {% if f_sort=='date' %}selected{% endif %}>📅 التاريخ</option>
       <option value="project" {% if f_sort=='project' %}selected{% endif %}>🏗️ المشروع</option>
       <option value="type" {% if f_sort=='type' %}selected{% endif %}>📋 النوع</option>
     </select>
-    <select name="order" aria-label="اتجاه الترتيب" class="col-span-1 md:col-span-1 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm bg-white">
+    <select name="order" aria-label="اتجاه الترتيب" class="form-control col-span-1 md:col-span-1">
       <option value="desc" {% if f_order=='desc' %}selected{% endif %}>⬇️ تنازلي</option>
       <option value="asc" {% if f_order=='asc' %}selected{% endif %}>⬆️ تصاعدي</option>
     </select>
-    <input name="q" value="{{ f_q }}" placeholder="🔍 اسم المشروع / الموقع..." class="col-span-2 md:col-span-2 border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
-    <input name="from" type="date" value="{{ f_from }}" aria-label="من تاريخ" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
-    <input name="to" type="date" value="{{ f_to }}" aria-label="إلى تاريخ" class="border-2 border-slate-200 rounded-xl px-3 py-3 text-sm">
+    <input aria-label="البحث في المشاريع" name="q" value="{{ f_q }}" placeholder="🔍 اسم المشروع / الموقع..." class="form-control col-span-2 md:col-span-2">
+    <input name="from" type="date" value="{{ f_from }}" aria-label="من تاريخ" class="form-control">
+    <input name="to" type="date" value="{{ f_to }}" aria-label="إلى تاريخ" class="form-control">
     <button class="col-span-1 bg-navy text-white font-bold py-3 rounded-xl text-sm">🔍 بحث</button>
     <a href="{{ url_for('main.archive', src=src) }}" class="col-span-1 inline-flex items-center justify-center bg-slate-100 text-slate-600 font-bold py-3 rounded-xl text-sm hover:bg-slate-200">↺ إعادة ضبط</a>
   </form>
