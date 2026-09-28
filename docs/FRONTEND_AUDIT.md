@@ -6,8 +6,9 @@ measurements that matter are re-checked on each run by
 (18 vitest tests), so this document cannot drift away from the code without a
 test failing.
 
-Last audited: 2026-09-28, against commit `3740046` and CI run 36484801442
-(13 jobs, all green).
+Last audited: 2026-09-29. The numbers below are re-derived from the
+repository by the suites listed at the end; the first pass was verified against
+commit `3740046` and CI run 36484801442 (13 jobs, all green).
 
 ## What this application actually is
 
@@ -18,10 +19,11 @@ office networks.
 
 | Asset | Count | Size |
 | --- | --- | --- |
-| Templates | 31 | 136,512 B |
-| Stylesheets | 2 | 65,553 B |
+| Templates | 32 | 138,285 B |
+| Stylesheets | 3 (`custom`, `utilities`, `layout`) | 73,295 B |
 | JavaScript | 2 modules under `static/js` | 9,778 B |
 | Service worker | 1 (`static/sw.js`) | — |
+| Fonts | Amiri Regular + Bold, committed | 844 KB |
 | Client-side dependencies | 1 (vitest, dev only) | — |
 
 29 of the 31 templates extend `base.html`. The two that do not are `base.html`
@@ -52,7 +54,7 @@ and loading it from `base.html`.
 | --- | --- | --- |
 | Undefined classes | 269 | **0** |
 | Undefined occurrences | 2,090 | **0** |
-| Defined classes | — | 646 |
+| Defined classes | — | 700 |
 
 This is now enforced. A test walks every `class="..."` in every template and
 fails if any name is not defined in CSS, so the gap cannot reopen.
@@ -87,10 +89,8 @@ macros in `templates/_macros.html`:
 
 | | Count |
 | --- | --- |
-| User-facing inputs | 94 |
-| In the control family | **94** |
-| Of which `.form-control` | 93 |
-| Of which `.form-control-file` | 1 |
+| User-facing inputs | 98 |
+| In the control family | **98** |
 | Hidden / choice inputs | 26 |
 
 The file input is deliberately not a `.form-control`. That rule sets
@@ -163,6 +163,133 @@ It now registers through `asset_url('sw.js')`, which yields the same
 the same: changing it would register a second worker under a different script
 URL, and the old one would keep serving the old cache.
 
+## Second pass: print, identity, and the assets behind them
+
+The first pass treated the front end as markup and CSS. That was the smaller
+half. Re-reading `base.html` line by line for headers, footers, logos and print
+turned up defects that no class-name test would ever reach, because each one
+was a claim the code made that the code did not keep.
+
+### The branding system existed and did nothing
+
+`TenantBranding` carries eight fields. The page header used two of them, and
+both of those were wrong:
+
+- `base.html` rendered `azad-logo-dark.png` unconditionally. The tenant's
+  uploaded logo was never displayed, anywhere, in any page.
+- The footer and `<title>` read the company name from the **newest active row
+  in the whole table**, while the header read it by the projects the user
+  actually belongs to. One page could carry one company's logo above another
+  company's name.
+- There was no route that served an uploaded image to a browser. The upload
+  handler returned an absolute filesystem path and wrote it to the database, so
+  the browser could not be handed a URL even in principle. The stored path was
+  also bound to one machine: a move or a second host broke every logo.
+- `admin/branding.html` told the administrator the customisation "applies
+  immediately to all project reports (PDF + web view)". It applied to none. The
+  route took a **report-template id** and stored it in `project_id`, so each
+  row landed on whichever project happened to share that number.
+- The PDF letterhead read `Project.logo_path` — a different column, written by
+  a different form. The two systems were never connected.
+- `apply_tenant_branding()`, the function meant to push a tenant's identity
+  into report rendering, was never called, and would have raised on its first
+  line: it read `branding.gradient`, which is a column on `ReportTemplate` and
+  not on `TenantBranding`. On its second line it overwrote `tpl.name_ar` with
+  the tenant's header text, renaming the report type itself.
+- `disclaimer_text` was set from a form field that did not exist, so every save
+  wrote an empty string over it.
+
+All of it is now one resolver (`app/services/branding.py`), one asset store
+with keys relative to its root, one image route, and one admin page whose
+sentence is true. `tests/test_branding_identity.py` has 19 tests; the one named
+`test_saving_branding_binds_it_to_the_project_not_the_template` exists only
+because of the template-id mistake.
+
+### Uploading a logo accepted SVG
+
+`ext not in ("png", "jpg", "jpeg", "webp", "svg")` — an SVG is a program, and one
+served from this origin runs with the session of whoever opens the page.
+Validation is now by magic bytes, and SVG is not in the list. The form tells the
+user why.
+
+### A tenant colour was written into a `<style>` block unvalidated
+
+`linear-gradient(..., {{ brand.primary_color }}80, ...)` inside a `<style>`
+element. Jinja's autoescaping does not apply to CSS context, so
+`red;} body{display:none` was a live injection from any account with the
+template-manager role. Colours are validated as hex now, and
+`test_injected_css_never_reaches_the_style_block` fails if that regresses.
+
+### The print layer was decoration
+
+Two `@media print` blocks, in two stylesheets, contradicting each other. One set
+the body background from the *theme* variables, so a user in dark mode printed
+light text on a dark page. Both styled `.table` and `.report-section` — classes
+no template uses — while `.data-table` and `.surface-card`, the classes the
+templates actually use, got no print treatment at all. Both hid every `<nav>`
+and `<footer>` by element name, which would also hide a `<nav>` inside report
+data.
+
+`static/css/layout.css` now holds one print block, and
+`tests/test_print_and_assets.py` fails if a second one appears.
+
+Printing also had no letterhead. The web chrome was hidden and nothing replaced
+it, so a printed report was a page of a web application with its menus stripped
+off — no logo, no organisation, no page number, nowhere to sign. There is now a
+print-only letterhead, a running footer, and a signature block.
+
+### The service worker served other people's data
+
+It cached every same-origin GET, navigations included, and answered from the
+cache before the network. Three consequences: a user editing a record navigated
+back and saw the cached page; authenticated HTML outlived logout, so on a shared
+device the next person could be served the previous user's pages; and the cache
+name never changed, so stale entries survived every deployment.
+
+Documents are now network-first and never stored. Only static assets are cached.
+
+### The manifest declared icon sizes that were not true
+
+`azad-logo.png` is 300×300 and was declared `192x192`. `favicon.png` is 32×32
+and was declared `512x512`. Install validation reads those numbers. A test now
+reads the real dimensions out of the PNG header and compares.
+
+### Arabic PDFs depended on a download that a field deployment cannot make
+
+`ensure_fonts()` fetched Amiri from GitHub on first use, and the fallback was
+Helvetica — which has no Arabic glyphs. On a restricted network every Arabic
+report rendered blank, and the failure was logged at `debug`, so the job
+reported success. The font is now committed with its OFL licence, and a
+missing font is a warning rather than a debug line.
+
+### Logos were drawn into a square
+
+Every logo was rendered at `width == height`, so a wordmark four times wider
+than it is tall was vertically smeared on the letterhead of every report. The
+height now comes from the file's real dimensions, with both capped.
+
+### Smaller things found in the same pass
+
+- `<title>` read `{% block title %}…{% endblock %} — {{ APP_NAME_AR }}`, so a
+  page that set its own title got it appended to the app name, and a page that
+  did not got the app name twice.
+- The primary navigation was rendered **after** `<main>`, so the desktop menu
+  appeared below the content it navigates.
+- The mobile bar and the desktop bar declared the same five destinations
+  separately, in two different orders, with two different labels. One macro now
+  produces both, and the current page is marked.
+- Navigation icons were emoji, so they rendered differently per platform and
+  could not be sized or coloured. They are inline SVG now, defined once.
+- The logout control was an `<a>` posting nothing; a GET that changed state.
+- `templates/reports/dyn_form.html` contained a stray `"*</span>` that rendered
+  as literal text.
+- `app/templates/admin/backup.html` was a dead copy written against a different
+  design system entirely, and `app/static/` was an empty directory. Both
+  removed.
+- The shared macros had to be imported per template, so a page using `page_head`
+  without the import raised `UndefinedError` only when that page was rendered.
+  They are now globals.
+
 ## Cross-cutting media and motion support
 
 All present, and covered by the CSS contract test:
@@ -219,7 +346,10 @@ suite would catch. They are the limits of what static checks can tell you.
 ## Reproducing the measurements
 
 ```sh
-python -m pytest tests/test_template_css_contract.py -q   # 16 tests
+python -m pytest tests/test_template_css_contract.py -q   # 17 tests
+python -m pytest tests/test_print_and_assets.py -q        # 12 tests
+python -m pytest tests/test_branding_identity.py -q       # 19 tests
+python -m pytest tests/test_pdf_branding.py -q            # 12 tests
 npx vitest run                                            # 18 tests
 ```
 
