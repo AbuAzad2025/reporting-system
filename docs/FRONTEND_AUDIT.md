@@ -6,7 +6,8 @@ measurements that matter are re-checked on each run by
 (18 vitest tests), so this document cannot drift away from the code without a
 test failing.
 
-Last audited: 2026-09-28.
+Last audited: 2026-09-28, against commit `3740046` and CI run 36484801442
+(13 jobs, all green).
 
 ## What this application actually is
 
