@@ -148,7 +148,7 @@ def build_batch_pdf(records, project_name: str, date_from: str, date_to: str,
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
                             bottomMargin=36,
-                            title=f"{brand.company_ar}-Batch-Export")
+                            title="Batch-Export", author=brand.company_en)
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     story = []
 

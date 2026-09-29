@@ -118,9 +118,15 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
-                            bottomMargin=36, title=f"{brand.company_ar}-"
-                            f"{template.key}-{submission.id}",
-                            author=brand.company_en or brand.company_ar)
+                            bottomMargin=36,
+                            # Latin and machine-readable: a non-Latin /Title is
+                            # written as UTF-16 with a byte-order mark, which
+                            # hides the serial and renders as mojibake. The
+                            # organisation goes in /Author and on the page.
+                            title=f"{template.key}-"
+                            f"{getattr(submission, 'serial', None) or submission.id}",
+                            author=brand.company_en or brand.company_ar,
+                            subject=template.name_en or template.name_ar)
     story = []
 
     # ---- letterhead: the tenant's own logos, or the platform's if none.

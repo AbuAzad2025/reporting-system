@@ -490,7 +490,7 @@ def build_report_pdf_branded(report, brand, author_name: str = "",
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
                             bottomMargin=36,
-                            title=f"{brand.company_ar}-{report.id}",
+                            title=f"Report-{report.id}",
                             author=brand.company_en or brand.company_ar)
     story = []
 

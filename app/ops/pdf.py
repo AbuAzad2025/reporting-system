@@ -232,7 +232,14 @@ def build_ops_pdf(kind: str, record, project_name: str = "",
     doc = SimpleDocTemplate(
         buf, pagesize=A4, rightMargin=10 * mm, leftMargin=10 * mm,
         topMargin=12 * mm, bottomMargin=36,
-        title=f"{brand.company_ar}-{record.serial}")
+        # Latin and machine-readable on purpose. This title carried the
+        # organisation's name, and a non-Latin /Title is written as UTF-16
+        # with a byte-order mark, which makes the serial unrecovable from the
+        # file and renders as þÿÆÆÙ in a viewer. The organisation is on the
+        # page and in /Author, where it belongs.
+        title=f"{record.serial}-{kind}",
+        author=brand.company_en or brand.company_ar,
+        subject=name_en)
 
     watermark = ar(WORKFLOW_AR.get(record.status, "")) if record.status else ""
 

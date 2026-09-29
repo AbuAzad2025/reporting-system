@@ -177,21 +177,6 @@ def _has_platform_line(text):
     return "أُنشئ" in text
 
 
-def _decoded_title(raw):
-    """The /Title as text.
-
-    The writer emits UTF-16 with a BOM once the string contains anything
-    outside Latin, which it now does: the title carries the organisation's
-    name, so a byte-wise endswith silently stops matching.
-    """
-    if isinstance(raw, bytes):
-        return raw.decode("utf-16-be", "replace").lstrip("\ufeff")
-    try:
-        return raw.encode("latin-1").decode("utf-16-be").lstrip("\ufeff")
-    except (UnicodeDecodeError, UnicodeEncodeError):
-        return raw
-
-
 def watermark_for(status):
     """The watermark text for a record status, or nothing."""
     from app.ops.versioning import WORKFLOW_AR
@@ -372,9 +357,7 @@ def test_rendered_document_is_structurally_valid():
     assert all(stream.startswith(b"1 0 0 1") for stream in
                document.content_streams)
     # identity, not just a header: /Info title is derived from serial + kind
-    title = _decoded_title(document.metadata["Title"])
-    assert title.endswith("CVR-000042"), (
-        "the serial has to be recoverable from the document title: %r" % title)
+    assert document.metadata["Title"] == "CVR-000042-cost-variances"
     assert "reportlab" in document.metadata["Producer"].lower()
 
 

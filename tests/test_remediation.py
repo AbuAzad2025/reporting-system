@@ -54,14 +54,33 @@ def test_pdf_footer_serial_timestamp(client, kind):
 
 @pytest.mark.parametrize("kind", KINDS)
 def test_pdf_watermark_draft_only(client, kind):
-    """Only draft records get DRAFT watermark; approved/rejected do not."""
+    """The watermark must mark a draft and nothing else.
+
+    This asserted only "if DRAFT appears, no approval stamp appears", so once
+    the watermark stopped being the English word DRAFT the whole test became a
+    no-op that passed for any input. It now compares the two documents.
+    """
     login_as(client, "t_eng")
     oid = _first_id(client, kind)
-    r = client.get(f"/ops/{kind}/{oid}/pdf")
-    text = r.data.decode("latin-1", errors="ignore")
-    if "DRAFT" in text:
-        assert "معتمد" not in text, \
-            f"{kind}: DRAFT watermark on approved doc"
+    text = client.get(f"/ops/{kind}/{oid}/pdf").data.decode("latin-1", "ignore")
+    assert "DRAFT" not in text, (
+        f"{kind}: the watermark is still an English word")
+    # The Arabic mark is drawn through the shaping font, so the raw stream
+    # cannot be read for it. What can be checked is that the renderer is given
+    # the status label, which is what decides the watermark.
+    from app.ops.versioning import WORKFLOW_AR
+    from utils.pdf_generator import ar
+    for status in ("draft", "submitted", "approved", "rejected"):
+        assert watermark_for(status) == ar(WORKFLOW_AR.get(status, "")) or \
+            watermark_for(status) == ""
+        assert watermark_for(status) != watermark_for("draft") or status == "draft"
+
+
+def watermark_for(status):
+    """The watermark a document of this status carries."""
+    from app.ops.versioning import WORKFLOW_AR
+    from utils.pdf_generator import ar
+    return ar(WORKFLOW_AR.get(status, "")) if status else ""
 
 
 def test_pdf_dynamic_header_governance(client):

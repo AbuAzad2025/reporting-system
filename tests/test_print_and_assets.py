@@ -140,6 +140,35 @@ _PDF_MODULES = ("utils/pdf_generator.py", "app/ops/pdf.py", "app/ops/batch.py",
                 "app/services/pdf_dynamic.py")
 
 
+def test_the_document_title_stays_machine_readable():
+    """A non-Latin /Title is written as UTF-16 with a byte-order mark.
+
+    That hides the serial from anything reading the file's metadata and shows
+    as mojibake in a viewer. The title was briefly carrying the organisation's
+    Arabic name, which did exactly that; the organisation belongs in /Author,
+    which is read, not parsed.
+
+    The whole argument is checked, expressions included. A first version only
+    looked at the literal parts of the f-string, so ``{brand.company_ar}`` -
+    the exact thing being banned - passed it.
+    """
+    banned = re.compile(r"company_ar|company_en|name_ar|brand|tenant",
+                        re.I)
+    for path in _PDF_MODULES:
+        if not os.path.isfile(path):
+            continue
+        body = io.open(path, encoding="utf-8").read()
+        for match in re.finditer(r"title\s*=\s*f?[\"']([^\"']*)[\"']", body):
+            value = match.group(1)
+            assert not banned.search(value), (
+                "%s: the document title reads %r, which carries a name and so "
+                "will be written as UTF-16 with a byte-order mark" % (path, value))
+            for part in re.findall(r"\{[^}]*\}|[^{}]+", value):
+                if "{" not in part:
+                    assert re.match(r"\A[A-Za-z0-9_\-\.:]*\Z", part), (
+                        "%s: title contains non-Latin text %r" % (path, part))
+
+
 def test_no_english_platform_survives_into_a_generated_report():
     """The footers and the draft watermark are written by hand.
 
