@@ -31,6 +31,7 @@ from app.ops.isolation import visible_projects, get_linked_project_or_404
 from utils.helpers import FIELD_SPECS
 from utils.pdf_generator import build_report_pdf
 from app.services.pdf_dynamic import build_dynamic_pdf
+from app.services.report_completeness import missing_critical_fields
 from app.services.share import get_share_data
 
 log = logging.getLogger(__name__)
@@ -564,6 +565,7 @@ def dyn_new(template_key):
                       "danger")
         return render_template("reports/dyn_form.html", mode="new", tpl=tpl,
                                projects=projects, form_data=request.form,
+                               missing_critical=missing_critical_fields(tpl, payload),
                                table_rows=_table_rows_map(tpl, request.form))
     return render_template("reports/dyn_form.html", mode="new", tpl=tpl,
                            projects=projects, form_data={},
@@ -574,7 +576,11 @@ def dyn_new(template_key):
 @login_required
 def dyn_view(sub_id):
     s = _visible_submission(sub_id)
-    return render_template("reports/dyn_view.html", s=s, tpl=s.template)
+    # The reading page is where a missing section matters: the printed report
+    # will not carry it, so it is named here rather than only on the form.
+    return render_template("reports/dyn_view.html", s=s, tpl=s.template,
+                           missing_critical=missing_critical_fields(
+                               s.template, s.data))
 
 
 @bp.route("/dyn/<int:sub_id>/edit", methods=["GET", "POST"])
@@ -617,8 +623,13 @@ def dyn_edit(sub_id):
             db.session.commit()
             flash("تم تحديث التقرير بنجاح.", "success")
             return redirect(url_for("reports.dyn_view", sub_id=s.id))
+    # Two different answers to "what is still missing": a rejected POST is
+    # judged on what the user just typed, a first GET on what was saved.
+    if request.method == "POST":
+        missing = missing_critical_fields(tpl, payload)
         return render_template("reports/dyn_form.html", mode="edit", tpl=tpl,
                                s=s, projects=projects, form_data=request.form,
+                               missing_critical=missing,
                                table_rows=_table_rows_map(tpl, request.form))
     prefill = {"project_name": s.project_name, "location": s.location,
                "contractor": s.contractor, "report_date": str(s.report_date),
@@ -626,6 +637,7 @@ def dyn_edit(sub_id):
                **{f"f_{k}": v for k, v in (s.data or {}).items()}}
     return render_template("reports/dyn_form.html", mode="edit", tpl=tpl, s=s,
                            projects=projects, form_data=prefill,
+                           missing_critical=missing_critical_fields(tpl, s.data),
                            table_rows=_table_rows_map(tpl, prefill))
 
 

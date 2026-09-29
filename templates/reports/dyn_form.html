@@ -6,6 +6,15 @@
 {% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
+  {% if missing_critical %}
+  <div class="card p-4 mb-4" role="status" style="border-right:4px solid var(--amber-500,#f59e0b)">
+    <h2 class="font-extrabold text-sm mb-2" style="color:var(--amber-600,#b45309)">⚠️ تنبيه: أجزاء أساسية لم تُملأ</h2>
+    <p class="text-xs mb-2" style="color:var(--slate-500,#64748b)">يمكنك الحفظ رغم ذلك، والأقسام الفارغة لن تظهر في التقرير المطبوع. لكنها تُعدّ ناقصة:</p>
+    <ul class="text-xs list-disc pr-5 space-y-1">
+      {% for key, why in missing_critical %}<li>{{ why }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   <form method="POST" enctype="multipart/form-data" class="space-y-4 mt-3" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -57,7 +66,7 @@
       {% for f in tpl.ordered_fields %}
       {% if f.field_type != 'table' %}
       <div>
-        <label class="form-label" for="f_{{ f.field_key }}">{{ f.label_ar }} {% if f.required %}<span class="badge badge-required">*</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}</label>
+        <label class="form-label" for="f_{{ f.field_key }}">{{ f.label_ar }} {% if f.field_key in critical_fields %}<span class="badge badge-warning" title="قسم أساسي: يظهر التنبيه إن تُرك فارغاً">مهم</span>{% elif f.required %}<span class="badge badge-required">*</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}</label>
         {% if f.field_type == 'textarea' %}
         <textarea id="f_{{ f.field_key }}" name="f_{{ f.field_key }}" rows="3" {% if f.required %}required{% endif %} class="form-control field-auto" placeholder="{{ f.placeholder }}">{{ form_data.get('f_' + f.field_key,'') }}</textarea>
         {% elif f.field_type == 'number' %}
@@ -97,7 +106,7 @@
     <details class="report-section" {% if loop.index <= 3 or has_data %}open{% endif %}>
       <summary>
         <span>📊 {{ f.label_ar }}
-          {% if f.required %}<span class="badge badge-required">إجباري</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}
+          {% if f.field_key in critical_fields %}<span class="badge badge-warning" title="قسم أساسي: يظهر التنبيه إن تُرك فارغاً">مهم</span>{% elif f.required %}<span class="badge badge-required">إجباري</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}
           {% if req_cols %}<span class="badge">{{ req_cols }} عمود إجباري</span>{% endif %}
         </span>
         <span class="chev">▾</span>

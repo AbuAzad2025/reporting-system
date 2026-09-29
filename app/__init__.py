@@ -115,6 +115,12 @@ def create_app(config_class=Config):
     macros = app.jinja_env.get_template("_macros.html")
     app.jinja_env.globals.update(macros.module.__dict__)
 
+    # The daily report's must-not-be-missing sections. Exposed as a Jinja
+    # global so every render of the form can mark them without each route
+    # having to thread the list through its render_template call.
+    from app.services.report_completeness import CRITICAL_FIELDS
+    app.jinja_env.globals["critical_fields"] = CRITICAL_FIELDS
+
     # ---- blueprints (spec layout: auth / admin / reports + main)
     from app.auth import bp as auth_bp
     from app.main import bp as main_bp

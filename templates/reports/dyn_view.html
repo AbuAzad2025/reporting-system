@@ -2,6 +2,15 @@
 {% block title %}{{ tpl.name_ar }} — {{ s.project_name }}{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
+  {% if missing_critical %}
+  <div class="card p-4 mb-4 no-print" role="status" style="border-right:4px solid var(--amber-500,#f59e0b)">
+    <h2 class="font-extrabold text-sm mb-2" style="color:var(--amber-600,#b45309)">⚠️ هذا التقرير ناقص</h2>
+    <p class="text-xs mb-2" style="color:var(--slate-500,#64748b)">الأقسام التالية لم تُملأ، ولن تظهر في النسخة المطبوعة:</p>
+    <ul class="text-xs list-disc pr-5 space-y-1">
+      {% for key, why in missing_critical %}<li>{{ why }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   <!-- Sticky action bar: back / print / official A4 PDF / edit / delete / share -->
   <div class="sticky top-[74px] z-[var(--z-index-sticky)] no-print">
     <div class="bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-2xl p-2 flex gap-2 overflow-x-auto">

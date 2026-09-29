@@ -453,8 +453,8 @@ class TestDynamicReportForm:
             "location": "الدمام",
             "contractor": "مقاول الديناميكي",
             "f_eshs_desc_81": "وصف الأنشطة",
-            f"f_{WASTE_TABLE}__0__proc": "فرز النفايات",
-            f"f_{WASTE_TABLE}__0__done": "yes",
+            f"f_{WASTE_TABLE}__0__action": "فرز النفايات حسب النوع",
+            f"f_{WASTE_TABLE}__0__applied": "yes",
         })
         assert r.status_code == 302
         row = _submission(app, "مشروع ديناميكي")
@@ -467,7 +467,7 @@ class TestDynamicReportForm:
         assert row["project_id"] is None
         assert row["data"]["eshs_desc_81"] == "وصف الأنشطة"
         assert row["data"][WASTE_TABLE] == [
-            {"proc": "فرز النفايات", "done": "yes", "not_done": "", "notes": ""}]
+            {"action": "فرز النفايات حسب النوع", "applied": "yes", "notes": ""}]
 
     def test_new_post_links_a_project_and_adopts_its_name(self, client, app):
         _login(client, "t_eng")
@@ -611,7 +611,7 @@ class TestDynamicReportForm:
     def test_edit_get_prefills_saved_answers(self, client, app):
         sid = _seed_submission(
             app, "تعديل محمّل", data={"eshs_desc_81": "وصف محفوظ",
-                                      WASTE_TABLE: [{"proc": "فرز"}]})
+                                      WASTE_TABLE: [{"action": "فرز النفايات حسب النوع"}]})
         _login(client, "t_eng")
         r = client.get(f"/reports/dyn/{sid}/edit")
         assert r.status_code == 200
@@ -623,7 +623,7 @@ class TestDynamicReportForm:
     def test_edit_post_updates_the_submission(self, client, app):
         sid = _seed_submission(
             app, "تعديل أصلي",
-            data={"eshs_desc_81": "قبل", WASTE_TABLE: [{"proc": "بند قديم"}]})
+            data={"eshs_desc_81": "قبل", WASTE_TABLE: [{"action": "فرز النفايات حسب النوع"}]})
         _login(client, "t_eng")
         r = client.post(f"/reports/dyn/{sid}/edit", data={
             "project_name": "تعديل جديد",
@@ -631,7 +631,7 @@ class TestDynamicReportForm:
             "location": "مكة",
             "contractor": "مقاول معدّل",
             "f_eshs_desc_81": "بعد",
-            f"f_{WASTE_TABLE}__0__proc": "بند معدّل",
+            f"f_{WASTE_TABLE}__0__action": "فرز النفايات حسب النوع",
         })
         assert r.status_code == 302
         assert r.headers["Location"].endswith(f"/reports/dyn/{sid}")
@@ -643,7 +643,7 @@ class TestDynamicReportForm:
         assert row["report_date"] == date(2026, 4, 15)
         assert row["data"]["eshs_desc_81"] == "بعد"
         assert row["data"][WASTE_TABLE] == [
-            {"proc": "بند معدّل", "done": "", "not_done": "", "notes": ""}]
+            {"action": "فرز النفايات حسب النوع", "applied": "", "notes": ""}]
         assert _submission(app, "تعديل أصلي") is None
 
     def test_edit_post_with_invalid_date_is_refused(self, client, app):
@@ -758,21 +758,25 @@ class TestDynamicCollectionBranches:
         _login(client, "t_eng")
         data = {"project_name": "جدول ضخم", "report_date": "2026-04-22"}
         for i in range(205):
-            data[f"f_{WASTE_TABLE}__{i}__proc"] = f"بند {i}"
+            # The action is a closed list, so the row index is what makes each
+            # row distinguishable — that is what the cap is counted on.
+            data[f"f_{WASTE_TABLE}__{i}__action"] = "فرز النفايات حسب النوع"
+            data[f"f_{WASTE_TABLE}__{i}__notes"] = f"سطر {i}"
         r = client.post("/reports/dyn/new/daily", data=data)
-        assert r.status_code == 302
+        assert r.status_code == 302, _flashes(client, r)
         rows = _submission(app, "جدول ضخم")["data"][WASTE_TABLE]
         assert len(rows) == 200
-        assert rows[0]["proc"] == "بند 0"
-        assert rows[-1]["proc"] == "بند 199"
-        assert _flashes(client, r) == [("success", "تم حفظ التقرير الديناميكي بنجاح.")]
+        assert rows[0]["notes"] == "سطر 0"
+        assert rows[-1]["notes"] == "سطر 199"
+        assert _flashes(client, r) == [
+            ("success", "تم حفظ التقرير الديناميكي بنجاح.")]
 
     def test_post_refuses_when_the_only_filled_row_is_past_the_cap(self, client, app):
         _login(client, "t_eng")
         data = {"project_name": "بند خارج السقف", "report_date": "2026-04-23"}
         for i in range(200):
-            data[f"f_{WASTE_TABLE}__{i}__proc"] = "   "     # whitespace = empty
-        data[f"f_{WASTE_TABLE}__200__proc"] = "بند حقيقي"
+            data[f"f_{WASTE_TABLE}__{i}__action"] = "   "     # whitespace = empty
+        data[f"f_{WASTE_TABLE}__200__action"] = "فرز النفايات حسب النوع"
         r = client.post("/reports/dyn/new/daily", data=data)
         assert r.status_code == 200
         assert _flashes(client, r) == [(

@@ -52,14 +52,19 @@ class TestRowCaption:
 class TestEmptyTemplateRendering:
     """A template with no fields must still render, and say so."""
 
-    def test_an_empty_field_list_still_produces_a_summary(self, app):
+    def test_an_empty_field_list_says_so_instead_of_printing_a_blank_page(self, app):
         from app.services import pdf_dynamic
 
         assert callable(pdf_dynamic.build_dynamic_pdf)
-        # The fallback text is what a reader sees instead of a blank page.
+        # Every field is hidden when empty, so a report nobody filled in would
+        # be letterhead and nothing else. The fallback is what a reader sees
+        # instead of a blank page — and it is deliberately not «لا توجد حقول»,
+        # which claimed the template has no fields rather than that the
+        # submission is empty.
         source = __import__("pathlib").Path(
             pdf_dynamic.__file__).read_text(encoding="utf-8")
-        assert "لا توجد حقول" in source
+        assert "لم تُملأ أي من الأقسام" in source
+        assert "لا توجد حقول" not in source
 
     def test_a_missing_file_value_renders_as_a_dash(self, app):
         from app.services.pdf_dynamic import _readable_image, _resolve_upload_abs

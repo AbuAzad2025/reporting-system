@@ -349,7 +349,10 @@ DAILY_TABLES = [
     ("staff_esha", "3. الكادر الفني والعاملون في الموقع", [
         {"key": "company", "label_ar": "الشركة / المؤسسة", "type": "dropdown", "required": True, "options": ["المقاول", "الاستشاري", "وزارة المالية"]},
         {"key": "role", "label_ar": "المسمى الوظيفي / دور العمل", "type": "text", "required": True, "options": []},
-        {"key": "name", "label_ar": "الاسم", "type": "text", "required": True, "options": []},
+        # The daily report puts a headcount here for labour rows that are not
+        # named individuals (e.g. «9» against «عمال ماهرون / عمال عاديون»), so
+        # this column is a headcount as often as it is a name.
+        {"key": "name", "label_ar": "الاسم أو العدد", "type": "text", "required": True, "options": []},
         {"key": "hours", "label_ar": "ساعات العمل", "type": "number", "required": False, "options": []},
         {"key": "nature", "label_ar": "طبيعة الدوام", "type": "dropdown", "required": False, "options": ["دوام كامل", "دوام جزئي"]},
     ]),
@@ -397,40 +400,55 @@ DAILY_TABLES = [
         {"key": "w_mitigation", "label_ar": "إجراءات التخفيف أثناء النقل", "type": "text", "required": False, "options": []},
     ]),
     ("waste_mgmt_esha", "إجراءات إدارة النفايات (8.3)", [
-        {"key": "proc", "label_ar": "إجراء إدارة النفايات", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم التنفيذ", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
+        {"key": "action", "label_ar": 'إجراء إدارة النفايات', "type": "dropdown", "required": True, "options": ['فرز النفايات حسب النوع', 'تجميع أنقاض البناء في منطقة محددة', 'استخدام حاويات مناسبة ومغلقة', 'وضع بطاقات تعريف وتحذير للنفايات', 'عدم حرق النفايات في الموقع', 'منع تسرب الدهانات والزيوت والمواد', 'تغطية الشاحنات أثناء نقل النفايات', 'نقل النفايات بصورة آمنة', 'نقل النفايات إلى مكب / جهة معتمدة', 'الاحتفاظ بسجل نقل والتخلص من النفايات']},
+        {"key": "applied", "label_ar": "مطبَّق (تم)", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_air_esha", "8.4 أ. التلوث الهوائي والغبار والضوضاء", [
-        {"key": "proc", "label_ar": "إجراء التخفيف / الإجراء الوقائي", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم التنفيذ", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
+        {"key": "action", "label_ar": 'إجراء التخفيف / الإجراء الوقائي', "type": "dropdown", "required": True, "options": ['رش المياه للسيطرة على الغبار عند الحاجة', 'تركيب حواجز / ستائر للغبار عند القص', 'تغطية المواد القابلة للتطاير', 'تغطية الشاحنات أثناء نقل النفايات', 'تنظيف منطقة العمل بصورة مستمرة', 'منع تراكم الأتربة والأنقاض', 'السيطرة على مصادر الضوضاء', 'تحديد أوقات الأعمال المسببة للضوضاء', 'استخدام حماية الجهاز التنفسي عند الحاجة', 'استخدام حماية السمع عند الحاجة']},
+        {"key": "applied", "label_ar": "مطبَّق (تم)", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_utilities_esha", "8.4 ب. المرافق العامة والخدمات القائمة", [
-        {"key": "proc", "label_ar": "إجراء التخفيف", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
-        {"key": "notes", "label_ar": "الملاحظات", "type": "text", "required": False, "options": []},
+        {"key": "action", "label_ar": 'إجراء التخفيف', "type": "dropdown", "required": True, "options": ['تحديد الخدمات القائمة قبل الحفر', 'التنسيق مع إدارة المعابر (GABC)', 'حماية كابلات الكهرباء القائمة', 'حماية تمديدات المياه والصرف', 'حماية شبكات الاتصالات وتكنولوجيا المعلومات', 'استخدام أجهزة كشف الخدمات عند الحفر', 'الإبلاغ الفوري عن أي ضرر للخدمات']},
+        {"key": "applied", "label_ar": "مطبَّق (تم)", "type": "checkbox", "required": False, "options": []},
+        {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_ohs_esha", "8.4 ج. الصحة والسلامة المهنية OHS", [
-        {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
+        {"key": "action", "label_ar": 'إجراء السلامة', "type": "dropdown", "required": True, "options": ['ارتداء خوذة السلامة', 'ارتداء أحذية السلامة', 'ارتداء السترات العاكسة', 'استخدام القفازات المناسبة', 'استخدام نظارات الحماية', 'استخدام حماية الجهاز التنفسي عند الحاجة', 'استخدام حماية السمع عند الحاجة', 'فحص السلالم قبل الاستخدام', 'فحص السقالات قبل الاستخدام', 'تأمين العمل على الارتفاعات عند الحاجة', 'فحص الأدوات والمعدات الكهربائية', 'التأكد من التأريض والحماية الكهروميكانيكية', 'توفير ممرات آمنة داخل منطقة العمل', 'إزالة مخاطر التعثر والانزلاق', 'المحافظة على ترتيب ونظافة موقع العمل', 'توفير طفايات الحريق المناسبة', 'توفير صندوق الإسعافات الأولية', 'إجراء توعية السلامة (Toolbox Talk)']},
+        {"key": "applied", "label_ar": "مطبَّق (تم)", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_workcond_esha", "8.4 د. ظروف العمل", [
-        {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
+        {"key": "action", "label_ar": 'إجراء السلامة', "type": "dropdown", "required": True, "options": ['توفير مياه شرب نظيفة وكافية', 'توفير مكان استراحة مناسب', 'توفير دورات مياه مناسبة', 'توفر الإسعافات الأولية', 'الالتزام بساعات العمل المقررة', 'عدم وجود عمالة أطفال', 'عدم وجود تمييز أو إساءة معاملة', 'التعامل مع العمال بصورة عادلة', 'توعية العمال بآلية الشكاوى (GRM)', 'الالتزام بمتطلبات الصحة والسلامة']},
+        {"key": "applied", "label_ar": "مطبَّق (تم)", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
     ]),
     ("eshs_community_esha", "8.4 هـ. صحة وسلامة المجتمع والمسافرين", [
-        {"key": "proc", "label_ar": "إجراء السلامة", "type": "text", "required": True, "options": []},
-        {"key": "done", "label_ar": "تم", "type": "checkbox", "required": False, "options": []},
-        {"key": "not_done", "label_ar": "لم يتم", "type": "checkbox", "required": False, "options": []},
+        {"key": "action", "label_ar": "إجراء السلامة", "type": "dropdown", "required": True, "options": [
+            "فصل منطقة العمل عن المسافرين",
+            "تركيب حواجز حماية مناسبة",
+            "وضع لوحات التحذير والإرشاد",
+            "تحديد ممرات آمنة للمسافرين",
+            "منع دخول غير المصرح لهم إلى منطقة العمل",
+            "المحافظة على مداخل ومخارج الطريق",
+            "عدم إعاقة حركة المسافرين",
+            "التنسيق مع أمن وإدارة المعبر",
+            "إزالة أي خطر قد يؤثر على مستخدمي الطريق",
+            "السيطرة على الغبار والضوضاء المحيطة",
+        ]},
+        {"key": "applied", "label_ar": "مطبَّق (تم)", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
+    ]),
+    # 8.4 و/ز and 8.4 ح, present in the Ministry of Finance daily report but
+    # missing here. Two columns each, as the source document.
+    ("eshs_land_heritage_esha", "8.4 و/ز. الأراضي ومصادر الرزق / التراث الثقافي", [
+        {"key": "risk", "label_ar": "المخاطر / الأثر المحتمل", "type": "text", "required": True, "options": []},
+        {"key": "mitigation", "label_ar": "إجراءات التخفيف / الإجراءات الوقائية", "type": "text", "required": True, "options": []},
+    ]),
+    ("eshs_biodiversity_esha", "8.4 ح. الحفاظ على التنوع البيولوجي", [
+        {"key": "risk", "label_ar": "المخاطر / الأثر المحتمل", "type": "text", "required": True, "options": []},
+        {"key": "mitigation", "label_ar": "إجراءات التخفيف / الإجراءات الوقائية", "type": "text", "required": True, "options": []},
     ]),
     ("announcements_esha", "8.5 الإعلانات وإخطارات أصحاب المصلحة", [
         {"key": "purpose", "label_ar": "الغرض من الإعلان", "type": "textarea", "required": True, "options": []},
@@ -592,10 +610,13 @@ def default_fields_for(template_key):
                                   [], (_example(template_key, "eshs_desc_81") or None)))
         out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False,
                                   [], (_example(template_key, "eshs_location_82") or None)))
-        # NOTE: ESHS tables stay optional for now — enforcing required=True here
-        # breaks minimal valid submissions (see test_dyn_create_linked_syncs_name).
-        # Proper non-bypass needs an explicit N/A-status mechanism, not a bare
-        # min-1-row rule. Revisit with N/A support before re-enabling.
+        # The ESHS tables stay optional on purpose. Requiring them would make
+        # the form unfinishable — a compliance officer ticking 80 boxes to save
+        # is how a form gets abandoned — and it would break minimal valid
+        # submissions (see test_dyn_create_linked_syncs_name). What the
+        # standard demands instead is that a missing section be *noticed*, so
+        # the form warns and the printed report hides it. See
+        # missing_critical_fields() for that side.
         for k, lb, cols in DAILY_TABLES:
             out.append(_spec_to_field(k, lb, "table", False, [],
                                       _cols_with_hints(template_key, cols)))
@@ -838,6 +859,12 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                 # sync: repair stale duplicated option lists / types without
                 # overwriting admin-customized labels unnecessarily.
                 row = existing[f["key"]]
+                # Whether a field is required is a property of the standard,
+                # not something an administrator types, so it is synced like
+                # the columns and options. It was not, which is why marking a
+                # field required in this file did nothing to a live database.
+                if bool(row.required) != bool(f["required"]):
+                    row.required = bool(f["required"])
                 want_cols = f.get("columns") or []
                 if f["type"] == "table" and want_cols and row.sub_fields != want_cols:
                     row.sub_fields = want_cols

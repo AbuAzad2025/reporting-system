@@ -271,20 +271,36 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
                               for c in cols]
                              for r in rows if isinstance(r, dict)]
                 tables.append((f.label_ar, cols, body_rows))
-            else:
-                items.append((f.label_ar, "— لا بنود مسجلة —"))
+            # An empty table is not printed at all. It used to print
+            # «لا بنود مسجلة», which put a heading and a line on every page for
+            # a section that does not apply: a reader could not tell "not
+            # applicable" from "someone forgot". The daily report the site
+            # fills in on paper simply has no such section when nothing applies.
             continue
         if f.field_type == "checkbox":
             # ESHS model uses ☒ / ☐ exactly as in PDF
             is_checked = str(val).lower() in ("1", "true", "yes", "on", "نعم", "checked", "☒")
-            val = "☒" if is_checked else "☐"
+            if not is_checked:
+                # An unticked box is a statement that something was not done.
+                # Printing it for every optional attachment turns a filled
+                # report into a list of things nobody did.
+                continue
+            val = "☒"
         elif f.field_type == "number" and val not in ("", None):
             val = str(val)
-        items.append((f.label_ar, val if str(val).strip() else "—"))
+        if not str(val).strip():
+            # Same rule for scalars: absent, not «—».
+            continue
+        items.append((f.label_ar, val))
     if not items and not tables:
-        items = [("لا توجد حقول معرفة لهذا القالب", "—")]
-    story.append(_kv_table(items, st))
-    story.append(Spacer(1, 6 * mm))
+        # Every field is hidden when empty, so a report where nothing was
+        # filled in would otherwise be a sheet of letterhead and nothing else.
+        # Say so rather than emit a blank page.
+        items = [("تعذّر طباعة أي قسم",
+                  "لم تُملأ أي من الأقسام في هذا التقرير.")]
+    if items:
+        story.append(_kv_table(items, st))
+        story.append(Spacer(1, 6 * mm))
 
     # ---- line-item tables (alternating shading, repeat header) — with image embedding
     for idx, (label, cols, body) in enumerate(tables):
