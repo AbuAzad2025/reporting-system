@@ -20,7 +20,7 @@ from app.utils.decorators import (template_manager_required, roles_required,
 from app.ops.isolation import roles_required_json
 from app.services.db_lookup import get_or_404
 from app.services.default_templates import ensure_default_templates
-from app.services.branding import LogoRejected, store_logo
+from app.services import branding as branding_service
 
 log = logging.getLogger(__name__)
 
@@ -313,17 +313,14 @@ def projects():
                 name=name, location=request.form.get("location", "").strip(),
                 contractor=request.form.get("contractor", "").strip(),
                 client=request.form.get("client", "").strip())
-            # Logos are stored as keys relative to the branding directory.
-            # SVG is not accepted: it is a program, and one served from this
-            # origin runs with the session of whoever opens the page.
             for field_name, attr in (("logo", "logo_path"),
                                      ("logo2", "logo2_path")):
                 upload = request.files.get(field_name)
                 if not upload or not upload.filename:
                     continue
                 try:
-                    key = store_logo(None, upload.filename, upload.read())
-                except LogoRejected as exc:
+                    key = branding_service.store_logo(upload.filename, upload.read())
+                except branding_service.LogoRejected as exc:
                     flash(f"الشعار: {exc}", "warning")
                     continue
                 setattr(proj, attr, key)
@@ -604,8 +601,6 @@ def branding():
     chosen explicitly rather than inferred.
     """
     from app.models import TenantBranding
-    from app.services.branding import (LogoRejected, delete_logo, store_logo,
-                                       normalise_hex)
 
     projects = Project.query.filter_by(is_active=True).order_by(
         Project.name).all()
@@ -639,10 +634,10 @@ def branding():
             if field in request.form:
                 setattr(brand, field, request.form[field].strip())
         if "primary_color" in request.form:
-            brand.primary_color = normalise_hex(
+            brand.primary_color = branding_service.normalise_hex(
                 request.form["primary_color"], "#1e3a5f")
         if "secondary_color" in request.form:
-            brand.secondary_color = normalise_hex(
+            brand.secondary_color = branding_service.normalise_hex(
                 request.form["secondary_color"], "#c9a227")
 
         for form_field, attr in (("logo", "logo_path"), ("logo2", "logo2_path")):
@@ -650,15 +645,15 @@ def branding():
             if not upload or not upload.filename:
                 continue
             try:
-                key = store_logo(None, upload.filename, upload.read())
-            except LogoRejected as exc:
+                key = branding_service.store_logo(upload.filename, upload.read())
+            except branding_service.LogoRejected as exc:
                 flash(str(exc), "danger")
                 continue
-            delete_logo(getattr(brand, attr) or "")
+            branding_service.delete_logo(getattr(brand, attr) or "")
             setattr(brand, attr, key)
 
         if request.form.get("clear_logo") and not request.files.get("logo"):
-            delete_logo(brand.logo_path or "")
+            branding_service.delete_logo(brand.logo_path or "")
             brand.logo_path = ""
 
         db.session.commit()

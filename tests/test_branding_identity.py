@@ -70,7 +70,7 @@ def test_an_image_is_identified_by_its_bytes_not_its_name(app):
 
 
 def test_a_logo_key_is_relative_so_the_database_outlives_the_machine():
-    key = branding_service.store_logo(None, "logo.png", PNG_1PX)
+    key = branding_service.store_logo("logo.png", PNG_1PX)
     assert not os.path.isabs(key), (
         "an absolute path in the database breaks on the next deploy")
     assert os.path.isfile(os.path.join(branding_service.asset_root(), key))
@@ -79,7 +79,7 @@ def test_a_logo_key_is_relative_so_the_database_outlives_the_machine():
 
 def test_an_oversized_logo_is_refused():
     with pytest.raises(branding_service.LogoRejected):
-        branding_service.store_logo(None, "big.png",
+        branding_service.store_logo("big.png",
                                      PNG_1PX + b"0" * (branding_service.MAX_LOGO_BYTES + 1))
 
 
@@ -94,7 +94,7 @@ def test_a_disk_that_cannot_be_written_is_a_rejection_not_a_crash(monkeypatch):
 
     monkeypatch.setattr(branding_service.os, "makedirs", refuse)
     with pytest.raises(branding_service.LogoRejected):
-        branding_service.store_logo(None, "logo.png", PNG_1PX)
+        branding_service.store_logo("logo.png", PNG_1PX)
 
 
 def test_a_logo_cannot_escape_its_directory():
@@ -106,7 +106,7 @@ def test_a_logo_cannot_escape_its_directory():
 def test_a_legacy_absolute_path_still_resolves():
     # Logos stored before the move are absolute. They must keep working until
     # they are re-uploaded, or every existing project loses its letterhead.
-    key = branding_service.store_logo(None, "old.png", PNG_1PX)
+    key = branding_service.store_logo("old.png", PNG_1PX)
     absolute = os.path.join(branding_service.asset_root(), key)
     assert branding_service.logo_path(absolute) == absolute
     # ... but an absolute path is never handed to a browser as a URL.
@@ -114,7 +114,7 @@ def test_a_legacy_absolute_path_still_resolves():
 
 
 def test_a_stored_logo_is_served_with_nosniff(client):
-    key = branding_service.store_logo(None, "served.png", PNG_1PX)
+    key = branding_service.store_logo("served.png", PNG_1PX)
     response = client.get(f"/uploads/branding/{key}")
     assert response.status_code == 200
     assert response.headers["X-Content-Type-Options"] == "nosniff"

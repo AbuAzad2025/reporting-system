@@ -75,10 +75,32 @@ FLASH_EMPTY_COMMENT = ("danger", "لا يمكن إضافة تعليق فارغ."
 
 #: base.html renders each flash as ``<div role="alert" class="... bg-<tone>-50">
 #: <span>message</span>`` (app/../templates/base.html:56-68).
+#: Each alert carries one semantic class naming its tone. It used to carry a
+#: pile of utility classes instead (bg-red-50 text-red-800 border-red-200), and
+#: the tone had to be inferred from a colour - which is also why a colour-only
+#: signal was ever possible in the first place.
 ALERT_RE = re.compile(
     r'<div role="alert" class="([^"]*)"[^>]*>\s*<span>(.*?)</span>', re.S)
-TONE_OF = (("bg-green-50", "success"), ("bg-red-50", "danger"),
-           ("bg-amber-50", "warning"), ("bg-blue-50", "info"))
+TONE_OF = (("flash-success", "success"), ("flash-danger", "danger"),
+           ("flash-warning", "warning"), ("flash-info", "info"),
+           ("flash-message", "info"))
+
+
+def test_the_flash_reader_matches_the_markup_that_is_rendered(client):
+    """Guards the parser above against the template drifting away from it.
+
+    Every assertion in this module that reads a flash goes through this regex.
+    A change to the alert markup that left the parser behind would not fail any
+    of those assertions - it would make them silently match nothing.
+    """
+    import re as _re
+    for cat in ("success", "danger", "warning", "info"):
+        markup = ('<div role="alert" class="flash-msg flash-%s">'
+                  '<span>رسالة</span></div>' % cat)
+        match = ALERT_RE.search(markup)
+        assert match, "ALERT_RE no longer matches the rendered alert"
+        tone = next(t for needle, t in TONE_OF if needle in match.group(1))
+        assert tone == cat
 
 
 # ------------------------------------------------------------------ helpers
@@ -353,7 +375,7 @@ class TestUiEditFormRendering:
         r = client.get(f"/ops/ui/rfis/{rid}/edit")
         assert r.status_code == 200
         html = r.get_data(as_text=True)
-        assert "✏️ تعديل طلبات الاستفسار (RFI)" in html
+        assert "تعديل طلبات الاستفسار (RFI)" in html
         assert "💾 تحديث" in html
         # picker: the record's own project is preselected, and only projects the
         # user is a member of are offered
@@ -467,7 +489,7 @@ class TestUiEditUpdate:
             "danger", "قيمة غير مسموحة في «الأولوية» — المسموح: "
             "منخفضة، عادية، عالية، حرجة.")]
         html = r.get_data(as_text=True)
-        assert "✏️ تعديل" in html  # the edit form, not a redirect
+        assert "تعديل طلبات الاستفسار" in html  # the edit form, not a redirect
         assert 'value="مسودة لم تُحفظ"' in html  # the user's input survives
         after = _state(app, "RFI", rid, "subject", "priority", "version")
         assert after == before
@@ -578,7 +600,7 @@ class TestUiNew:
         r = eng_client.get("/ops/ui/rfis/new")
         assert r.status_code == 200
         html = r.get_data(as_text=True)
-        assert "➕ إنشاء طلبات الاستفسار (RFI)" in html
+        assert "إنشاء طلبات الاستفسار (RFI)" in html
         assert "💾 حفظ" in html
         picker = _select(html, "project_id")
         assert "selected" not in picker
@@ -671,7 +693,7 @@ class TestUiNew:
             ("danger", "«نص الاستفسار» حقل مطلوب."),
             ("danger", "«المشروع» يجب أن يكون رقم مشروع صالح — اختره من القائمة."),
         ]
-        assert "➕ إنشاء" in r.get_data(as_text=True)
+        assert "إنشاء طلبات الاستفسار" in r.get_data(as_text=True)
         assert _count(app, "RFI") == 1  # only the seeded row
 
     def test_a_result_below_the_acceptance_window_is_refused(
@@ -702,7 +724,7 @@ class TestUiNew:
         assert _flashes(client, r) == [FLASH_DUPLICATE]
         assert _count(app, "RFI") == 1
         assert _count(app, "RFI", subject="تكرار") == 0
-        assert "➕ إنشاء" in r.get_data(as_text=True)
+        assert "إنشاء طلبات الاستفسار" in r.get_data(as_text=True)
 
     def test_new_post_cannot_write_into_another_tenant(self, app, eng_client):
         """Security invariant only — see DEFECT 1 in the module docstring.

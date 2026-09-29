@@ -78,7 +78,7 @@ def sniff_logo_format(data: bytes) -> str:
     raise LogoRejected("الملف ليس صورة PNG أو JPEG أو WebP.")
 
 
-def store_logo(storage, filename: str, data: bytes) -> str:
+def store_logo(filename: str, data: bytes) -> str:
     """Validate and save a logo; return the key relative to the asset root.
 
     A failure to write is reported as a rejection, not as an OSError. A full

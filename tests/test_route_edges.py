@@ -48,14 +48,17 @@ class TestAdminProjectCreate:
         by the baseline migration, so they are always present, and the
         ALTER-in-a-request also meant an implicit commit mid-handler. The
         rollback and the log line are what actually matter now.
+
+        The failure is injected at store_logo, which is what the handler calls.
+        Patching storage.upload_image no longer intercepts anything.
         """
-        import app.services.storage as storage
+        import app.services.branding as branding_service
         from app.models import Project
 
         def refuse(*_a, **_k):
-            raise OSError("storage is unreachable")
+            raise branding_service.LogoRejected("تعذّر حفظ الشعار على الخادم.")
 
-        monkeypatch.setattr(storage, "upload_image", refuse)
+        monkeypatch.setattr(branding_service, "store_logo", refuse)
         login_as(client, "t_owner")
         response = client.post("/admin/projects", data={
             "name": "Upload Failed", "location": "R", "contractor": "C",
@@ -68,6 +71,9 @@ class TestAdminProjectCreate:
             assert project is not None
             assert not (project.logo_path or ""), (
                 "a failed upload must not leave a path behind")
+        body = client.get("/admin/projects").get_data(as_text=True)
+        assert "تعذّر حفظ الشعار" in body, (
+            "a logo that could not be stored was swallowed")
 
 
 class TestAdminBackupImport:
