@@ -25,7 +25,7 @@ backup.py branches pinned here:
 models.py branches pinned here:
   * ``User.can_manage_users`` / ``User.can_manage_templates`` (incl. the legacy
     ``"user"`` role alias)
-  * ``User.get_brand`` - unauthenticated caller, tenant member, platform
+  * brand resolution - unauthenticated caller, tenant member, platform
     manager fallback, and a user with no tenant at all
   * ``Report.get`` and the ``TenantBranding`` / ``TenantTemplateOverride``
     ``__repr__`` methods
@@ -608,13 +608,64 @@ def test_can_manage_users_and_templates_belong_to_platform_managers(app):
         assert legacy.has_perm("manage_users") is False
 
 
-def test_get_brand_returns_none_for_an_unauthenticated_caller():
+def test_resolve_brand_returns_nothing_for_an_anonymous_caller(app):
+    """There is no tenant to resolve for someone who is not signed in.
+
+    The resolver used to be User.get_brand. It was removed as a second, dead
+    copy of app.services.branding.resolve_brand; the behaviour it had is
+    asserted here against the one that is actually used.
+    """
+    from app.services.branding import resolve_brand
     anonymous = AnonymousUserMixin()
     assert anonymous.is_authenticated is False
-    assert User.get_brand(anonymous) is None
+    with app.app_context():
+        view = resolve_brand(anonymous)
+    assert view.row is None
+    assert view.company_ar == app.config["COMPANY_NAME_AR"]
 
 
-def test_get_brand_resolves_the_tenant_of_the_logged_in_member(app, client):
+def test_resolve_brand_finds_the_tenant_the_caller_belongs_to(app, client):
+    """A retired row and a branding for another project are both ignored.
+
+    Insert order matters: a platform manager with no membership falls back to
+    the first active branding, and Beta is the first one, so a resolver that
+    picked by table order would answer "Beta Hospitals" here.
+    """
+    from app.services.branding import resolve_brand
+    with app.app_context():
+        alpha = _project(ALPHA)
+        beta = _project(BETA)
+        retired = TenantBranding(project_id=alpha.id,
+                                 company_name_en="Retired Brand",
+                                 is_active=False)
+        beta_brand = TenantBranding(project_id=beta.id,
+                                    company_name_en="Beta Hospitals",
+                                    is_active=True)
+        alpha_brand = TenantBranding(project_id=alpha.id,
+                                     company_name_en="Alpha Contracting",
+                                     is_active=True)
+        db.session.add_all([retired, beta_brand, alpha_brand])
+        db.session.flush()
+        alpha_brand.created_at = datetime(2026, 3, 5, 9, 0)
+        retired.created_at = datetime(2026, 3, 1, 9, 0)
+        db.session.commit()
+        assert TenantBranding.query.count() == 3
+        beta_brand_id = beta_brand.id
+
+    with app.app_context():
+        user = User.query.filter_by(username="t_eng").first()
+        # t_eng is already a member of Alpha; a second membership row would
+        # violate the unique constraint and is not needed to prove anything.
+        view = resolve_brand(user)
+        assert view.company_en == "Alpha Contracting", (
+            "the caller is a member of Alpha, so Alpha's branding is theirs; "
+            "got %r" % view.company_en)
+        assert view.row.id != beta_brand_id
+        assert view.row.is_active is True
+
+
+
+def test_resolve_brand_picks_the_tenant_of_each_member(app, client):
     with app.app_context():
         alpha = _project(ALPHA)
         beta = _project(BETA)
@@ -642,21 +693,33 @@ def test_get_brand_resolves_the_tenant_of_the_logged_in_member(app, client):
     assert response.status_code == 302
 
     with app.app_context():
+        from app.services.branding import resolve_brand
         engineer = _user("t_eng")
         with client.session_transaction() as http_session:
             assert str(http_session.get("_user_id")) == str(engineer.id)
-        brand = engineer.get_brand()
-        assert brand is not None
-        assert brand.id == alpha_brand_id
-        assert brand.project_id == alpha_id
-        assert brand.company_name_en == "Alpha Contracting"
-        assert brand.is_active is True
+        view = resolve_brand(engineer)
+        assert view.row is not None
+        assert view.row.id == alpha_brand_id
+        assert view.row.project_id == alpha_id
+        assert view.company_en == "Alpha Contracting"
+        assert view.row.is_active is True
 
-        # A member of the other tenant resolves to that tenant's brand.
-        assert _user("t_eng2").get_brand().id == beta_brand_id
+        # Each caller needs its own application context: resolve_brand caches
+        # on g, which is right for one request and wrong for three users asked
+        # in a row inside one test. Pushing a context is how a second request
+        # would see the second user.
+        def brand_of(username):
+            with app.app_context():
+                return resolve_brand(_user(username))
 
-        # Platform managers have no membership: first active branding wins.
-        assert _user("t_owner").get_brand().id == beta_brand_id
+        # A member of the other tenant resolves to that tenant's brand, and
+        # neither picks up the retired row.
+        assert brand_of("t_eng2").row.id == beta_brand_id
+
+        # Platform managers have no membership, so they get the most recently
+        # updated active branding. Alpha's was set to the later timestamp
+        # above, so it wins - ordering by recency, not by table order.
+        assert brand_of("t_owner").row.id == alpha_brand_id
 
         # A non-manager with no tenant at all gets nothing.
         outsider = User(username="t_outsider", email="outsider@t.com",
@@ -664,15 +727,15 @@ def test_get_brand_resolves_the_tenant_of_the_logged_in_member(app, client):
                         password_hash="x")
         db.session.add(outsider)
         db.session.commit()
-        assert outsider.get_brand() is None
+        assert brand_of("t_outsider").row is None
 
         # A platform-wide branding is not attributed to a tenant member.
         db.session.add(TenantBranding(project_id=None,
                                       company_name_en="Platform Wide",
                                       is_active=True))
         db.session.commit()
-        assert outsider.get_brand() is None
-        assert _user("t_eng").get_brand().id == alpha_brand_id
+        assert brand_of("t_outsider").row is None
+        assert brand_of("t_eng").row.id == alpha_brand_id
 
 
 def test_legacy_report_get_reads_stored_answers(app):
