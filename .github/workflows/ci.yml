@@ -431,10 +431,11 @@ jobs:
   coverage-report-combined:
     name: "Coverage Report"
     runs-on: ubuntu-24.04
-    # The combined run executes the whole suite in one process; the suite has
-    # grown past the default 15m ceiling, so allow real headroom instead of
-    # letting a green run be cancelled mid-report.
-    timeout-minutes: 30
+    # The combined run executes the whole suite in one process. It reached
+    # 30 minutes and was cancelled mid-report while the coverage gate itself
+    # was passing, so the ceiling is raised rather than the run left to be
+    # killed after half an hour of work.
+    timeout-minutes: 55
     needs: [crud-serials-validation, e2e-full-lifecycle, isolation-rbac, versioning-archive-pdf, feedback-analytics-remediation, enterprise-projects-finance-ui, storage-images]
     if: success()
     steps:
