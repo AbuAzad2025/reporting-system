@@ -254,7 +254,7 @@ def build_batch_pdf(records, project_name: str, date_from: str, date_to: str,
                 org_ar=brand.company_ar, org_en=brand.company_en,
                 notes=brand.footer_notes,
                 platform_line=(brand.disclaimer
-                                or "Generated via Azadexa Reporting Platform"))
+                                or "أُنشئ عبر منصة أزادكسا للتقارير"))
 
     doc.build(story, onFirstPage=_batch_footer, onLaterPages=_batch_footer)
     return buf.getvalue()

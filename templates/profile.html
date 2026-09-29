@@ -4,7 +4,7 @@
 <div class="max-w-3xl mx-auto bg-white rounded-3xl shadow p-6 space-y-6">
   <div class="flex items-center gap-4">
     {% if current_user.avatar %}
-    <img src="{{ url_for('static', filename='uploads/' ~ current_user.avatar) }}" alt="Avatar" class="w-24 h-24 rounded-2xl object-cover border-2 border-teal2">
+    <img src="{{ url_for('static', filename='uploads/' ~ current_user.avatar) }}" alt="صورة {{ current_user.full_name }}" class="w-24 h-24 rounded-2xl object-cover border-2 border-teal2">
     {% else %}
     <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-navy to-teal2 flex items-center justify-center text-white font-bold text-4xl">
       {{ current_user.full_name[:1] }}

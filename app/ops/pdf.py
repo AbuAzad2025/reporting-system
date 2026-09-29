@@ -17,6 +17,7 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
 from utils.pdf_generator import (_styles, _section_title, _kv_table, _footer,
                                  ar)
 from app.ops.models import OPS_MODULES
+from app.ops.versioning import WORKFLOW_AR
 
 NAVY = colors.HexColor("#1e3a5f")
 GOLD = colors.HexColor("#c9a227")
@@ -233,7 +234,7 @@ def build_ops_pdf(kind: str, record, project_name: str = "",
         topMargin=12 * mm, bottomMargin=36,
         title=f"{brand.company_ar}-{record.serial}")
 
-    watermark = "DRAFT" if record.status == "draft" else ""
+    watermark = ar(WORKFLOW_AR.get(record.status, "")) if record.status else ""
 
     def _on_page(canvas, _doc):
         if watermark:
@@ -250,7 +251,7 @@ def build_ops_pdf(kind: str, record, project_name: str = "",
                 org_ar=brand.company_ar, org_en=brand.company_en,
                 notes=brand.footer_notes,
                 platform_line=(brand.disclaimer
-                                or "Generated via Azadexa Reporting Platform"))
+                                or "أُنشئ عبر منصة أزادكسا للتقارير"))
 
     story = []
     # The tenant's logo above the contractual header, when they uploaded one.

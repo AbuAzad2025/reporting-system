@@ -130,7 +130,8 @@ def test_the_batch_export_draws_one_footer_not_two(app):
     assert "صفحة" not in text, (
         "a hand-rolled Arabic page label came back; that strip drew Arabic "
         "with Helvetica, which has no Arabic glyphs")
-    assert "Page 1" in text, "the shared footer, which numbers pages, is gone"
+    assert _contains(text, "صفحة 1"), \
+        "the shared footer, which numbers pages, is gone"
 
 
 # ----------------------------------------------------------------- the ops PDF

@@ -9,7 +9,7 @@
     <div class="border rounded-2xl p-3 flex items-center justify-between gap-2 flex-wrap">
       <div class="flex items-center gap-3">
         {% if u.avatar %}
-          <img src="{{ url_for('static', filename='uploads/' ~ u.avatar) }}" alt="Avatar" class="w-10 h-10 rounded-xl object-cover border">
+          <img src="{{ url_for('static', filename='uploads/' ~ u.avatar) }}" alt="صورة {{ u.full_name }}" class="w-10 h-10 rounded-xl object-cover border">
         {% else %}
           <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-navy to-teal2 flex items-center justify-center text-white font-bold text-lg">
             {{ u.full_name[:1] }}

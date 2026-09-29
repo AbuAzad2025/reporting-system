@@ -130,6 +130,102 @@ def test_dark_mode_rules_cannot_leak_into_print(css):
             "a dark-theme rule sits inside a print block")
 
 
+#: Words that belong to the platform, not to a tenant's report. A document
+#: carrying one of these is a document carrying the vendor's name, which is the
+#: thing the branding work was for.
+_PLATFORM_WORDS = ("Page ", "DRAFT", "Generated securely", "Generated via")
+
+#: Where a document is composed. Each of these can put English on a page.
+_PDF_MODULES = ("utils/pdf_generator.py", "app/ops/pdf.py", "app/ops/batch.py",
+                "app/services/pdf_dynamic.py")
+
+
+def test_no_english_platform_survives_into_a_generated_report():
+    """The footers and the draft watermark are written by hand.
+
+    They are the only text in a report that is not Arabic, and each one was
+    English by default: "Page 3", "DRAFT", "Generated securely via Azadexa
+    Cloud Platform". A tenant's own line overrides the third, but never the
+    first two.
+    """
+    drawn = re.compile(
+        r'draw(?:String|CentredString|RightString)\(|watermark\s*=|'
+        r'platform_line\s*=|or\s+"[^"]*"\)')
+
+    offenders = []
+    for path in _PDF_MODULES:
+        if not os.path.isfile(path):
+            continue
+        for number, line in enumerate(io.open(path, encoding="utf-8"), 1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if not drawn.search(line):
+                continue
+            for word in _PLATFORM_WORDS:
+                if word in line:
+                    offenders.append("%s:%d  %s" % (path, number,
+                                                     stripped[:70]))
+    assert not offenders, (
+        "English left on the page of an Arabic report:\n  "
+        + "\n  ".join(offenders))
+
+
+def test_the_page_number_and_watermark_are_arabic():
+    generator = io.open("utils/pdf_generator.py", encoding="utf-8").read()
+    assert "صفحة" in generator, (
+        "the page number has to be in the language of the document")
+    ops = io.open("app/ops/pdf.py", encoding="utf-8").read()
+    assert "WORKFLOW_AR" in ops, (
+        "the watermark should come from the status map that already exists, "
+        "not from a hand-written word")
+    assert '"DRAFT"' not in ops, "an English watermark is still on the page"
+
+
+#: Latin values that are identifiers rather than prose: field keys a
+#: template asks the administrator to key a column by, and a pagination
+#: fragment. A reader never sees these as prose.
+_TECHNICAL = {"key", "manpower", "equipment", "materials", "visitors",
+              "variation", "daily", "weekly", "monthly", "safety"}
+
+
+def test_no_english_reaches_the_templates():
+    """A line-by-line scan of every literal the reader can see.
+
+    Jinja expressions, digits and technical field keys are excluded: they are
+    identifiers, not prose. The two things this found were alt="Avatar", in
+    two templates.
+    """
+    text_node = re.compile(r">([^<>{}]+)<")
+    attribute = re.compile(r'\b(placeholder|title|alt|aria-label)="([^"]*)"')
+    seen = set()
+    for dirpath, _dirs, files in os.walk("templates"):
+        for name in files:
+            if not name.endswith(".html"):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, name), "templates")
+            body = io.open(os.path.join(dirpath, name),
+                           encoding="utf-8").read()
+            candidates = [m.group(1).strip() for m in text_node.finditer(body)]
+            candidates += [m.group(2).strip() for m in attribute.finditer(body)]
+            for value in candidates:
+                if not value or not re.search(r"[A-Za-z]{2,}", value):
+                    continue
+                if re.search(r"[؀-ۿ]", value):
+                    continue
+                if "{{" in value or "{%" in value:
+                    continue
+                if value in _TECHNICAL:
+                    continue
+                if "=" in value or "&" in value:
+                    continue
+                if not re.fullmatch(r"[A-Za-z0-9 \.\-_/#%\?=&:,\+]+", value):
+                    continue
+                seen.add((rel, value))
+    assert not seen, ("Latin text a reader can see: %s"
+                      % ", ".join("%s: %r" % pair for pair in sorted(seen)))
+
+
 def test_the_manifest_declares_the_icon_sizes_the_files_actually_have():
     """A manifest that lies about its icons fails install validation."""
     import json

@@ -397,11 +397,11 @@ def _footer(canvas, doc, serial="", timestamp="", project_name="",
     canvas.drawString(10 * mm, 22, org_ar or BRAND_AR)
     canvas.setFont(FONT_NORMAL, 7)
     canvas.drawString(10 * mm, 13,
-                       platform_line or "Generated securely via Azadexa Cloud Platform")
+                       platform_line or "أُنشئ عبر منصة أزادكسا للتقارير")
     canvas.setFont(FONT_NORMAL, 7.5)
     canvas.drawCentredString(A4[0] / 2, 22,
                              f"{serial or '—'}  •  {timestamp}")
-    canvas.drawRightString(A4[0] - 10 * mm, 22, f"Page {doc.page}")
+    canvas.drawRightString(A4[0] - 10 * mm, 22, f"صفحة {doc.page}")
     canvas.setFont(FONT_NORMAL, 6.5)
     canvas.drawCentredString(
         A4[0] / 2, 13,
