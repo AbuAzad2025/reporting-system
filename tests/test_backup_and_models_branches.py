@@ -664,7 +664,6 @@ def test_resolve_brand_finds_the_tenant_the_caller_belongs_to(app, client):
         assert view.row.is_active is True
 
 
-
 def test_resolve_brand_picks_the_tenant_of_each_member(app, client):
     with app.app_context():
         alpha = _project(ALPHA)
