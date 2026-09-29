@@ -14,7 +14,7 @@ PLATFORM_ROUTES = [
     ("GET", "/admin/templates/new"),
     ("GET", "/admin/projects"),
     ("GET", "/admin/users"),
-    ("GET", "/admin/branding/1"),
+    ("GET", "/admin/branding"),
 ]
 
 PLATFORM_POST_ROUTES = [
@@ -27,7 +27,7 @@ PLATFORM_POST_ROUTES = [
     "/admin/users/2/role",
     "/admin/users/2/suspend",
     "/admin/users/2/delete",
-    "/admin/branding/1",
+    "/admin/branding",
     "/admin/fields/1/delete",
     "/admin/fields/1/move/up",
     "/admin/fields/1/columns",

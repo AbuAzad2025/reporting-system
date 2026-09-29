@@ -413,22 +413,31 @@ class TestAdminTableColumnRoundTrips:
         assert _sub_fields(app, fid) == []
 
     def test_column_add_capped_at_twelve(self, app, client):
-        from app.extensions import db
-        from app.models import DynamicField
+        """A thirteenth column is refused.
+
+        The twelve are created through the endpoint's own form, because that
+        is the path whose result the handler reads. Seeding the column by
+        writing the row from the test produced a field the handler saw with
+        zero columns, so the cap was never reached and the assertion below
+        could not have failed for the right reason.
+        """
         tid = _template_id(app, "hardening_cap")
         login_as(client, "t_admin")
-        _add_field(client, tid, "items", "بنود", "table")
+        spec = "\n".join(f"c{i} | عمود {i} | text" for i in range(12))
+        _add_field(client, tid, "items", "بنود", "table", columns=spec)
         fid = _field_id(app, tid, "items")
-        with app.app_context():
-            field = db.session.get(DynamicField, fid)
-            field.sub_fields = [{"key": f"c{i}", "label_ar": f"عمود {i}",
-                                 "type": "text", "required": False,
-                                 "options": []} for i in range(12)]
-            db.session.commit()
         r = client.post(f"/admin/fields/{fid}/columns", data={
             "col_key": "c12", "col_label": "ثالث عشر", "col_type": "text"},
             follow_redirects=True)
-        assert "الحد الأقصى 12 عموداً." in r.get_data(as_text=True)
+        body = r.get_data(as_text=True)
+        assert "الحد الأقصى 12 عموداً." in body
+        assert "تمت إضافة العمود" not in body
+        with app.app_context():
+            from app.extensions import db
+            from app.models import DynamicField
+            field = db.session.get(DynamicField, fid)
+            assert len(field.sub_columns()) == 12
+            assert all(c["key"] != "c12" for c in field.sub_columns())
         assert len(_sub_fields(app, fid)) == 12
 
     def test_column_delete_then_readd_round_trip(self, app, client):
@@ -624,65 +633,118 @@ class TestAdminUserDeleteProtection:
 
 # ========================================================= admin: tenant brand
 class TestAdminBranding:
-    def test_get_bootstraps_one_active_row_and_is_idempotent(self, app, client):
+    """Identity belongs to a project.
+
+    The route used to be /admin/branding/<template_id> and stored that value in
+    TenantBranding.project_id. Those are unrelated identifiers, so each row
+    landed on whichever project happened to share that number, and the
+    resolver - which looks up the projects a user belongs to - never found it.
+    """
+
+    def _project_id(self, app, name):
+        from app.models import Project
+        from app.extensions import db
+        with app.app_context():
+            existing = Project.query.filter_by(name=name).first()
+            if existing:
+                return existing.id
+            project = Project(name=name)
+            db.session.add(project)
+            db.session.commit()
+            return project.id
+
+    def test_get_is_read_only_and_bootstraps_nothing(self, app, client):
+        from app.models import TenantBranding
+        self._project_id(app, "hardening_brand")
+        login_as(client, "t_admin")
+        assert client.get("/admin/branding").status_code == 200
+        with app.app_context():
+            # Viewing the page must not create a row for whichever project
+            # happens to sort first.
+            assert TenantBranding.query.count() == 0
+
+    def test_save_binds_to_the_chosen_project(self, app, client):
         from app.extensions import db
         from app.models import TenantBranding
-        tid = _branding_template_id(app, "hardening_brand")
+        first = self._project_id(app, "hardening_brand_a")
+        second = self._project_id(app, "hardening_brand_b")
         login_as(client, "t_admin")
-        assert client.get(f"/admin/branding/{tid}").status_code == 200
-        with app.app_context():
-            rows = TenantBranding.query.filter_by(project_id=tid).all()
-            assert len(rows) == 1
-            assert rows[0].is_active is True
-        first_id = _branding_id(app, tid)
-        assert client.get(f"/admin/branding/{tid}").status_code == 200
-        assert _branding_id(app, tid) == first_id
-        with app.app_context():
-            assert TenantBranding.query.filter_by(project_id=tid).count() == 1
-
-    def test_save_persists_values_and_colour_defaults(self, app, client):
-        from app.models import TenantBranding
-        tid = _branding_template_id(app, "hardening_brand_save")
-        login_as(client, "t_admin")
-        client.get(f"/admin/branding/{tid}")
-        r = client.post(f"/admin/branding/{tid}", data={
+        r = client.post("/admin/branding", data={
+            "project_id": str(second),
             "company_name_ar": "  شركة أزاد للأنظمة الذكية  ",
             "company_name_en": "  AZAD Intelligent Systems ",
-            "logo_path": "  logos/brand.png ",
-            "primary_color": "   ",          # blank -> default
+            "primary_color": "   ",
             "secondary_color": "  #abcdef  ",
             "custom_header_text_ar": " ترويسة ",
+            "custom_header_text_en": " header ",
             "custom_footer_notes": " حاشية ",
             "disclaimer_text": " إخلاء مسؤولية "}, follow_redirects=True)
         assert r.status_code == 200
-        assert "تم حفظ تخصيص المظهر للمشروع." in r.get_data(as_text=True)
+        assert "تم حفظ هوية المشروع" in r.get_data(as_text=True)
         with app.app_context():
-            brand = TenantBranding.query.filter_by(project_id=tid).one()
+            brand = TenantBranding.query.filter_by(project_id=second).one()
+            assert TenantBranding.query.filter_by(project_id=first).count() == 0
             assert brand.company_name_ar == "شركة أزاد للأنظمة الذكية"
             assert brand.company_name_en == "AZAD Intelligent Systems"
-            assert brand.logo_path == "logos/brand.png"
-            assert brand.primary_color == "#1e3a5f"      # blank -> default
+            assert brand.primary_color == "#1e3a5f"
             assert brand.secondary_color == "#abcdef"
             assert brand.custom_header_text_ar == "ترويسة"
+            assert brand.custom_header_text_en == "header"
             assert brand.custom_footer_notes == "حاشية"
             assert brand.disclaimer_text == "إخلاء مسؤولية"
             assert brand.is_active is True
+            db.session.remove()
 
-    def test_unknown_template_is_branded_404(self, client):
+    def test_a_colour_that_is_not_hex_is_refused(self, app, client):
+        from app.extensions import db
+        from app.models import TenantBranding
+        project_id = self._project_id(app, "hardening_brand_inject")
         login_as(client, "t_admin")
-        r = client.get("/admin/branding/987654")
-        assert r.status_code == 404
-        assert "الصفحة غير موجودة" in r.get_data(as_text=True)
+        client.post("/admin/branding", data={
+            "project_id": str(project_id),
+            "primary_color": "red;} body{display:none",
+            "secondary_color": "url(javascript:alert(1))"},
+            follow_redirects=True)
+        with app.app_context():
+            brand = TenantBranding.query.filter_by(project_id=project_id).one()
+            assert brand.primary_color == "#1e3a5f"
+            assert brand.secondary_color == "#c9a227"
+            db.session.remove()
+
+    def test_a_save_keeps_the_disclaimer(self, app, client):
+        from app.extensions import db
+        from app.models import TenantBranding
+        project_id = self._project_id(app, "hardening_brand_keep")
+        with app.app_context():
+            db.session.add(TenantBranding(project_id=project_id, is_active=True,
+                                          disclaimer_text="نص محفوظ"))
+            db.session.commit()
+        login_as(client, "t_admin")
+        client.post("/admin/branding", data={
+            "project_id": str(project_id), "company_name_ar": "س"},
+            follow_redirects=True)
+        with app.app_context():
+            brand = TenantBranding.query.filter_by(project_id=project_id).one()
+            assert brand.disclaimer_text == "نص محفوظ"
+            db.session.remove()
+
+    def test_an_unknown_project_is_refused(self, client):
+        login_as(client, "t_admin")
+        r = client.post("/admin/branding", data={"project_id": "987654"},
+                        follow_redirects=True)
+        assert "غير موجود" in r.get_data(as_text=True)
 
     def test_non_manager_cannot_touch_branding(self, app, client):
+        from app.extensions import db
         from app.models import TenantBranding
-        tid = _branding_template_id(app, "hardening_brand_denied")
+        self._project_id(app, "hardening_brand_denied")
         login_as(client, "t_eng")
-        r = client.get(f"/admin/branding/{tid}")
+        r = client.get("/admin/branding")
         assert r.status_code == 302
         assert r.headers["Location"].endswith("/dashboard")
         with app.app_context():
             assert TenantBranding.query.count() == 0
+            db.session.remove()
 
 
 # ========================================================== main: archive list

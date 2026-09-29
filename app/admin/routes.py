@@ -629,14 +629,21 @@ def branding():
         if brand is None:
             brand = TenantBranding(project_id=project_id, is_active=True)
             db.session.add(brand)
+        # Only fields actually present in the request are touched. A form that
+        # submits a subset must not blank everything it left out: disclaimer_text
+        # was being overwritten with an empty string on every save, because the
+        # page had no field for it.
         for field in ("company_name_ar", "company_name_en",
                       "custom_header_text_ar", "custom_header_text_en",
                       "custom_footer_notes", "disclaimer_text"):
-            setattr(brand, field, request.form.get(field, "").strip())
-        brand.primary_color = normalise_hex(
-            request.form.get("primary_color"), "#1e3a5f")
-        brand.secondary_color = normalise_hex(
-            request.form.get("secondary_color"), "#c9a227")
+            if field in request.form:
+                setattr(brand, field, request.form[field].strip())
+        if "primary_color" in request.form:
+            brand.primary_color = normalise_hex(
+                request.form["primary_color"], "#1e3a5f")
+        if "secondary_color" in request.form:
+            brand.secondary_color = normalise_hex(
+                request.form["secondary_color"], "#c9a227")
 
         for form_field, attr in (("logo", "logo_path"), ("logo2", "logo2_path")):
             upload = request.files.get(form_field)

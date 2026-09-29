@@ -21,7 +21,11 @@ class StorageCloudMockTests(unittest.TestCase):
             mock_client = MagicMock()
             mock_s3_client.return_value = mock_client
             mock_client.put_object.return_value = None
-            mock_client.Object.return_value.get.return_value = {"Body": MagicMock(read=lambda: b"hello")}
+            # The service uses the client's own verbs. Object() is a
+            # boto3 *resource* method, so the previous mock was agreeing
+            # with code that could never have run.
+            mock_client.get_object.return_value = {
+                "Body": MagicMock(read=lambda: b"hello")}
             from app.services import storage
             loc = storage.upload(b"hello", "s3-test.zip")
             self.assertTrue(loc.startswith("s3://"))
