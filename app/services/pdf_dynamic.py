@@ -388,7 +388,6 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
                 report_type=template.name_ar,
                 org_ar=brand.company_ar, org_en=brand.company_en,
                 notes=brand.footer_notes,
-                platform_line=(brand.disclaimer
-                                or "Generated via Azadexa Reporting Platform"))
+                platform_line=brand.disclaimer)
     doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
     return buf.getvalue()

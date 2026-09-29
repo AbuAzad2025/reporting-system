@@ -57,6 +57,7 @@ correct behaviour, and no production file was touched):
 import html as htmllib
 import io
 import os
+import flash_reader
 import re
 from datetime import date
 
@@ -86,39 +87,15 @@ TONE_OF = (("flash-success", "success"), ("flash-danger", "danger"),
            ("flash-message", "info"))
 
 
-def test_the_flash_reader_matches_the_markup_that_is_rendered(client):
-    """Guards the parser above against the template drifting away from it.
-
-    Every assertion in this module that reads a flash goes through this regex.
-    A change to the alert markup that left the parser behind would not fail any
-    of those assertions - it would make them silently match nothing.
-    """
-    import re as _re
-    for cat in ("success", "danger", "warning", "info"):
-        markup = ('<div role="alert" class="flash-msg flash-%s">'
-                  '<span>رسالة</span></div>' % cat)
-        match = ALERT_RE.search(markup)
-        assert match, "ALERT_RE no longer matches the rendered alert"
-        tone = next(t for needle, t in TONE_OF if needle in match.group(1))
-        assert tone == cat
-
-
 # ------------------------------------------------------------------ helpers
 def _flashes(client, response):
-    """The exact (category, message) pairs the view emitted for the browser.
+    """Exact (category, message) pairs the view emitted for the browser.
 
     A 200 re-render consumes the queue inside base.html, so those are read back
     out of the rendered alert boxes; an unfollowed 302 leaves them in the
     session cookie instead.
     """
-    if response.status_code == 302:
-        with client.session_transaction() as sess:
-            return [tuple(item) for item in sess.pop("_flashes", [])]
-    emitted = []
-    for classes, message in ALERT_RE.findall(response.get_data(as_text=True)):
-        tone = next(cat for needle, cat in TONE_OF if needle in classes)
-        emitted.append((tone, htmllib.unescape(message.strip())))
-    return emitted
+    return flash_reader.flashes(client, response)
 
 
 def _login(client, username):

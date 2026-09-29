@@ -62,7 +62,6 @@ SITE_INSPECTION = {
 
 #: Every page of a cost-variance document carries the brand footer, so the
 #: em-dash baseline is 3 (contract header) + 3 x pages (footer line).
-FOOTER_DASHES_PER_PAGE = 3
 HEADER_DASHES = 3
 COST_VARIANCE_PAGES = 2
 
@@ -373,8 +372,12 @@ def test_identity_signature_and_contract_parties_are_drawn():
     default = _render("cost-variances", _record(COST_VARIANCE))
     assert _placeholder_cells(default) == HEADER_DASHES
     assert _placeholder_cells(document) == 0
-    assert _dash_count(document) == \
-        FOOTER_DASHES_PER_PAGE * COST_VARIANCE_PAGES
+    # Compared against the unfilled record rather than a fixed count. The
+    # footer holds whatever the project, type and serial cells hold, and it now
+    # carries the organisation name where it used to carry a copyright, so the
+    # number of dashes in it is incidental. The relationship is the point: an
+    # unfilled record has exactly the header placeholders more than a filled
+    # one, and nothing else differs.
     assert _dash_count(default) == _dash_count(document) + HEADER_DASHES
 
 

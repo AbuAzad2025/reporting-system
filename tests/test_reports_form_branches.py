@@ -14,6 +14,7 @@ never reaches):
 import html as htmllib
 import io
 import os
+import flash_reader
 import re
 from datetime import date
 
@@ -49,13 +50,6 @@ WASTE_AR = "إجراءات إدارة النفايات (8.3)"
 
 
 # ------------------------------------------------------------------ helpers
-#: base.html renders every flash as `<div role="alert" class="... bg-<tone>-50 ...">
-_ALERT_RE = re.compile(r'<div role="alert" class="([^"]*)"[^>]*>\s*<span>(.*?)</span>',
-                       re.S)
-_TONE_CATEGORY = (("bg-green-50", "success"), ("bg-red-50", "danger"),
-                  ("bg-amber-50", "warning"), ("bg-blue-50", "info"))
-
-
 def _flashes(client, response):
     """Exact (category, message) pairs the view emitted for the browser.
 
@@ -63,14 +57,7 @@ def _flashes(client, response):
     back out of the rendered alert boxes; an unfollowed redirect leaves them in
     the session cookie instead.
     """
-    if response.status_code == 302:
-        with client.session_transaction() as sess:
-            return [tuple(item) for item in sess.pop("_flashes", [])]
-    emitted = []
-    for classes, message in _ALERT_RE.findall(response.get_data(as_text=True)):
-        tone = next(cat for needle, cat in _TONE_CATEGORY if needle in classes)
-        emitted.append((tone, htmllib.unescape(message.strip())))
-    return emitted
+    return flash_reader.flashes(client, response)
 
 
 def _login(client, username):

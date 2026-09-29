@@ -10,12 +10,20 @@ builds, because the bootstrap engine stands down under TESTING by design and
 therefore cannot be exercised through the ordinary `app` fixture.
 """
 import os
+import sys
 
 import pytest
 
-from config import Config
+# Test helpers live beside the tests and are imported by name. pytest adds the
+# rootdir to sys.path, not necessarily tests/, so it is put there explicitly
+# rather than relying on collection order to make the import work.
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
 
-from app.extensions import db
+from config import Config  # noqa: E402
+
+from app.extensions import db  # noqa: E402
 
 
 @pytest.fixture()

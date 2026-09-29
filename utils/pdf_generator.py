@@ -396,8 +396,8 @@ def _footer(canvas, doc, serial="", timestamp="", project_name="",
     canvas.setFont(FONT_BOLD, 8)
     canvas.drawString(10 * mm, 22, org_ar or BRAND_AR)
     canvas.setFont(FONT_NORMAL, 7)
-    if platform_line:
-        canvas.drawString(10 * mm, 13, platform_line)
+    canvas.drawString(10 * mm, 13,
+                       platform_line or "Generated securely via Azadexa Cloud Platform")
     canvas.setFont(FONT_NORMAL, 7.5)
     canvas.drawCentredString(A4[0] / 2, 22,
                              f"{serial or '—'}  •  {timestamp}")
@@ -575,7 +575,6 @@ def build_report_pdf_branded(report, brand, author_name: str = "",
                 project_name=report.project_name, report_type=report.type_ar,
                 org_ar=brand.company_ar, org_en=brand.company_en,
                 notes=brand.footer_notes,
-                platform_line=(brand.disclaimer
-                                or "Generated via Azadexa Reporting Platform"))
+                platform_line=brand.disclaimer)
     doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
     return buf.getvalue()
