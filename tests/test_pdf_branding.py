@@ -68,6 +68,14 @@ def test_an_empty_logo_key_is_not_an_error(tmp_path):
     assert _custom_logo(None) is None
 
 
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    # The shared `app` fixture yields outside its own context, so db.session
+    # and current_app are unavailable unless one is pushed here.
+    with app.app_context():
+        yield
+
+
 # ------------------------------------------------------------------ branding
 def _report_and_brand(app, logo_key=""):
     from datetime import date

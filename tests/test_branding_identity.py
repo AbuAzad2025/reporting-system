@@ -24,12 +24,21 @@ JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\
 SVG_BYTES = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
 
 
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    # The shared `app` fixture yields outside its own context, so anything
+    # touching current_app or db.session has to push one. Doing it here covers
+    # every test in the file rather than only the ones that happened to fail.
+    with app.app_context():
+        yield
+
+
 @pytest.fixture
-def app_with_brand(app):
+def app_with_brand():
     project = Project(name="مشروع الهوية", location="غزة")
     db.session.add(project)
     db.session.commit()
-    return app, project
+    return project
 
 
 # ------------------------------------------------------------------- colours
@@ -60,7 +69,7 @@ def test_an_image_is_identified_by_its_bytes_not_its_name(app):
     assert branding_service.sniff_logo_format(JPEG_BYTES) == "JPEG"
 
 
-def test_a_logo_key_is_relative_so_the_database_outlives_the_machine(app):
+def test_a_logo_key_is_relative_so_the_database_outlives_the_machine():
     key = branding_service.store_logo(None, "logo.png", PNG_1PX)
     assert not os.path.isabs(key), (
         "an absolute path in the database breaks on the next deploy")
@@ -68,19 +77,19 @@ def test_a_logo_key_is_relative_so_the_database_outlives_the_machine(app):
     assert branding_service.logo_url(key) == f"/uploads/branding/{key}"
 
 
-def test_an_oversized_logo_is_refused(app):
+def test_an_oversized_logo_is_refused():
     with pytest.raises(branding_service.LogoRejected):
         branding_service.store_logo(None, "big.png",
                                      PNG_1PX + b"0" * (branding_service.MAX_LOGO_BYTES + 1))
 
 
-def test_a_logo_cannot_escape_its_directory(app):
+def test_a_logo_cannot_escape_its_directory():
     assert branding_service.logo_path("../../../etc/passwd") is None
     assert branding_service.logo_url("../secret.png") is not None
     assert branding_service.logo_url("") is None
 
 
-def test_a_legacy_absolute_path_still_resolves(app):
+def test_a_legacy_absolute_path_still_resolves():
     # Logos stored before the move are absolute. They must keep working until
     # they are re-uploaded, or every existing project loses its letterhead.
     key = branding_service.store_logo(None, "old.png", PNG_1PX)
@@ -90,7 +99,7 @@ def test_a_legacy_absolute_path_still_resolves(app):
     assert branding_service.logo_url(absolute) is None
 
 
-def test_a_stored_logo_is_served_with_nosniff(app, client):
+def test_a_stored_logo_is_served_with_nosniff(client):
     key = branding_service.store_logo(None, "served.png", PNG_1PX)
     response = client.get(f"/uploads/branding/{key}")
     assert response.status_code == 200
@@ -109,7 +118,7 @@ def test_the_header_and_the_footer_resolve_to_the_same_tenant(app, client, app_w
     read the newest row in the whole table, so a page could carry one company's
     logo above another company's name.
     """
-    _, project = app_with_brand
+    project = app_with_brand
     active = TenantBranding(project_id=project.id, company_name_ar="شركة الشمال",
                             company_name_en="North Co", is_active=True)
     db.session.add(active)
@@ -130,12 +139,12 @@ def test_the_header_and_the_footer_resolve_to_the_same_tenant(app, client, app_w
 
 
 def test_falls_back_to_the_configuration_when_a_tenant_set_nothing(app, client, app_with_brand):
-    html = _render_dashboard(client, _member(app, app_with_brand[1]))
+    html = _render_dashboard(client, _member(app, app_with_brand))
     assert app.config["COMPANY_NAME_AR"] in html
 
 
 def test_a_tenant_colour_reaches_the_document_as_a_custom_property(app, client, app_with_brand):
-    _, project = app_with_brand
+    project = app_with_brand
     db.session.add(TenantBranding(project_id=project.id, is_active=True,
                                    primary_color="#112233",
                                    secondary_color="#445566"))
@@ -146,7 +155,7 @@ def test_a_tenant_colour_reaches_the_document_as_a_custom_property(app, client, 
 
 
 def test_injected_css_never_reaches_the_style_block(app, client, app_with_brand):
-    _, project = app_with_brand
+    project = app_with_brand
     db.session.add(TenantBranding(
         project_id=project.id, is_active=True,
         primary_color="#000;} body{display:none} .x{color:red",
@@ -158,7 +167,7 @@ def test_injected_css_never_reaches_the_style_block(app, client, app_with_brand)
 
 
 def test_a_tenant_without_a_logo_falls_back_to_the_platform_mark(app, app_with_brand):
-    _, project = app_with_brand
+    project = app_with_brand
     row = TenantBranding(project_id=project.id, is_active=True,
                          company_name_ar="بلا شعار")
     view = branding_service.BrandView(row, app.config)
@@ -168,7 +177,7 @@ def test_a_tenant_without_a_logo_falls_back_to_the_platform_mark(app, app_with_b
 
 
 def test_tenant_text_reaches_the_header_and_the_footer(app, client, app_with_brand):
-    _, project = app_with_brand
+    project = app_with_brand
     db.session.add(TenantBranding(
         project_id=project.id, is_active=True,
         custom_header_text_ar="ترويسة|своя",
@@ -189,7 +198,7 @@ def test_saving_branding_binds_it_to_the_project_not_the_template(app, client, a
     and the resolver - which looks up the projects a user belongs to - never
     found it. The admin page claimed the change applied to every report.
     """
-    _, project = app_with_brand
+    project = app_with_brand
     template = ReportTemplate(key="brand-daily", name_ar="يومي", is_active=True)
     db.session.add(template)
     db.session.commit()
@@ -215,7 +224,7 @@ def test_saving_branding_binds_it_to_the_project_not_the_template(app, client, a
 def test_a_save_never_wipes_the_disclaimer(app, client, app_with_brand):
     """The form had no disclaimer field, so the handler wrote an empty string
     over whatever was there on every save."""
-    _, project = app_with_brand
+    project = app_with_brand
     db.session.add(TenantBranding(project_id=project.id, is_active=True,
                                   disclaimer_text="نص محفوظ"))
     db.session.commit()
@@ -235,7 +244,7 @@ def test_a_save_never_wipes_the_disclaimer(app, client, app_with_brand):
 
 
 def test_a_rejected_logo_does_not_abort_the_save(app, client, app_with_brand):
-    _, project = app_with_brand
+    project = app_with_brand
     template = ReportTemplate(key="brand-monthly", name_ar="شهري", is_active=True)
     db.session.add(template)
     db.session.commit()
@@ -252,7 +261,7 @@ def test_a_rejected_logo_does_not_abort_the_save(app, client, app_with_brand):
 
 
 def test_a_png_upload_becomes_a_served_key(app, client, app_with_brand):
-    _, project = app_with_brand
+    project = app_with_brand
     template = ReportTemplate(key="brand-safety", name_ar="سلامة", is_active=True)
     db.session.add(template)
     db.session.commit()

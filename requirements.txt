@@ -26,6 +26,7 @@ psycopg==3.2.13
   # Lets the suite read the text back out of a generated PDF. Asserting that a
   # tenant's name reached the document is the only way to catch a report that
   # still carries the vendor's identity, and that is a legal question, not a
-  # cosmetic one.
-  pypdf==6.4.0
+  # cosmetic one. 6.4.0 was pinned here first and carried CVE-2026-57204;
+  # pip-audit in CI caught it, which is what that gate is for.
+  pypdf==6.19.0
 
