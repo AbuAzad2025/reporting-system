@@ -127,7 +127,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     try:
         from app.models import Project
         from app.extensions import db as _db
-        from utils.pdf_generator import _custom_logo, _brand_logo
+        from utils.pdf_generator import _custom_logo
         proj = _db.session.get(Project, submission.project_id) if submission.project_id else None
         img1 = _custom_logo(brand.logo_path)
         img2 = _custom_logo(brand.logo2_path)

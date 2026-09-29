@@ -52,6 +52,19 @@ html { scroll-behavior: smooth; }
 
 .icon { flex: none; }
 
+/* A report-type card, coloured by the tenant.
+   The colours arrive as custom properties rather than as generated utility
+   classes: a value like `from-#112233` has to exist as a selector in this
+   stylesheet, and nothing generates one per tenant. */
+.report-card {
+  --card-from: var(--brand-primary);
+  --card-to: var(--brand-secondary);
+  background-image: linear-gradient(135deg,
+                                   var(--card-from) 0%,
+                                   var(--card-to) 100%);
+}
+.report-card:hover { filter: brightness(1.06); }
+
 /* ----------------------------------------------------------------- header */.app-header {
   position: sticky;
   top: 0;

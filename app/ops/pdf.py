@@ -199,8 +199,30 @@ def _ops_header(project_owner, consultant, contractor, st):
 def build_ops_pdf(kind: str, record, project_name: str = "",
                   reviewer_name: str = "", generated_at: str = "",
                   project_owner: str = "", consultant: str = "",
-                  contractor: str = "") -> bytes:
-    """Render the professional A4 PDF for one ops record."""
+                  contractor: str = "", brand=None) -> bytes:
+    """Render the professional A4 PDF for one ops record.
+
+    ``brand`` is the project's resolved identity. Without one the document
+    falls back to the platform's own name, which is right for a single-tenant
+    deployment and wrong for a tenant who has named their company.
+    """
+    from utils.pdf_generator import _footer, _custom_logo
+    from app.services.branding import DEFAULT_PRIMARY, DEFAULT_SECONDARY
+
+    if brand is None:
+        class _Platform:
+            company_ar = "منصة تقارير المشاريع الإنشائية"
+            company_en = "Azadexa Reporting Platform"
+            logo_path = ""
+            logo2_path = ""
+            header_ar = ""
+            header_en = ""
+            footer_notes = ""
+            disclaimer = ""
+            primary = DEFAULT_PRIMARY
+            secondary = DEFAULT_SECONDARY
+        brand = _Platform()
+
     if kind not in OPS_MODULES:
         raise ValueError(f"unknown ops module: {kind}")
     _m, _prefix, name_ar, name_en = OPS_MODULES[kind]
@@ -209,7 +231,7 @@ def build_ops_pdf(kind: str, record, project_name: str = "",
     doc = SimpleDocTemplate(
         buf, pagesize=A4, rightMargin=10 * mm, leftMargin=10 * mm,
         topMargin=12 * mm, bottomMargin=36,
-        title=f"{record.serial}-{kind}")
+        title=f"{brand.company_ar}-{record.serial}")
 
     watermark = "DRAFT" if record.status == "draft" else ""
 
@@ -222,9 +244,27 @@ def build_ops_pdf(kind: str, record, project_name: str = "",
             canvas.drawCentredString(A4[0] * 0.85, A4[1] * 0.28, watermark)
             canvas.restoreState()
         _footer(canvas, _doc, serial=record.serial,
-                timestamp=generated_at or datetime.now().strftime("%Y-%m-%d %H:%M"))
+                timestamp=generated_at or datetime.now().strftime("%Y-%m-%d %H:%M"),
+                project_name=project_name,
+                report_type=name_ar,
+                org_ar=brand.company_ar, org_en=brand.company_en,
+                notes=brand.footer_notes,
+                platform_line=(brand.disclaimer
+                                or "Generated via Azadexa Reporting Platform"))
 
     story = []
+    # The tenant's logo above the contractual header, when they uploaded one.
+    # The header itself is contractual and stays as it is: owner, consultant
+    # and contractor are a legal record, not branding.
+    logo = _custom_logo(brand.logo_path)
+    if logo is not None:
+        story.append(logo)
+        story.append(Spacer(1, 3 * mm))
+    if brand.header_ar or brand.header_en:
+        story.append(Paragraph(
+            ar(brand.header_ar) + (" " + brand.header_en if brand.header_en
+                                   else ""), st["cell_small"]))
+        story.append(Spacer(1, 3 * mm))
     story.append(_ops_header(project_owner, consultant, contractor, st))
     story.append(Spacer(1, 4 * mm))
     story.append(HRFlowable(width="100%", thickness=1.2, color=GOLD))

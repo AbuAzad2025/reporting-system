@@ -1,18 +1,22 @@
 """Tenant customisation contract: branding, field overrides, reordering.
 
-`apply_brand_to_template`, `apply_tenant_overrides`, `apply_tenant_branding`
-and `build_tenant_fields` are the in-memory (never persisted) customisation
-layer a tenant uses to reshape a system template. These tests pin their real
-behaviour: gradient composition, header text, field deletion, per-field rule
-overrides, custom additions and ordering.
+`apply_brand_to_template`, `apply_tenant_overrides` and `build_tenant_fields`
+are the in-memory (never persisted) customisation layer a tenant uses to
+reshape a system template. These tests pin their real behaviour: gradient
+composition, field deletion, per-field rule overrides, custom additions and
+ordering.
+
+`apply_tenant_branding` used to be part of that layer. It is gone; the reason
+is written out where it used to be tested, in
+TestBrandingDoesNotRewriteTemplates.
 """
+import io
 from types import SimpleNamespace
 
 import pytest
 
 from app.services.default_templates import (apply_brand_to_template,
-                                            apply_tenant_branding,
-                                            apply_tenant_overrides,
+                                                                                    apply_tenant_overrides,
                                             build_tenant_fields,
                                             default_fields_for)
 
@@ -70,39 +74,81 @@ class TestApplyBrandToTemplate:
         assert tpl.gradient == "from-sky-500 to-blue-700"
 
 
-class TestApplyTenantBranding:
+class TestBrandingDoesNotRewriteTemplates:
+    """A tenant's header text is not the report type's name.
 
-    def test_none_is_a_no_op(self):
-        tpl = _tpl()
-        apply_tenant_branding(tpl, None)
-        assert tpl.gradient == "from-sky-500 to-blue-700"
-        assert tpl.name_ar == "افتراضي"
+    ``apply_tenant_branding`` used to set ``tpl.name_ar`` from the tenant's
+    header text, which renamed the report type in the picker, in every list,
+    and in every document already issued against it. Six tests pinned that
+    behaviour, including one that asserted the title was truncated to 200
+    characters - the length of the column, not of anything a reader would
+    call a title.
 
-    def test_header_text_replaces_the_template_title(self):
-        tpl = _tpl()
-        apply_tenant_branding(tpl, _branding(custom_header_text_ar="ترويسة مخصصة"))
-        assert tpl.name_ar == "ترويسة مخصصة"
+    It also set ``tpl.gradient`` to ``from-#1e3a5f to-#c9a227``. Those are not
+    utility classes that exist in any stylesheet, so the report cards rendered
+    with no gradient at all, and one test asserted the exact broken string.
 
-    def test_header_text_is_truncated_to_200_chars(self):
-        tpl = _tpl()
-        apply_tenant_branding(tpl, _branding(custom_header_text_ar="ا" * 250))
-        assert len(tpl.name_ar) == 200
+    Branding is applied where it belongs now: the templates read
+    ``current_brand``, and a tenant colour reaches a card through the
+    ``--card-from`` / ``--card-to`` custom properties, which are real.
+    """
 
-    def test_empty_header_text_leaves_the_title(self):
-        tpl = _tpl()
-        apply_tenant_branding(tpl, _branding())
-        assert tpl.name_ar == "افتراضي"
+    def test_tenant_text_never_renames_a_report_template(self, app):
+        from app.models import ReportTemplate, TenantBranding
+        from app.extensions import db
+        with app.app_context():
+            template = ReportTemplate.query.first()
+            if template is None:
+                return
+            original = template.name_ar
+            db.session.add(TenantBranding(
+                project_id=1, is_active=True,
+                custom_header_text_ar="ترويسة المالك"))
+            db.session.commit()
+            db.session.expire_all()
+            assert ReportTemplate.query.get(template.id).name_ar == original
 
-    def test_gradient_is_applied_when_both_colors_exist(self):
-        tpl = _tpl()
-        apply_tenant_branding(tpl, _branding())
-        assert tpl.gradient == "from-[1e3a5f] to-[c9a227]"
+    def test_a_tenant_colour_is_not_turned_into_a_class_name(self):
+        import re
+        # A colour cannot become a utility class, because nothing generates a
+        # selector for it. What the stylesheet has to contain is checked here
+        # rather than asserted on a string the code produces.
+        css = io.open("static/css/layout.css", encoding="utf-8").read()
+        rule = css.split(".report-card")[1][:300]
+        assert "linear-gradient" in rule
+        assert "var(--card-from)" in rule
+        assert "from-[" not in rule and "to-[" not in rule, (
+            "a literal from-#hex class cannot match any rule")
+        assert re.search(r"\.from-\[", css) is None, (
+            "a stylesheet holds a rule for a generated from-#hex class; there "
+            "is no such thing unless something generates the selector")
 
-    def test_no_colors_leaves_the_gradient_untouched(self):
-        tpl = _tpl()
-        apply_tenant_branding(tpl, _branding(primary_color="",
-                                             secondary_color=""))
-        assert tpl.gradient == "from-sky-500 to-blue-700"
+    def test_the_card_receives_the_colour_as_a_custom_property(self, app, client):
+        from app.models import Project, TenantBranding, User
+        from app.extensions import db
+        from app.ops.models import ProjectMember
+        with app.app_context():
+            project = Project(name="مشروع البطاقة")
+            user = User(username="i18n-card", email="card@brand.test",
+                        full_name="مستخدم", role="engineer")
+            user.set_password("pw12345")
+            db.session.add_all([project, user])
+            db.session.flush()
+            db.session.add(TenantBranding(project_id=project.id, is_active=True,
+                                          primary_color="#112233",
+                                          secondary_color="#445566"))
+            db.session.add(ProjectMember(project_id=project.id, user_id=user.id,
+                                         role_in_project="member"))
+            db.session.commit()
+            username, password = user.username, "pw12345"
+
+        client.post("/auth/login",
+                    data={"username": username, "password": password},
+                    follow_redirects=True)
+        body = client.get("/dashboard").get_data(as_text=True)
+        assert "report-card" in body
+        assert "--card-from: #112233" in body
+        assert "--card-to: #445566" in body
 
 
 class TestBuildTenantFields:

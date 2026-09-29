@@ -807,6 +807,7 @@ def pdf(kind, obj_id):
     record = get_object_or_404_tenant(model, obj_id, current_user)
     from app.ops.pdf import build_ops_pdf
     from app.models import User
+    from app.services.branding import branding_for_project
     project = db.session.get(Project, record.project_id)
     reviewer = db.session.get(User, record.reviewed_by_id) \
         if record.reviewed_by_id else None
@@ -814,7 +815,12 @@ def pdf(kind, obj_id):
     pdf_bytes = build_ops_pdf(
         kind, record, project_name=project.name if project else "",
         reviewer_name=reviewer.full_name if reviewer else "",
-        generated_at=stamp)
+        generated_at=stamp,
+        brand=branding_for_project(
+            record.project_id if project else None),
+        project_owner=project.client if project else "",
+        consultant=project.consultant if project else "",
+        contractor=project.contractor if project else "")
     return Response(pdf_bytes, mimetype="application/pdf",
                     headers={"Content-Disposition":
                              f"inline; filename={record.serial}.pdf"})
@@ -1121,13 +1127,20 @@ def batch_export():
                             date_from_str, date_to_str, kinds)
     project = db.session.get(Project, project_id) if project_id else None
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    from app.services.branding import branding_for_project
     pdf_bytes = build_batch_pdf(
         records, project_name=project.name if project else "",
         date_from=date_from_str or "", date_to=date_to_str or "",
-        generated_by=current_user.full_name, generated_at=stamp)
+        generated_by=current_user.full_name, generated_at=stamp,
+        brand=branding_for_project(project_id))
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "-",
+                  (project.name if project else "all-projects")).strip("-")
+    scope = slug[:40] or "all-projects"
+    if date_from_str or date_to_str:
+        scope = f"{scope}_{date_from_str or 'start'}_{date_to_str or 'end'}"
     return Response(pdf_bytes, mimetype="application/pdf",
                     headers={"Content-Disposition":
-                             "inline; filename=azadexa-batch.pdf"})
+                             f"inline; filename=batch-{scope}.pdf"})
 
 
 # ---------------------------------------------------------------- attachments

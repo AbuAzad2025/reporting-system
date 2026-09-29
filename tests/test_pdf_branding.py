@@ -154,39 +154,6 @@ def test_the_dynamic_report_footer_uses_the_tenant_not_the_vendor(app):
     assert "AZAD Intelligent Systems" not in text
 
 
-def test_tenant_branding_adopts_colours_without_renaming_the_template():
-    """The old helper overwrote tpl.name_ar with the tenant's header text.
-
-    That renamed the report type itself, so it changed in the picker, in every
-    list, and in every already-issued PDF referencing it.
-    """
-    from app.services.default_templates import apply_tenant_branding
-
-    class Tpl:
-        name_ar = "التقرير اليومي"
-        gradient = "from-sky-500 to-blue-700"
-
-    tpl = Tpl()
-    apply_tenant_branding(tpl, TenantBranding(
-        custom_header_text_ar="ترويسة المالك", primary_color="#112233",
-        secondary_color="#445566"))
-    assert tpl.name_ar == "التقرير اليومي"
-    assert tpl.gradient == "from-[112233] to-[445566]"
-
-
-def test_tenant_branding_refuses_a_colour_that_is_not_hex():
-    from app.services.default_templates import apply_tenant_branding
-
-    class Tpl:
-        name_ar = "التقرير اليومي"
-        gradient = "from-sky-500 to-blue-700"
-
-    tpl = Tpl()
-    apply_tenant_branding(tpl, TenantBranding(
-        primary_color="red;} body{x", secondary_color="}"))
-    assert tpl.gradient == "from-sky-500 to-blue-700"
-
-
 # --------------------------------------------------------------------- utils
 def _pdf_text(pdf_bytes):
     from pypdf import PdfReader

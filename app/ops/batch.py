@@ -117,26 +117,60 @@ def batch_summary(records) -> dict:
 
 
 def build_batch_pdf(records, project_name: str, date_from: str, date_to: str,
-                    generated_by: str, generated_at: str = "") -> bytes:
-    """Render the aggregated document. `records` = [(kind, record)]."""
+                    generated_by: str, generated_at: str = "",
+                    brand=None) -> bytes:
+    """Render the aggregated document. `records` = [(kind, record)].
+
+    ``brand`` is the project's resolved identity. Without one the document
+    falls back to the platform's own name and logo, which is right for a
+    single-tenant deployment and wrong for a tenant who has named their
+    company - so the caller passes it.
+    """
+    from utils.pdf_generator import _footer, _custom_logo
+    from app.services.branding import DEFAULT_PRIMARY, DEFAULT_SECONDARY
+
+    if brand is None:
+        class _Platform:
+            company_ar = "منصة تقارير المشاريع الإنشائية"
+            company_en = "Azadexa Reporting Platform"
+            logo_path = ""
+            logo2_path = ""
+            header_ar = ""
+            header_en = ""
+            footer_notes = ""
+            disclaimer = ""
+            primary = DEFAULT_PRIMARY
+            secondary = DEFAULT_SECONDARY
+        brand = _Platform()
+
     st = _styles()
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
-                            bottomMargin=36, title="Azadexa-Batch-Export")
+                            bottomMargin=36,
+                            title=f"{brand.company_ar}-Batch-Export")
     stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     story = []
 
     # ---- cover
     story.append(Spacer(1, 22 * mm))
-    _logo = _brand_logo(width_mm=34)
-    if _logo is not None:
-        story.append(_logo)
+    logo = _custom_logo(brand.logo_path) or _custom_logo(brand.logo2_path)
+    if logo is None:
+        logo = _brand_logo(width_mm=34)
+    if logo is not None:
+        story.append(logo)
         story.append(Spacer(1, 3 * mm))
-    story.append(Paragraph(ar("شركة المقاولات العامة"), st["subtitle"]))
-    story.append(Spacer(1, 2 * mm))
-    story.append(Paragraph(ar("منصة أزادكسا — مجمع التقارير التشغيلية"),
-                           st["title"]))
+    story.append(Paragraph(ar(brand.company_ar), st["subtitle"]))
+    if brand.company_en:
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(brand.company_en, st["subtitle"]))
+    story.append(Spacer(1, 4 * mm))
+    story.append(Paragraph(ar("المجمع التشغيلي للتقارير"), st["title"]))
+    if brand.header_ar or brand.header_en:
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(
+            ar(brand.header_ar) + (" " + brand.header_en if brand.header_en
+                                   else ""), st["cell"]))
     story.append(Spacer(1, 4 * mm))
     story.append(HRFlowable(width="100%", thickness=1.2, color=GOLD))
     story.append(Spacer(1, 6 * mm))
@@ -203,28 +237,24 @@ def build_batch_pdf(records, project_name: str, date_from: str, date_to: str,
         story.append(_kv_table(rows, st))
         story.append(Spacer(1, 5 * mm))
 
-    # ---- footer branding (company header; AZAD brand in footer strip)
     def _batch_footer(canvas, doc):
-        from utils.pdf_generator import _footer
-        # company strip (MoPWH official document practice)
-        canvas.saveState()
-        canvas.setFillColor(colors.HexColor("#1a1610"))
-        canvas.rect(0, 0, A4[0], 22, fill=1, stroke=0)
-        canvas.setFillColor(colors.HexColor("#a67c00"))
-        canvas.setLineWidth(2)
-        canvas.line(0, 22, A4[0], 22)
-        canvas.setFillColor(colors.white)
-        canvas.setFont("Helvetica-Bold", 9)
-        canvas.drawCentredString(A4[0] / 2, 14,
-                                 "شركة المقاولات العامة  —  منصة تقارير المشاريع الإنشائية")
-        canvas.setFont("Helvetica", 7)
-        canvas.drawString(10 * mm, 5,
-                          "منصة أزادكسا | AZAD Intelligent Systems  •  م. أحمد غنيم")
-        canvas.drawRightString(A4[0] - 10 * mm, 5,
-                               f"صفحة {doc.page}")
-        canvas.restoreState()
-        # shared footer (page number + branding)
-        _footer(canvas, doc)
+        # One footer, drawn by the shared routine.
+        #
+        # This used to draw its own strip at y 0-22 and then call the shared
+        # _footer, which draws at y 0-34, so every page had two footers on top
+        # of each other. The hand-rolled one also set Helvetica for Arabic
+        # text, which has no Arabic glyphs, so that line rendered as nothing -
+        # and it named a fixed company and a fixed person regardless of whose
+        # report this was.
+        _footer(canvas, doc,
+                serial="BATCH",
+                timestamp=stamp,
+                project_name=project_name,
+                report_type="المجمع التشغيلي للتقارير",
+                org_ar=brand.company_ar, org_en=brand.company_en,
+                notes=brand.footer_notes,
+                platform_line=(brand.disclaimer
+                                or "Generated via Azadexa Reporting Platform"))
 
     doc.build(story, onFirstPage=_batch_footer, onLaterPages=_batch_footer)
     return buf.getvalue()

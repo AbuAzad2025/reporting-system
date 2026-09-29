@@ -227,11 +227,38 @@ def resolve_brand(user=None) -> BrandView:
 
 
 def branding_for_project(project_id) -> BrandView:
-    """Identity for one project, used when rendering a report or a PDF."""
-    from app.models import TenantBranding
+    """Identity for one project, used when rendering a report or a PDF.
+
+    A project that has no branding row of its own still carries a logo,
+    uploaded when the project was created. That column existed and was shown
+    to an administrator as a "logo" badge, but nothing read it: the upload
+    worked, the badge appeared, and the logo never reached a document. It is
+    honoured here, below the tenant's own identity.
+    """
+    from app.extensions import db
+    from app.models import Project, TenantBranding
     row = None
     if project_id:
         row = (TenantBranding.query
                .filter_by(project_id=project_id, is_active=True)
                .order_by(TenantBranding.updated_at.desc()).first())
-    return BrandView(row, current_app.config)
+    if row is not None:
+        return BrandView(row, current_app.config)
+
+    project = db.session.get(Project, project_id) if project_id else None
+    if project is None:
+        return BrandView(None, current_app.config)
+
+    class _ProjectOnly:
+        company_name_ar = project.client or ""
+        company_name_en = ""
+        logo_path = project.logo_path or ""
+        logo2_path = project.logo2_path or ""
+        primary_color = ""
+        secondary_color = ""
+        custom_header_text_ar = ""
+        custom_header_text_en = ""
+        custom_footer_notes = ""
+        disclaimer_text = ""
+
+    return BrandView(_ProjectOnly(), current_app.config)
