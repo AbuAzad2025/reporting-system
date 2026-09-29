@@ -33,6 +33,7 @@
     </div>
     {% if not t.is_system %}
     <form method="POST" action="{{ url_for('admin.template_delete', template_id=t.id) }}" onsubmit="return confirm('حذف القالب نهائياً؟')" class="mt-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="text-xs text-red-500 font-bold">🗑️ حذف القالب</button>
     </form>
     {% endif %}
@@ -41,6 +42,7 @@
 </div>
 
 <form method="POST" action="{{ url_for('admin.reset_defaults') }}" class="mt-3 bg-white rounded-2xl shadow p-4 text-sm flex items-center justify-between flex-wrap gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <span class="text-slate-500 text-xs">استعادة القوالب الافتراضية الخمسة (يومي/أسبوعي/شهري/سلامة/أمر تغيير) دون مسح بياناتك.</span>
   <button class="bg-navy text-white text-xs font-bold px-4 py-2 rounded-xl">♻️ استعادة الافتراضيات</button>
 </form>

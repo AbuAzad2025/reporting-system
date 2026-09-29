@@ -31,6 +31,7 @@
         </div>
       </div>
       <form method="POST" action="{{ url_for('reports.delete', report_id=report.id) }}" onsubmit="return confirm('حذف هذا التقرير نهائياً؟')" class="shrink-0">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="min-h-[48px] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-bold">🗑️ حذف</button>
       </form>
     </div>

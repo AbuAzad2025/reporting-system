@@ -20,6 +20,7 @@
       <span class="text-[11px] font-bold px-2 py-1 rounded-full {{ 'bg-gold/20 text-[#7a5c00]' if m.role_in_project == 'owner' else 'bg-slate-100 text-slate-600' }}">{{ 'مالك' if m.role_in_project == 'owner' else 'عضو' }}</span>
       {% if can_manage and u.id != current_user.id %}
       <form method="post" action="{{ url_for('main.project_member_remove', project_id=project.id, user_id=u.id) }}" onsubmit="return confirm('إزالة هذا العضو؟')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="text-xs text-red-600 font-bold hover:underline">إزالة</button>
       </form>
       {% endif %}
@@ -28,12 +29,34 @@
   {% endfor %}
   {% if can_manage %}
   <form method="post" action="{{ url_for('main.project_member_add', project_id=project.id) }}" class="flex gap-2 mt-3 text-sm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input aria-label="اسم المستخدم" name="username" required maxlength="80" list="user-directory" placeholder="اسم المستخدم للدعوة @" class="form-control flex-1" dir="ltr">
     <datalist id="user-directory">{% for d in directory %}<option value="{{ d.username }}">{{ d.full_name }} ({{ d.role_ar }})</option>{% endfor %}</datalist>
     <button class="bg-navy text-white font-bold px-5 py-2 rounded-xl hover:brightness-110">دعوة</button>
   </form>
   {% endif %}
 </div>
+
+{% if can_manage %}
+{% call card('النسخ الاحتياطي', 'نسخة مضبوطة على هذا المشروع فقط: أعضاؤه وسجلاته ومرفقاته، دون بقية المنصة.') %}
+<div class="grid gap-3 sm:grid-cols-2">
+  <form method="post" action="{{ url_for('main.project_backup', project_id=project.id) }}" class="flex flex-col gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="text-sm text-slate-600">تصدير كل بيانات هذا المشروع في ملف ZIP واحد.</p>
+    {{ submit_btn('تصدير نسخة احتياطية', 'w-full') }}
+  </form>
+
+  <form method="post" action="{{ url_for('main.project_backup_import', project_id=project.id) }}"
+        enctype="multipart/form-data" class="flex flex-col gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="form-label" for="backup_file">ملف نسخة احتياطية</label>
+    <input type="file" id="backup_file" name="backup_file" required accept=".zip,application/zip" class="form-control-file">
+    <p class="form-hint">الاستعادة تستبدل بيانات هذا المشروع. لا يمكن التراجع عنها.</p>
+    {{ submit_btn('استعادة من ملف', 'w-full') }}
+  </form>
+</div>
+{% endcall %}
+{% endif %}
 
 <div class="mt-3 flex gap-2 text-sm font-bold">
   <a href="{{ url_for('main.projects') }}" class="bg-white rounded-2xl shadow px-4 py-3 hover:bg-slate-50">→ مشاريعي</a>

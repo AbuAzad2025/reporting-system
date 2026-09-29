@@ -23,6 +23,7 @@
       {% if u.id != current_user.id %}
       <div class="flex gap-1 items-center flex-wrap">
         <form method="POST" action="{{ url_for('admin.user_role', user_id=u.id) }}" class="flex gap-1">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <select aria-label="الدور"select name="role" class="form-control">
             {% for k, v in ROLES.items() if k != 'user' %}
             <option value="{{ k }}" {% if u.role==k %}selected{% endif %}>{{ v }}</option>
@@ -31,10 +32,12 @@
           <button class="text-xs font-bold bg-navy text-white px-3 py-2 rounded-xl">تعيين</button>
         </form>
         <form method="POST" action="{{ url_for('admin.user_suspend', user_id=u.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="text-xs font-bold px-3 py-2 rounded-xl {% if u.is_active %}bg-amber-100 text-amber-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">{% if u.is_active %}إيقاف{% else %}تفعيل{% endif %}</button>
         </form>
         {% if current_user.is_superadmin %}
         <form method="POST" action="{{ url_for('admin.user_delete', user_id=u.id) }}" onsubmit="return confirm('حذف الحساب نهائياً؟')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="text-xs font-bold bg-red-50 text-red-600 px-3 py-2 rounded-xl">حذف</button>
         </form>
         {% endif %}

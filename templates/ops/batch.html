@@ -5,6 +5,7 @@
   <h1 class="font-extrabold text-lg text-navy">📚 تصدير مجمع — وثيقة PDF واحدة</h1>
   <p class="text-xs text-slate-500 mb-4">غلاف + ملخص مالي + فهرس مرقّم + قسم لكل تقرير ضمن الفترة</p>
   <form method="POST" action="{{ url_for('ops.batch_export') }}" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div>
       <label class="font-bold text-sm" for="f-project_id">المشروع (اتركه فارغاً لكل مشاريعك)</label>
       <select id="f-project_id" name="project_id" class="form-control w-full">

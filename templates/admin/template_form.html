@@ -4,6 +4,7 @@
 <div class="max-w-lg mx-auto bg-white rounded-3xl shadow p-6">
   <h1 class="font-extrabold text-lg text-navy">{% if tpl %}✏️ تعديل «{{ tpl.name_ar }}»{% else %}➕ قالب جديد{% endif %}</h1>
   <form method="POST" class="space-y-4 mt-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if not tpl %}
     <div>
       <label class="font-bold text-sm" for="f-key">المفتاح اللاتيني * (بدون مسافات: daily / safety ...)</label>

@@ -10,6 +10,7 @@
 <div class="bg-white rounded-3xl shadow p-5 mt-3">
   <h2 class="font-extrabold text-navy mb-2">➕ مشروع جديد (مدير المشروع)</h2>
   <form method="post" action="{{ url_for('main.project_create') }}" class="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input aria-label="اسم المشروع" name="name" required maxlength="200" placeholder="اسم المشروع *" class="form-control">
     <input aria-label="الموقع" name="location" maxlength="200" placeholder="الموقع" class="form-control">
     <input aria-label="المقاول" name="contractor" maxlength="200" placeholder="المقاول" class="form-control">
