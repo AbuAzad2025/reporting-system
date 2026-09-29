@@ -83,6 +83,20 @@ def test_an_oversized_logo_is_refused():
                                      PNG_1PX + b"0" * (branding_service.MAX_LOGO_BYTES + 1))
 
 
+def test_a_disk_that_cannot_be_written_is_a_rejection_not_a_crash(monkeypatch):
+    """The caller handles one kind of failure, so there should be one kind.
+
+    A full disk raised OSError out of store_logo and past the route's
+    except LogoRejected, which is a 500 on the form that submitted the logo.
+    """
+    def refuse(*_args, **_kwargs):
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(branding_service.os, "makedirs", refuse)
+    with pytest.raises(branding_service.LogoRejected):
+        branding_service.store_logo(None, "logo.png", PNG_1PX)
+
+
 def test_a_logo_cannot_escape_its_directory():
     assert branding_service.logo_path("../../../etc/passwd") is None
     assert branding_service.logo_url("../secret.png") is not None

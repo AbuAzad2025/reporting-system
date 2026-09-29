@@ -168,10 +168,25 @@ def backup_dir(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def broken_backup_dir(tmp_path, monkeypatch):
-    """Point the backend at an un-creatable path (parent is a regular file)."""
+    """Point the backup backend at an un-creatable path (parent is a file)."""
     blocker = tmp_path / "blocker"
     blocker.write_text("not a directory", encoding="utf-8")
     monkeypatch.setattr(storage, "BACKUP_LOCAL_DIR", str(blocker / "backups"))
+    return blocker
+
+
+@pytest.fixture()
+def broken_logo_store(tmp_path, monkeypatch):
+    """Point the logo store at an un-creatable path.
+
+    Logos are written by app.services.branding to its own root, not through
+    storage.BACKUP_LOCAL_DIR, so breaking the backup path does nothing for them.
+    """
+    blocker = tmp_path / "logo-blocker"
+    blocker.write_text("not a directory", encoding="utf-8")
+    from app.services import branding as branding_service
+    monkeypatch.setattr(branding_service, "asset_root",
+                        lambda: str(blocker / "uploads" / "branding"))
     return blocker
 
 
@@ -529,26 +544,72 @@ class TestProjectCreateFlashPaths:
         assert contractor == "مقاول الاختبار"
         assert owner == "عميل"
         assert logo2 == ""
-        assert logo.startswith(str(backup_dir))
-        assert os.path.isfile(logo)
-        assert open(logo, "rb").read().startswith(b"\x89PNG")
+        # The stored value is a key, not a path on this machine. An absolute
+        # path breaks the moment the application moves, and gives a browser no
+        # URL to fetch.
+        assert not os.path.isabs(logo), (
+            "the project logo must be stored as a relative key")
+        with app.app_context():
+            from app.services.branding import asset_root
+            stored = os.path.join(asset_root(), logo)
+        assert os.path.isfile(stored)
+        assert open(stored, "rb").read().startswith(b"\x89PNG")
         with app.app_context():
             project = Project.query.filter_by(name="مشروع الشعار").one()
             assert project.is_active is True
 
-    def test_unsupported_logo_extension_warns_but_creates(
+    def test_a_png_named_dot_txt_is_accepted_and_stored_as_png(
             self, client, app, backup_dir):
+        """The extension is not evidence; the bytes are.
+
+        The old check read the filename and refused anything not in a list -
+        which is why a .png containing SVG passed it, and why a genuine image
+        with an unusual name was refused. The stored key now takes its
+        extension from the detected format, so the two can never disagree.
+        """
+        login(client, "t_admin")
+        _, flashes = post_flashes(
+            client, "/admin/projects",
+            lambda: {"name": "مشروع الشعار بامتداد غريب",
+                     "logo": (io.BytesIO(png_bytes()), "logo.txt")})
+        assert flashes == [("success", "تمت إضافة المشروع «مشروع الشعار بامتداد غريب».")]
+
+        logo = project_state(app, "مشروع الشعار بامتداد غريب")[5]
+        assert logo.endswith(".png"), (
+            "the stored extension must come from the file's real format")
+        assert not os.path.isabs(logo)
+        assert not (backup_dir / "images").exists()
+
+    def test_a_file_that_is_not_an_image_is_refused(self, client, app):
         login(client, "t_admin")
         _, flashes = post_flashes(
             client, "/admin/projects",
             lambda: {"name": "مشروع الشعار السيئ",
-                     "logo": (io.BytesIO(png_bytes()), "logo.txt")})
+                     "logo": (io.BytesIO(b"this is not an image at all"),
+                              "logo.png")})
         assert flashes == [
-            ("warning", "صيغة الشعار logo.txt غير مدعومة (png/jpg/webp/svg فقط)."),
+            ("warning",
+             "الشعار: الملف ليس صورة PNG أو JPEG أو WebP."),
             ("success", "تمت إضافة المشروع «مشروع الشعار السيئ»."),
         ]
         assert project_state(app, "مشروع الشعار السيئ")[5] == ""
-        assert not (backup_dir / "images").exists()
+
+    def test_an_svg_disguised_as_a_png_is_still_refused(self, client, app):
+        """The old check read the extension only.
+
+        A file named .png containing SVG markup passed it, and an SVG served
+        from this origin runs with the session of whoever opens the page.
+        """
+        login(client, "t_admin")
+        svg = (b'<svg xmlns="http://www.w3.org/2000/svg">'
+               b"<script>alert(1)</script></svg>")
+        _, flashes = post_flashes(
+            client, "/admin/projects",
+            lambda: {"name": "مشروع شعار svg",
+                     "logo": (io.BytesIO(svg), "logo.png")})
+        assert project_state(app, "مشروع شعار svg")[5] == ""
+        assert any(category == "warning" for category, _ in flashes)
+        assert any(category == "success" for category, _ in flashes)
 
     def test_oversized_upload_is_rejected_by_content_length(self, client, app):
         """The route's own >5MB guard (routes.py:331-333) is unreachable:
@@ -584,17 +645,26 @@ class TestProjectCreateFlashPaths:
             assert after == before
 
     def test_logo_storage_failure_still_creates_project(
-            self, client, app, broken_backup_dir):
+            self, client, app, broken_logo_store):
+        """A disk that cannot be written to must not lose the project.
+
+        The warning used to be swallowed: the upload was inside a try/except
+        that logged at debug and continued, and the administrator was told the
+        project had been created with no mention that its logo was missing.
+        """
         login(client, "t_admin")
         _, flashes = post_flashes(
             client, "/admin/projects",
             lambda: {"name": "مشروع شعار فاشل",
                      "location": "مكة",
                      "logo": (io.BytesIO(png_bytes()), "logo.png")})
-        assert flashes == [("success", "تمت إضافة المشروع «مشروع شعار فاشل».")]
+        assert flashes[0][0] == "warning", (
+            "the administrator has to be told the logo was not stored")
+        assert flashes[-1] == ("success", "تمت إضافة المشروع «مشروع شعار فاشل».")
+
         _, _, location, _, _, logo, logo2 = project_state(
             app, "مشروع شعار فاشل")
-        assert location == "مكة"
+        assert location == "مكة", "the project itself was lost"
         assert logo == ""
         assert logo2 == ""
 

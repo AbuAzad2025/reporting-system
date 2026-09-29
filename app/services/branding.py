@@ -79,17 +79,25 @@ def sniff_logo_format(data: bytes) -> str:
 
 
 def store_logo(storage, filename: str, data: bytes) -> str:
-    """Validate and save a logo; return the key relative to the asset root."""
+    """Validate and save a logo; return the key relative to the asset root.
+
+    A failure to write is reported as a rejection, not as an OSError. A full
+    disk or a permission problem must not take down the form that submitted
+    the logo, and the caller only knows how to handle one kind of failure.
+    """
     if not data:
         raise LogoRejected("الملف فارغ.")
     if len(data) > MAX_LOGO_BYTES:
         raise LogoRejected("حجم الشعار يجب ألا يتجاوز 2 ميجابايت.")
     ext, _content_type = ALLOWED_LOGO_FORMATS[sniff_logo_format(data)]
     root = asset_root()
-    os.makedirs(root, exist_ok=True)
     key = f"{secrets.token_hex(8)}.{ext}"
-    with open(os.path.join(root, key), "wb") as fh:
-        fh.write(data)
+    try:
+        os.makedirs(root, exist_ok=True)
+        with open(os.path.join(root, key), "wb") as fh:
+            fh.write(data)
+    except OSError as exc:
+        raise LogoRejected(f"تعذّر حفظ الشعار على الخادم ({exc}).") from exc
     return key
 
 
