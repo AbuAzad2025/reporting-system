@@ -1,3 +1,5 @@
+import re
+import sys
 """PDF output: identity, proportions, and what a failure does.
 
 The letterhead is the most visible part of a report, and every failure path in
@@ -134,7 +136,18 @@ def test_a_report_with_no_tenant_logo_still_builds(app):
     assert "Bridge Contracting" in _pdf_text(pdf)
 
 
-def test_the_dynamic_report_footer_uses_the_tenant_not_the_vendor(app):
+def test_the_dynamic_report_carries_no_vendor_or_tenant_letterhead(app):
+    """The page identifies itself by title and serial, nothing else.
+
+    It used to draw the tenant's letterhead, the project header table, a gold
+    rule, and a footer band repeating the serial and a timestamp on every
+    page. The request was for a title, a serial number and two blank signature
+    boxes, so neither name is drawn any more — including the tenant's, which
+    is on the paper the report is filed with rather than in the renderer.
+
+    Guarded because the earlier version of this test asserted the opposite
+    (tenant in, vendor out) for a footer that no longer exists.
+    """
     _report, project = _report_and_brand(app)
     from datetime import date
     from app.models import ReportSubmission
@@ -149,9 +162,79 @@ def test_the_dynamic_report_footer_uses_the_tenant_not_the_vendor(app):
 
     from app.services.pdf_dynamic import build_dynamic_pdf
     pdf = build_dynamic_pdf(submission, template)
-    text = _pdf_text(pdf)
-    assert "Bridge Contracting" in text
-    assert "AZAD Intelligent Systems" not in text
+    runs = _pdf_runs(pdf)
+    joined = "\n".join(runs)
+    assert "Bridge Contracting" not in joined
+    assert "AZAD Intelligent Systems" not in joined
+
+
+def test_the_dynamic_report_still_titles_itself_and_signs(app):
+    """What the page must still carry after the letterhead went."""
+    _report, project = _report_and_brand(app)
+    from datetime import date
+    from app.models import ReportSubmission, User
+    template = ReportTemplate.query.filter_by(key="daily").first()
+    submission = ReportSubmission(
+        template_id=template.id, data={}, report_date=date(2026, 1, 15),
+        project_id=project.id, project_name=project.name,
+        contractor="المقاول", user_id=User.query.first().id)
+    db.session.add(submission)
+    db.session.commit()
+
+    from app.services.pdf_dynamic import build_dynamic_pdf
+    runs = _pdf_runs(build_dynamic_pdf(submission, template))
+    runs = _pdf_runs(build_dynamic_pdf(submission, template))
+    joined = " ".join(runs)
+    # A word is asserted through its folded form, and a definite article that
+    # does not join forward is gone from the stored run, so "الإنجاز" is AANJAZ
+    # rather than ALANJAZ.
+    for part in ("TQRYR", "AANJAZ", "ALYWMY",          # title
+                 "RQM", "ALTQRYR",                       # serial label
+                 "ALMSRF", "MSRWA", "ALTQRYR",           # supervisor
+                 "MDYR", "ALMSRWA", "ALTQRYR"):          # project manager
+        assert part in joined, part
+
+
+def _pdf_runs(pdf_bytes):
+    """Drawn text runs, with Arabic returned to base letters in reading order.
+
+    The runs are stored in visual order: Arabic presentation forms, reversed.
+    pdf_tools says outright that Arabic presentation forms "must never be
+    asserted on" — which is why the other tests here grep Latin. This test
+    needs Arabic, so each run is reversed, passed back through get_display()
+    (which is not its own inverse, so reversing first is what makes the pair
+    cancel), and finally folded to base letters, because the forms have no
+    Unicode equality with the plain spelling.
+    """
+    sys.path.insert(0, "tests")
+    from pdf_tools import PdfDocument
+    from bidi.algorithm import get_display
+    import unicodedata
+
+    def to_base(s):
+        out = []
+        for ch in s:
+            if not 0xFB50 <= ord(ch) <= 0xFEFF:
+                out.append(ch)
+                continue
+            try:
+                name = unicodedata.name(ch)
+                base = name.split(" ISOLATED")[0].split(" FINAL")[0]
+                base = base.split(" INITIAL")[0].replace("ARABIC LETTER ", "")
+                out.append(base[:1])
+            except Exception:
+                out.append(ch)
+        return "".join(out)
+
+    runs = []
+    for r in PdfDocument(pdf_bytes).text_runs:
+        if any(0xFB50 <= ord(c) <= 0xFEFF for c in r):
+            try:
+                r = to_base(get_display(get_display(r[::-1])))
+            except Exception:
+                pass
+        runs.append(r)
+    return runs
 
 
 # --------------------------------------------------------------------- utils

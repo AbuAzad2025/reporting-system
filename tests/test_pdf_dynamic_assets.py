@@ -339,7 +339,10 @@ class TestMonthlyEvmBlock:
         document = _render(app, sid)
         assert document.problems == ()
         assert document.page_count >= 1
-        assert "DS-" in document.latin_text
+        # The document still renders to the end: the EVM block is the last
+        # thing before the signature boxes, so a serial that used to live in
+        # the footer is no longer proof of that. The EVM row itself is.
+        assert "EVM" in document.text
         with app.app_context():
             assert db.session.get(ReportSubmission, sid) is not None
 

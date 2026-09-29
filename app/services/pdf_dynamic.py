@@ -1,19 +1,21 @@
 """Dynamic PDF service — renders ANY ReportTemplate + submission answers.
 
-Reuses the corporate styling of utils/pdf_generator (header, gold rule,
-info grid, navy section titles, signatory block, footer) but builds the
-body table from DynamicField rows instead of hardcoded FIELD_SPECS.
+Reuses the corporate styling of utils/pdf_generator (section titles, info grid,
+kv rows) but builds the body table from DynamicField rows instead of hardcoded
+FIELD_SPECS. The page itself carries only the report title, its serial number,
+the content, two blank signature boxes, and the page number: no letterhead, no
+running header, no footer band.
 """
 from datetime import datetime
 
 from utils.pdf_generator import (_styles, _info_table, _section_title,
-                                 _kv_table, _header_table, ar, NAVY,
-                                 _footer)
+                                 _kv_table, ar, NAVY)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                Table, TableStyle, HRFlowable)
+                                Table, TableStyle)
 from reportlab.lib import colors
+from reportlab.lib.styles import ParagraphStyle
 import io
 import logging
 import os
@@ -129,61 +131,13 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
                             subject=template.name_en or template.name_ar)
     story = []
 
-    # ---- letterhead: the tenant's own logos, or the platform's if none.
-    try:
-        from app.models import Project
-        from app.extensions import db as _db
-        from utils.pdf_generator import _custom_logo
-        proj = _db.session.get(Project, submission.project_id) if submission.project_id else None
-        img1 = _custom_logo(brand.logo_path)
-        img2 = _custom_logo(brand.logo2_path)
-        # Draw the letterhead whenever there is identity to show, not only
-        # when a logo file happens to exist. A tenant who named their company
-        # and added header text, but never uploaded a file, was getting a
-        # report with no letterhead at all.
-        if img1 or img2 or brand.company_ar or brand.header_ar or brand.header_en:
-            contractor = (submission.contractor
-                          or payload.get("contractor") or "").strip()
-            rows = [[img1 or Paragraph("", st["cell"]),
-                     img2 or Paragraph("", st["cell"])]]
-            org = Paragraph(ar(brand.company_ar)
-                            + ("<br/>" + brand.company_en if brand.company_en else ""),
-                            st["cell_small"])
-            other = Paragraph(
-                ar(contractor or (proj.contractor if proj else "")
-                   or "المقاول المنفذ"),
-                st["cell_small"])
-            rows.append([org, other])
-            if brand.header_ar or brand.header_en:
-                rows.append([Paragraph(ar(brand.header_ar), st["cell_small"]),
-                             Paragraph(brand.header_en or "", st["cell_small"])])
-            logo_tbl = Table(rows, colWidths=[95 * mm, 95 * mm])
-            logo_tbl.setStyle(TableStyle([
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ]))
-            story.append(logo_tbl)
-            story.append(Spacer(1, 3 * mm))
-    except Exception as exc:
-        # The letterhead is the most visible part of the document. A failure
-        # here used to be logged at debug level, so a report went out with no
-        # header and nothing anywhere said why.
-        log.warning("dynamic PDF letterhead failed: %s", exc, exc_info=True)
+    # The letterhead that used to be drawn here (tenant logos, company
+    # name, contractor line, the corporate header table and the gold rule)
+    # is gone on purpose: the report opens with its own title and serial
+    # number. A tenant's letterhead belongs on the paper the report is
+    # filed with, and re-drawing it pushed a third of the first page above
+    # the content on every single report.
 
-    # ---- corporate header (shared: project owner / consultant / contractor)
-    try:
-        header_tbl = _header_table(adapter, st)
-    except Exception as exc:
-        log.warning("dynamic PDF header table failed: %s", exc, exc_info=True)
-        header_tbl = None
-    if header_tbl is not None:
-        story.append(header_tbl)
-        story.append(Spacer(1, 4 * mm))
-    story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#c9a227")))
-    story.append(Spacer(1, 4 * mm))
     # ---- project general data — production headers for all report types
     if template.key in ("daily", "weekly"):
         is_daily = template.key == "daily"
@@ -307,7 +261,15 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         header = [c["label_ar"] for c in cols]
         story.append(_section_title(f"{label} ({len(body)} بنود)", st))
         story.append(Spacer(1, 3 * mm))
-        head = [Paragraph(ar(h), st["cell_h"]) for h in header]
+        # The header band is navy, so its text must be white. cell_h is navy —
+        # it is meant for labels on a pale background (_info_table) — and a
+        # Paragraph's own colour beats the table's TEXTCOLOR, so reusing it
+        # here drew navy on navy: the column titles were there in the file and
+        # invisible on the page. Verified by reading the generated PDF back.
+        head_style = ParagraphStyle("dyn_th", parent=st["cell_h"],
+                                    textColor=colors.white, fontSize=9,
+                                    leading=13)
+        head = [Paragraph(ar(h), head_style) for h in header]
         # grid cells are pre-formatted text (photos live in the gallery below)
         grid_rows = [[Paragraph(ar(v), st["cell"]) for v in row]
                      for row in body]
@@ -376,40 +338,49 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
         except Exception as exc:
             log.debug("EVM block skipped in dynamic PDF: %s", exc)
 
-    # ---- signatory block
+    # ---- signatory block: left blank on purpose, for wet signatures.
+    # A printed daily report is signed by hand on site. Filling the printed
+    # form with names and a timestamp turns a signature box into a form field
+    # nobody signs, so the space is reserved and left empty; the engineer's own
+    # name travels in the submission's signatory field for the record, not on
+    # the page that has to be signed.
     story.append(_section_title("التوقيع والاعتماد", st))
-    story.append(Spacer(1, 3 * mm))
-    stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
-    sig_rows = [
-        [Paragraph(ar(stamp), st["cell"]),
-         Paragraph(ar("تاريخ ووقت الإصدار"), st["cell_h"])],
-        [Paragraph(ar(submission.signatory_name or "—"), st["cell"]),
-         Paragraph(ar("مُعد التقرير / الموقّع الرسمي"), st["cell_h"])],
-    ]
-    sig = Table(sig_rows, colWidths=[140 * mm, 50 * mm])
+    story.append(Spacer(1, 4 * mm))
+    sig_cell = ParagraphStyle("sig_blank", parent=st["cell"],
+                              textColor=colors.black, alignment=2, leading=18)
+    sig_head = ParagraphStyle("sig_h", parent=st["cell_h"],
+                              alignment=1, leading=16)
+    signers = ["المهندس المشرف", "مدير المشروع"]
+    sig = Table([["" for _ in signers],
+                 ["" for _ in signers],
+                 [Paragraph(ar(n), sig_head) for n in signers]],
+                colWidths=[95 * mm] * len(signers), rowHeights=[16 * mm, 16 * mm, 8 * mm])
     sig.setStyle(TableStyle([
-        ("BACKGROUND", (1, 0), (1, -1), colors.HexColor("#fff7dd")),
-        ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#b9c6d2")),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        # an empty rule to sign on, not a filled box
+        ("LINEBELOW", (0, 1), (-1, 1), 0.8, colors.black),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#b9c6d2")),
+        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     story.append(sig)
-    story.append(Spacer(1, 4 * mm))
+    story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(
-        ar("أقر بأن البيانات المذكورة أعلاه صحيحة ومطابقة للواقع في الموقع بتاريخ التقرير."),
-        st["cell_small"]))
+        ar(f"تاريخ التقرير: {submission.report_date or '—'}"),
+        sig_cell))
 
-    serial = f"DS-{submission.id:06d}" if submission.id else "DS-000000"
-    stamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
+    # The report identifies itself once, at the top. The old running header
+    # repeated the company, the project, the serial and a gold rule on every
+    # page, and the footer repeated the serial and a timestamp again — so a
+    # three-page daily report carried its title nine times and pushed the body
+    # down by a third of a page on every sheet. Only the page number stays, so
+    # a loose page can still be put back in order.
+    def _page_no(c, d):
+        c.saveState()
+        c.setFont(st["footer"].fontName, 8)
+        c.setFillColor(colors.black)
+        c.drawCentredString(297 * mm / 2, 10 * mm, f"{c.getPageNumber()}")
+        c.restoreState()
 
-    def _foot(c, d):
-        _footer(c, d, serial=serial, timestamp=stamp,
-                project_name=submission.project_name,
-                report_type=template.name_ar,
-                org_ar=brand.company_ar, org_en=brand.company_en,
-                notes=brand.footer_notes,
-                platform_line=brand.disclaimer)
-    doc.build(story, onFirstPage=_foot, onLaterPages=_foot)
+    doc.build(story, onFirstPage=_page_no, onLaterPages=_page_no)
     return buf.getvalue()
