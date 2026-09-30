@@ -228,12 +228,24 @@ def _pdf_runs(pdf_bytes):
 
     runs = []
     for r in PdfDocument(pdf_bytes).text_runs:
+        logical = r
         if any(0xFB50 <= ord(c) <= 0xFEFF for c in r):
             try:
-                r = to_base(get_display(get_display(r[::-1])))
+                logical = to_base(get_display(get_display(r[::-1])))
             except Exception:
-                pass
-        runs.append(r)
+                # Keep the presentation forms rather than dropping the run. The
+                # comparison in contains() folds them too, so the run is still
+                # usable, and a run that cannot be un-shaped must not silently
+                # disappear - that would turn an extraction problem into a
+                # missing-text failure with no cause.
+                #
+                # Catch-all on purpose: bidi and the reshaper raise a mix of
+                # ValueError, TypeError and IndexError depending on the input,
+                # and a new exception type here would fail an unrelated test
+                # rather than describe anything useful. Scoped nosec because
+                # the fallback is the behaviour, not an oversight.
+                pass  # nosec B110
+        runs.append(logical)
     return runs
 
 
