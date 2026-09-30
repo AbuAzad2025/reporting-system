@@ -451,7 +451,6 @@ class TestNoUnexecutedOverride:
             "class and the roadmap - or the read is a ghost: "
             + "; ".join(offenders))
 
-
     def test_the_column_is_still_declared_so_no_migration_is_owed(self):
         """Dropping the column is a schema change; keeping it is the cheap call."""
         models = pathlib.Path("app/models.py").read_text(encoding="utf-8")

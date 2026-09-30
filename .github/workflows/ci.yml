@@ -492,14 +492,29 @@ jobs:
         # Syntax is not behaviour. The old check ran `node --check` and, when
         # it failed, printed a warning and let the job pass anyway - so a broken
         # script reached production with a green build. This one fails.
+        #
+        # Every script under static/ is checked, by glob rather than by a list.
+        # A hand-written list went stale the moment share.js, main.js,
+        # profile.js and admin-fields.js were added: they carried the app's
+        # share, theme, start-up and profile behaviour, and this job would have
+        # reported the front end as syntactically sound without ever opening
+        # them. A file that exists is a file that has to parse.
         run: |
           if ! command -v node >/dev/null 2>&1; then
             echo "::error::Node.js is required to check the front-end"
             exit 1
           fi
-          node --check static/js/app.js
-          node --check static/sw.js
-          node --check static/js/theme.js
+          found=0
+          for f in static/js/*.js static/sw.js; do
+            [ -f "$f" ] || continue
+            found=$((found + 1))
+            node --check "$f"
+          done
+          if [ "$found" -lt 2 ]; then
+            echo "::error::expected the JS assets to be present, found $found"
+            exit 1
+          fi
+          echo "checked $found script(s)"
 
   # ── Front-end behaviour (vitest) ──
   frontend-behaviour-tests:
