@@ -412,6 +412,61 @@ def test_reduced_motion_is_respected(used):
         "no prefers-reduced-motion block: animation cannot be turned off")
 
 
+_BUTTON = re.compile(r"<button\b([^>]*)>(.*?)</button>", re.S | re.I)
+_MARKUP_IN_BUTTON = re.compile(r"<[^>]+>")
+_NAMED_ALTERNATIVE = re.compile(r"aria-label\s*=|aria-labelledby\s*=|title\s*=",
+                                re.I)
+
+
+def _is_symbol_only(inner):
+    """True when a button's visible content carries no word a reader can use.
+
+    An emoji or an arrow is a symbol, not a name. `isalnum` is the test that
+    matters here: a digit or a letter means there is something to announce,
+    and a symbol means the accessible name has to come from elsewhere.
+    """
+    text = "".join(_MARKUP_IN_BUTTON.sub("", inner).split())
+    if not text or len(text) > 2:
+        return False
+    return not any(ch.isalnum() or ch in "-_" for ch in text)
+
+
+def test_every_symbol_only_button_has_an_accessible_name():
+    """A button whose whole content is an icon is announced as "button".
+
+    Five of them were: the column delete ✕, the field move ↑ and ↓ and the
+    field delete 🗑 on /admin/fields, and the add ➕ on /admin/projects. Each
+    carried a glyph and nothing else, so a screen reader user heard an
+    unlabelled button per field and had no way to tell which field it acted
+    on - the surrounding markup names the field visually, and that naming does
+    not reach the accessibility tree.
+
+    The labels added name the target as well as the action, because "delete" on
+    its own is ambiguous when the page shows a dozen of them.
+
+    Scoped to symbol-only buttons on purpose. A button with real text is already
+    named by that text, and most of the app is Arabic, which this file reads as
+    bytes - a word check would be a transliteration guess. This catches the
+    case that has no text at all, which needs no translation to detect.
+    """
+    offenders = []
+    for path in sorted(pathlib.Path(TEMPLATES_DIR).rglob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        for attrs, inner in _BUTTON.findall(text):
+            if _NAMED_ALTERNATIVE.search(attrs):
+                continue
+            if not _is_symbol_only(inner):
+                continue
+            content = "".join(_MARKUP_IN_BUTTON.sub("", inner).split())
+            codes = " ".join("U+%04X" % ord(c) for c in content)
+            offenders.append(
+                f"{path.relative_to(TEMPLATES_DIR)} {codes} no aria-label/title")
+    assert not offenders, (
+        "a button whose only content is a symbol has no accessible name:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
 def test_print_hides_the_chrome(used):
     css = _load_css()
     print_block = css.split("@media print")[-1] if "@media print" in css else ""
