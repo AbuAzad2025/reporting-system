@@ -45,9 +45,12 @@ correct behaviour, and no production file was touched):
    ``Config.MAX_CONTENT_LENGTH`` is the same 4 MiB, so Werkzeug aborts the
    request first with an HTML 413 page and the JSON contract is never emitted.
    The size limit itself still holds, one layer up. Not asserted here.
-3. ``app/ops/routes.py:835`` — ``KIND_MODEL[kind][1] if False else ...`` is dead
-   code; ``KIND_MODEL`` maps to model classes, so the guarded branch would
-   raise ``TypeError`` if it ever ran.
+ 3. FIXED. ``app/ops/routes.py`` carried ``KIND_MODEL[kind][1] if False else ...``
+    as dead code in the serial allocation. ``KIND_MODEL`` maps to model classes,
+    so the guarded branch would have raised ``TypeError`` if it ever ran. The
+    ``if False else`` prefix is gone; the live ``M.OPS_MODULES`` lookup is used
+    directly. No behaviour change, because the branch never executed.
+
 4. ``templates/ops/form.html:47`` renders a "ملاحظات" textarea for every
    module, but only 3 of the 9 models (site-inspections, material-submittals,
    progress-billings) have a ``notes`` column. On the other six the typed value

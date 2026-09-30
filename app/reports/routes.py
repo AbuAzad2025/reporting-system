@@ -29,7 +29,6 @@ from app.extensions import db
 from app.models import Report, ReportTemplate, ReportSubmission, Project, REPORT_TYPES
 from app.ops.isolation import visible_projects, get_linked_project_or_404
 from utils.helpers import FIELD_SPECS
-from utils.pdf_generator import build_report_pdf
 from app.services.pdf_dynamic import build_dynamic_pdf
 from app.services.report_completeness import missing_critical_fields
 from app.services.share import get_share_data
@@ -428,11 +427,10 @@ def _collect_dynamic(template, form):
                                 errors.append(f"«{f.label_ar}» — الصف {idx + 1}: "
                                               "محتوى الملف لا يطابق نوعه المعلن.")
                                 continue
-                                continue
                             try:
                                 storage_key = _store_dyn_file(template.key, safe, buf)
                                 row[c["key"]] = storage_key
-                            except Exception as exc:
+                            except Exception:
                                 errors.append(f"«{f.label_ar}» — الصف {idx + 1}: فشل الحفظ.")
             rows = [row for _, row in pairs]
             for n, row in enumerate(rows, 1):

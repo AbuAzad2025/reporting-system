@@ -14,7 +14,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
                                 TableStyle, HRFlowable)
 
-from utils.pdf_generator import (_styles, _section_title, _kv_table, _footer,
+from utils.pdf_generator import (_styles, _section_title, _kv_table,
                                  ar)
 from app.ops.models import OPS_MODULES
 from app.ops.versioning import WORKFLOW_AR

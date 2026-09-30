@@ -8,6 +8,7 @@ one being written for it.
 """
 import io
 import os
+import re
 from datetime import date
 
 import pytest
@@ -205,8 +206,16 @@ def test_a_tenant_colour_reaches_the_report_cards(app, client):
                 follow_redirects=True)
     body = client.get("/dashboard").get_data(as_text=True)
     assert "report-card" in body
-    assert "--card-from: #1e3a5f" not in body or True
-    assert "report-card" in body and "--card-to:" in body, (
+    # The tenant's colours are published once on :root and mapped into the
+    # gradient by the .report-card rule, rather than written onto each card.
+    # Both halves have to be present for the card to be branded.
+    assert "--brand-primary:" in body and "--brand-secondary:" in body, (
+        "the tenant's colours are not published on the page")
+    layout = io.open("static/css/layout.css", encoding="utf-8").read()
+    rule = re.search(r"\.report-card\s*\{(.*?)\}", layout, re.DOTALL)
+    assert rule, "no .report-card rule"
+    assert "var(--brand-primary)" in rule.group(1) and \
+        "var(--brand-secondary)" in rule.group(1), (
         "the tenant's colours did not reach the report cards")
 
 

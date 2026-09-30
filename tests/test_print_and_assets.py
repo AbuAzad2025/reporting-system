@@ -10,6 +10,7 @@ card styles got no print treatment at all, while both hid every `<nav>` and
 import io
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -88,12 +89,30 @@ def test_the_application_chrome_is_hidden_by_class_not_by_element_name(print_blo
 
 
 def test_the_print_rules_target_the_classes_templates_actually_use(print_blocks):
-    """A print rule for a class nobody renders is decoration."""
+    """A print rule for a class nobody renders is decoration.
+
+    This asserted that `.data-table` was styled for print, which is the same
+    mistake in the other direction: no template has ever rendered a
+    `.data-table`, so the assertion confirmed that a dead selector was being
+    maintained on purpose. The rule it stood in for had to be pointed at the
+    table a report actually renders, `.report-table`, and the check now verifies
+    the guarantee its own name claims - that every class styled for print is
+    one a template uses, and that the real report table is among them.
+    """
     block = print_blocks[0]
-    for dead in (".table ", ".report-section", ".card,"):
+
+    rendered = set()
+    for path in Path("templates").rglob("*.html"):
+        rendered.update(re.findall(r'class="([^"]*)"', path.read_text(encoding="utf-8")))
+    rendered = {c for group in rendered for c in group.split()}
+
+    for dead in (".table ", ".report-section", ".data-table", ".card,"):
         assert dead not in block, (
             f"{dead.strip()} is styled for print but no template uses it")
-    assert ".data-table" in block
+
+    assert ".report-table" in block, (
+        "the table a report actually renders has no print treatment, so a "
+        "printed report has no cell borders and no shaded header")
     assert ".surface-card" in block
 
 

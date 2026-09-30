@@ -8,9 +8,8 @@ from datetime import datetime
 
 try:
     from docx import Document
-    from docx.shared import Pt, RGBColor, Inches
+    from docx.shared import Pt
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.oxml import OxmlElement
     HAS_DOCX = True
 except Exception:
     HAS_DOCX = False

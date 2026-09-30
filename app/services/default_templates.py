@@ -4,7 +4,7 @@ Used by seed + 'reset to defaults' admin action. Field dicts:
   key / label_ar / type / required / options / placeholder
 """
 from utils.helpers import FIELD_SPECS
-from app.models import TenantBranding, TenantTemplateOverride
+from app.models import TenantTemplateOverride
 
 DEFAULT_TEMPLATES = [
     {"key": "daily", "name_ar": "التقرير اليومي", "name_en": "Daily Progress Report",
@@ -604,7 +604,8 @@ def default_fields_for(template_key):
             out.append(_spec_to_field(k, label, kind, False, [],
                                       [], (_example(template_key, k) or None)))
     if template_key == "daily":
-        # daily uses ONLY the ESHS model (legacy FIELD_SPECS дублировали weather/manpower)
+        # daily uses ONLY the ESHS model (the legacy FIELD_SPECS duplicated the
+        # weather and manpower sections)
         # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
         out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False,
                                   [], (_example(template_key, "eshs_desc_81") or None)))
@@ -696,22 +697,17 @@ def apply_tenant_overrides(tpl, current_user):
     Returns modified ordered_fields (new list, original DB unchanged).
     If no override exists, returns default fields unchanged.
     """
-    from app.models import TenantTemplateOverride, TenantBranding
-    # Find active override: by tenant (user id) first, else by project
+    from app.models import TenantTemplateOverride
+    # The override is looked up by user id only. There is no project-level
+    # fallback, which is the isolation rule: a user sees their own customisation
+    # or the platform default, never another tenant's.
     override = None
-    branding = None
     if current_user and current_user.is_authenticated:
-        # Try user-level override (most granular) then fall back
-        # (platform design: user owns customization; if not set,
-        #  no customization — ensures isolation)
         override = (TenantTemplateOverride.query
                      .filter_by(template_key=tpl.key,
                                  tenant_id=current_user.id,
                                  is_active=True)
                      .first())
-        # Apply branding linked to current user's active project, if any
-        # In production, admin routes resolve linked project.
-        # For simplicity here we use the template-level override only.
     if override is None:
         return default_fields_for(tpl.key)
 
@@ -719,7 +715,10 @@ def apply_tenant_overrides(tpl, current_user):
     base = default_fields_for(tpl.key)
     deleted = set(override.deleted_fields or [])
     added = override.added_fields or []
-    reordered = override.reordered_fields or []
+    # override.reordered_fields is stored on the row but never read: the order
+    # returned here is always the platform default with deletions and additions
+    # applied. Recorded rather than assigned, because an unused local reads like
+    # the reordering works.
 
     kept = [f for f in base if f["key"] not in deleted]
     # Apply rules from fields_config (type/required/options/placeholders/rules)
@@ -771,9 +770,21 @@ OBSOLETE_DAILY_KEYS = {
 
 
 def build_tenant_fields(tpl, override: "TenantTemplateOverride") -> list:
-    """Build ordered DynamicField dicts honoring override rules.
+    """Build the field list for a tenant, honoring the override rules.
 
-    Returns new field objects (not DB-inserted) that pdf_dynamic can use.
+    Returns new dicts (not DB-inserted). Two caveats that the wording used to
+    hide, both of which matter to anyone wiring this into a route:
+
+    * The order is the platform default with deletions applied. `reordered` is
+      not consulted; tenant reordering is unimplemented and specified in
+      docs/architecture/roadmap_reordered_fields.md.
+    * These are plain dicts, not DynamicField rows. The live form renderer
+      consumes `ReportTemplate.ordered_fields`, which is ORM, so this return
+      value is not drop-in for it.
+
+    A custom field's `rules` are also dropped here, unlike
+    apply_tenant_overrides - the same divergence, unfixed, is tabulated in the
+    roadmap.
     """
     if override is None:
         return default_fields_for(tpl.key)
@@ -785,7 +796,7 @@ def build_tenant_fields(tpl, override: "TenantTemplateOverride") -> list:
     result = []
     deleted = set(override.deleted_fields or [])
     added = override.added_fields or []
-    reordered = override.reordered_fields or []
+    # See apply_tenant_overrides: reordered_fields is not applied here either.
     rules_cfg = (override.fields_config or {})
 
     # Rebuild base with rules applied

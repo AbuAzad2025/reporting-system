@@ -24,6 +24,10 @@ const PRECACHE = [
   '/static/css/layout.css',
   '/static/js/app.js',
   '/static/js/theme.js',
+  '/static/js/share.js',
+  '/static/js/admin-fields.js',
+  '/static/js/main.js',
+  '/static/js/profile.js',
   '/static/manifest.json',
 ];
 

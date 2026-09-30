@@ -141,31 +141,9 @@
   </div>
 
   <div id="toast-root" aria-live="polite" class="no-print"></div>
-  <script src="{{ asset_url('js/app.js') }}"></script>
-  <script type="module">
-    import { initTheme } from '{{ asset_url('js/theme.js') }}';
-
-    function boot() {
-      initTheme({
-        root: document.documentElement,
-        storage: window.localStorage,
-        matchMedia: window.matchMedia,
-        toggle: document.getElementById('theme-toggle'),
-      });
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', boot);
-    } else {
-      boot();
-    }
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('{{ asset_url('sw.js') }}', { scope: '/' }).catch(() => {});
-      });
-    }
-  </script>
+  <script type="module" src="{{ asset_url('js/app.js') }}"></script>
+  <script type="module" src="{{ asset_url('js/main.js') }}"
+          data-sw-url="{{ asset_url('sw.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

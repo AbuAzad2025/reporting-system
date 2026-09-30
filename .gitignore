@@ -21,3 +21,14 @@ coverage.xml
 .coverage
 .coverage.*
 bandit-security-report.*
+
+# Real business documents, not source. The Word/Excel exports this app produces
+# (IPC, Variation Orders, Handover) are client contracts and tender submissions,
+# and a developer will eventually save one in the working directory. This
+# repository is public, so anything committed here is published permanently -
+# and a blob stays in the history even after the file is deleted. Keep these
+# out of git; store them in the instance/ or uploads/ directories instead.
+*.docx
+*.xlsx
+*.xls
+*.pdf

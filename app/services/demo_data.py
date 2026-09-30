@@ -35,7 +35,6 @@ def seed_operational_demo() -> dict:
     from app.models import (User, Project, ReportTemplate, ReportSubmission)
     from app.ops import models as OPS
     from app.ops.models import ProjectMember, OPS_MODULES
-    from app.services.default_templates import ensure_default_templates
 
     def ensure_user(username, email, full, role, pw):
         u = User.query.filter_by(username=username).first()

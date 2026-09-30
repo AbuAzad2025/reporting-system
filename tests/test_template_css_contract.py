@@ -16,6 +16,7 @@ good one - that is what a design review is for.
 import collections
 import io
 import os
+import pathlib
 import re
 
 import pytest
@@ -118,6 +119,120 @@ def test_every_template_class_is_defined(defined, used):
             f"nowhere. They render as no-ops:\n{report}")
 
 
+def test_no_presentation_attributes_in_templates():
+    """A template states structure; the stylesheet states presentation.
+
+    The nine inline styles that were here were all duplication: the two
+    tenant-colour declarations repeated custom properties that .report-card
+    already reads from :root, and the six warning-notice declarations restated
+    what .alert-warning already carries. An inline style cannot be themed, is
+    invisible to this suite's class check, and is one more place for a colour
+    to drift. Values that genuinely are data — a tenant's colours — belong on
+    the element through a data attribute, which is what meter-fill now does.
+    """
+    offenders = []
+    for path in sorted(pathlib.Path(TEMPLATES_DIR).rglob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r"\bstyle\s*=\s*(\"[^\"]*\"|'[^']*')", text):
+            line = text[:match.start()].count("\n") + 1
+            offenders.append(f"{path.relative_to(TEMPLATES_DIR)}:{line}")
+    assert not offenders, (
+        "inline style attributes back in: " + ", ".join(offenders[:8])
+    )
+
+
+CSS_VAR_REF = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])")
+CSS_VAR_DECL = re.compile(r"(?m)(^|[;{\s])(--[A-Za-z0-9_-]+)\s*:")
+
+#: An inline <script> may only be a bootstrap - an import and a call with the
+#: row's data in it. Anything longer is logic that belongs in static/js.
+MAX_INLINE_SCRIPT_LINES = 6
+
+
+def test_templates_carry_no_inline_javascript():
+    """Behaviour lives in static/js, not in the markup.
+
+    Three pages used to hold their own copy of the share behaviour -
+    archive.html and both report views - and the two report copies had already
+    drifted, so a fix to one was not a fix to the others. Nothing caught it:
+    a template with 100 lines of JavaScript in it renders exactly like a
+    template without.
+
+    What is still allowed is a module bootstrap, because a script that has to
+    pass a row's id into a module cannot live in the module. Those are capped
+    by line count so that a bootstrap cannot quietly grow into behaviour.
+    """
+    offenders = []
+    for path in sorted(pathlib.Path(TEMPLATES_DIR).rglob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>",
+                                 text, re.DOTALL):
+            body = match.group(1)
+            name = path.relative_to(TEMPLATES_DIR)
+            line = text[:match.start()].count("\n") + 1
+            body_lines = [ln for ln in body.strip().splitlines() if ln.strip()]
+            if len(body_lines) > MAX_INLINE_SCRIPT_LINES:
+                offenders.append(
+                    f"{name}:{line} has {len(body_lines)} lines of inline "
+                    f"script, limit is {MAX_INLINE_SCRIPT_LINES}")
+    assert not offenders, (
+        "inline JavaScript is back in a template:\n  " + "\n  ".join(offenders[:8])
+    )
+
+
+def test_every_referenced_custom_property_is_declared():
+    """A `var(--x)` with no fallback and no declaration does not fall back to
+    the previous value; it makes the whole declaration invalid at computed-value
+    time. The property then becomes `unset`, which for a background is
+    transparent and for a colour is inherited.
+
+    That is not a cosmetic risk, it is silent. Every class a template uses is
+    checked by the test above, and a rule can pass that check perfectly while
+    every colour in it computes to nothing. The four `.flash-*` variants in
+    layout.css did exactly that: they read twelve custom properties —
+    `--green-50`, `--red-50`, `--amber-50`, `--sky-50` and their `-200` and
+    `-800` partners — that no stylesheet declared, so every flashed message on
+    every page rendered as unstyled inherited text inside a `border: 1px solid`
+    box. The tokens are declared in custom.css now; this is what keeps them.
+
+    A `var(--x, fallback)` is deliberately not flagged: a fallback is a
+    complete, working answer, and several utilities carry one on purpose.
+    """
+    declared, offenders = set(), collections.defaultdict(list)
+
+    sheets = {}
+    for name in sorted(os.listdir(STATIC_DIR)):
+        if name.endswith(".css"):
+            sheets[name] = io.open(os.path.join(STATIC_DIR, name),
+                                   encoding="utf-8").read()
+    assert sheets, "no stylesheet found - this test would pass vacuously"
+
+    # Pass 1: every declaration in every sheet. A token may be declared in a
+    # sheet that loads after the one referencing it, so all declarations have
+    # to be collected before any reference is judged.
+    for text in sheets.values():
+        for _, prop in CSS_VAR_DECL.findall(text):
+            declared.add(prop)
+
+    # Pass 2: every reference, with the sheet and line it came from.
+    for name, text in sheets.items():
+        for match in CSS_VAR_REF.finditer(text):
+            prop, terminator = match.group(1), match.group(2)
+            if terminator == ",":      # carries a fallback, so it is safe
+                continue
+            if prop not in declared:
+                line = text[:match.start()].count("\n") + 1
+                offenders[prop].append(f"{name}:{line}")
+
+    assert not offenders, (
+        "custom properties referenced but never declared, so every declaration "
+        "using them is invalid:\n" + "\n".join(
+            f"  {prop}  <- {', '.join(uses)}"
+            for prop, uses in sorted(offenders.items())
+        )
+    )
+
+
 def test_every_composed_class_family_is_styled(defined, used):
     """A class assembled at runtime still has to match a rule.
 
@@ -211,8 +326,23 @@ def test_dark_mode_is_reachable_from_the_attribute_the_toggle_sets():
     assert 'data-theme="light"' in base, (
         "base.html should declare a default theme so the first paint is not "
         "whatever the previous page left behind")
-    assert "theme.js" in base, (
-        "base.html must load the theme module, or the toggle does nothing")
+
+    # The theme module is loaded by static/js/main.js rather than named in
+    # base.html, so that the start-up logic is not inline in the markup. The
+    # guarantee is that the page reaches the module, so follow the import
+    # rather than pinning which file holds it.
+    entrypoints = re.findall(r"asset_url\('js/([^']+\.js)'\)", base)
+    assert entrypoints, "base.html loads no script from static/js"
+    reachable = set()
+    for name in entrypoints:
+        path = os.path.join("static", "js", name)
+        if os.path.exists(path):
+            reachable.add(io.open(path, encoding="utf-8").read())
+    assert any("theme.js" in text for text in reachable), (
+        "no script base.html loads reaches theme.js, so the toggle does nothing")
+    assert any("initTheme" in text and "initTheme(" in text
+               for text in reachable), (
+        "the theme module is imported but never called")
 
     # The service worker is the one asset that must not be cache-busted by a
     # new path, or the browser would keep the old worker forever. It is

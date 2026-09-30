@@ -17,7 +17,7 @@
   {% for p in data.by_project %}
   <div class="flex items-center gap-2 mb-2 text-sm">
     <div class="w-40 shrink-0 font-bold truncate">{{ p.name }}</div>
-    <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-gold h-4 rounded-full" style="width: {{ p.approval_rate }}%"></div></div>
+    <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-gold h-4 rounded-full meter-fill" data-percent="{{ p.approval_rate }}"></div></div>
     <div class="w-24 text-left text-xs">✅ {{ p.approved }} · ⏳ {{ p.attention }} · {{ p.approval_rate }}%</div>
   </div>
   {% else %}

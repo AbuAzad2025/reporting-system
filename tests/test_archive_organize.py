@@ -9,6 +9,7 @@ Covers the /archive enhancements:
 - dashboard organize shortcuts
 """
 from datetime import date
+import re
 
 
 from tests.conftest import login_as
@@ -228,11 +229,30 @@ def test_archive_serial_badges(eng_client, app):
     assert "DS-" in r.get_data(as_text=True)
 
 
-def test_base_renders_scripts_block(eng_client):
-    """base.html renders block scripts (share JS is active)."""
+def test_base_renders_scripts_block(eng_client, app):
+    """The archive page loads the share module and its buttons carry the data
+    the module reads.
+
+    This used to assert that the function name ``shareArchive`` appeared in the
+    response body, which only held while the share behaviour was an inline
+    <script> in archive.html. The behaviour now lives in static/js/share.js,
+    shared with the two report views, so the name is not in the page any more.
+    Asserting the old string would have kept the duplication in place.
+    """
+    _make_dyn(app, "Alpha Tower", date(2026, 9, 10))
     r = eng_client.get("/archive?src=dyn")
     html = r.get_data(as_text=True)
-    assert "shareArchive" in html
+
+    assert "js/share.js" in html, "the share module is not referenced"
+    assert "initArchiveShare" in html, "the share module is loaded but never started"
+
+    # The module reads the report's identity off the button, so a button that
+    # renders without those attributes shares nothing.
+    button = re.search(r"<button[^>]*data-share-type[^>]*>", html)
+    assert button, "no share button rendered"
+    for attribute in ("data-share-id", "data-share-serial",
+                      "data-share-project", "data-share-title"):
+        assert attribute in button.group(0), f"{attribute} missing from share button"
 
 
 def test_dashboard_organize_shortcuts(eng_client):

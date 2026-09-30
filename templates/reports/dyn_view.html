@@ -3,9 +3,9 @@
 {% block content %}
 <div class="max-w-2xl mx-auto">
   {% if missing_critical %}
-  <div class="card p-4 mb-4 no-print" role="status" style="border-right:4px solid var(--amber-500,#f59e0b)">
-    <h2 class="font-extrabold text-sm mb-2" style="color:var(--amber-600,#b45309)">⚠️ هذا التقرير ناقص</h2>
-    <p class="text-xs mb-2" style="color:var(--slate-500,#64748b)">الأقسام التالية لم تُملأ، ولن تظهر في النسخة المطبوعة:</p>
+  <div class="alert alert-warning no-print" role="status">
+    <h2 class="alert-heading font-extrabold text-sm mb-2">⚠️ هذا التقرير ناقص</h2>
+    <p class="text-xs mb-2 text-slate-600">الأقسام التالية لم تُملأ، ولن تظهر في النسخة المطبوعة:</p>
     <ul class="text-xs list-disc pr-5 space-y-1">
       {% for key, why in missing_critical %}<li>{{ why }}</li>{% endfor %}
     </ul>
@@ -65,7 +65,7 @@
         {% set rows = s.data.get(f.field_key) or [] %}
         {% if cols and rows %}
         <div class="overflow-x-auto rounded-xl border bg-white">
-          <table class="w-full text-xs">
+          <table class="w-full text-xs report-table">
             <thead><tr class="bg-navy text-white">
               <th class="px-2 py-2 text-center w-8">#</th>
               {% for c in cols %}<th class="px-3 py-2 whitespace-nowrap">{{ c.label_ar }}</th>{% endfor %}
@@ -113,101 +113,8 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script>
-  const shareData = {
-    reportType: 'dynamic',
-    reportId: {{ s.id }},
-    serial: 'DS-{{ '%05d'|format(s.id) }}',
-    project: {{ s.project_name|tojson }},
-    title: {{ tpl.name_ar|tojson }},
-    url: '{{ url_for("reports.dyn_view", sub_id=s.id, _external=true) }}'
-  };
-
-  function toggleShareMenu() {
-    const dropdown = document.getElementById('shareDropdown');
-    dropdown.classList.toggle('hidden');
-  }
-
-  function closeShareMenu() {
-    document.getElementById('shareDropdown').classList.add('hidden');
-  }
-
-  async function fetchShareUrls() {
-    try {
-      const res = await fetch(`/reports/share/dynamic/{{ s.id }}`);
-      if (!res.ok) throw new Error('فشل في جلب بيانات المشاركة');
-      return await res.json();
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  }
-
-  async function shareNative() {
-    closeShareMenu();
-    const data = await fetchShareUrls();
-    if (!data) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: data.payload.title + ' - ' + data.payload.serial,
-          text: `تقرير: ${data.payload.title}\nالرقم: ${data.payload.serial}\nالمشروع: ${data.payload.project}`,
-          url: data.url
-        });
-      } catch (e) {
-        if (e.name !== 'AbortError') fallbackShare(data.url);
-      }
-    } else {
-      fallbackShare(data.url);
-    }
-  }
-
-  async function shareWhatsApp() {
-    closeShareMenu();
-    const data = await fetchShareUrls();
-    if (!data) return;
-    window.open(data.whatsapp_url, '_blank');
-  }
-
-  async function copyLink() {
-    closeShareMenu();
-    const data = await fetchShareUrls();
-    if (!data) return;
-    await navigator.clipboard.writeText(data.url);
-    showToast('تم نسخ الرابط إلى الحافظة');
-  }
-
-  async function shareEmail() {
-    closeShareMenu();
-    const data = await fetchShareUrls();
-    if (!data) return;
-    window.location.href = data.email_url;
-  }
-
-  function fallbackShare(url) {
-    const temp = document.createElement('input');
-    temp.value = url;
-    document.body.appendChild(temp);
-    temp.select();
-    document.execCommand('copy');
-    document.body.removeChild(temp);
-    showToast('تم نسخ الرابط (متصفح لا يدعم المشاركة الأصلية)');
-  }
-
-  function showToast(msg) {
-    const toast = document.createElement('div');
-    toast.textContent = msg;
-    toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-navy text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg z-[var(--z-index-toast)]';
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-  }
-
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    const menu = document.getElementById('shareMenu');
-    if (menu && !menu.contains(e.target)) {
-      closeShareMenu();
-    }
-  });
+<script type="module">
+  import { initReportShare } from '{{ asset_url('js/share.js') }}';
+  initReportShare({ reportType: 'dynamic', reportId: {{ s.id }} });
 </script>
 {% endblock %}

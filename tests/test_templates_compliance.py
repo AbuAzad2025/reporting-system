@@ -116,3 +116,40 @@ def test_share_payload_uses_real_names(client, app):
     assert d["payload"]["title"] == "التقرير الأسبوعي"
     assert d["payload"]["serial"] == f"DS-{sid:05d}"
     assert "email_url" in d and "whatsapp_url" in d
+
+
+# --------------------------------------------------------------- structure
+#: Elements whose nesting a truncation shows up in. A template that is cut
+#: short mid-page leaves these unclosed, and Jinja does not care - it renders
+#: whatever it was given, and the browser quietly repairs the DOM.
+STRUCTURAL_TAGS = ("div", "form", "table", "thead", "tbody", "tr")
+
+
+def test_no_template_is_truncated_mid_tag():
+    """A template must open and close the same number of structural elements.
+
+    templates/profile.html was cut short: its last line was a bare `</div`
+    with no closing bracket, the form was never closed, and everything after
+    it - the save button, the password field, the notification preferences -
+    was simply gone. Nothing failed. The route still read `new_password` and
+    four `notify_*` fields that no form rendered any more, and the page had no
+    submit control at all, so a user could fill the form in and not save it.
+
+    Jinja does not validate HTML, so this is the only thing standing between a
+    bad merge and a silently unusable page.
+    """
+    import pathlib
+    import re
+
+    offenders = []
+    for path in sorted(pathlib.Path("templates").rglob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        for tag in STRUCTURAL_TAGS:
+            opened = len(re.findall(r"<%s(?:\s|>)" % tag, text))
+            closed = len(re.findall(r"</%s>" % tag, text))
+            if opened != closed:
+                offenders.append(
+                    f"{path.as_posix()}: <{tag}> opened {opened}, closed {closed}")
+    assert not offenders, (
+        "a template is truncated or has unbalanced markup:\n  "
+        + "\n  ".join(offenders))

@@ -7,9 +7,9 @@
 {% block content %}
 <div class="max-w-2xl mx-auto">
   {% if missing_critical %}
-  <div class="card p-4 mb-4" role="status" style="border-right:4px solid var(--amber-500,#f59e0b)">
-    <h2 class="font-extrabold text-sm mb-2" style="color:var(--amber-600,#b45309)">⚠️ تنبيه: أجزاء أساسية لم تُملأ</h2>
-    <p class="text-xs mb-2" style="color:var(--slate-500,#64748b)">يمكنك الحفظ رغم ذلك، والأقسام الفارغة لن تظهر في التقرير المطبوع. لكنها تُعدّ ناقصة:</p>
+  <div class="alert alert-warning no-print" role="status">
+    <h2 class="alert-heading font-extrabold text-sm mb-2">⚠️ تنبيه: أجزاء أساسية لم تُملأ</h2>
+    <p class="text-xs mb-2 text-slate-600">يمكنك الحفظ رغم ذلك، والأقسام الفارغة لن تظهر في التقرير المطبوع. لكنها تُعدّ ناقصة:</p>
     <ul class="text-xs list-disc pr-5 space-y-1">
       {% for key, why in missing_critical %}<li>{{ why }}</li>{% endfor %}
     </ul>

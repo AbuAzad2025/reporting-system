@@ -78,7 +78,7 @@
 .bg-white\/20 { background-color: rgba(255, 255, 255, 0.20); }
 .bg-white\/95 { background-color: rgba(255, 255, 255, 0.95); }
 .bg-red-500\/90 { background-color: rgba(239, 68, 68, 0.90); }
-.bg-teal2\/90 { background-color: rgba(14, 124, 123, 0.90); }
+.bg-teal2\/90 { background-color: var(--teal-90); }
 .bg-\[\#a67c00\] { background-color: #a67c00; }
 .bg-\[\#1a1610\]\/60 { background-color: rgba(26, 22, 16, 0.60); }
 .bg-transparent { background-color: transparent; }
@@ -166,7 +166,7 @@
 .last\:border-0:last-child { border: 0; }
 
 /* ------------------------------------------------------------------ radius */
-.rounded-3xl { border-radius: var(--radius-3xl, 24px); }
+.rounded-3xl { border-radius: var(--radius-3xl); }
 
 /* ------------------------------------------------------------------ layout */
 .grid { display: grid; }
@@ -258,7 +258,7 @@
 .hover\:bg-red-700:hover { background-color: #b91c1c; }
 .hover\:bg-green-100:hover { background-color: #dcfce7; }
 .hover\:bg-blue-100:hover { background-color: #dbeafe; }
-.hover\:bg-teal2\/90:hover { background-color: rgba(14, 124, 123, 0.90); }
+.hover\:bg-teal2\/90:hover { background-color: var(--teal-90); }
 .hover\:bg-\[\#2a2318\]:hover { background-color: #2a2318; }
 .hover\:bg-\[\#254a78\]:hover { background-color: #254a78; }
 .hover\:text-red-600:hover { color: #dc2626; }
@@ -404,7 +404,7 @@ summary:focus-visible,
 .surface-card {
   background-color: var(--surface);
   border: 1px solid var(--slate-200);
-  border-radius: var(--radius-3xl, 24px);
+  border-radius: var(--radius-3xl);
   box-shadow: var(--shadow-sm);
 }
 .surface-card > .surface-card-head {
@@ -444,7 +444,7 @@ summary:focus-visible,
 .form-control-file:focus {
   outline: 0;
   border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: var(--focus-ring);
 }
 /* The button the browser draws, restyled so it does not look like a foreign
    object next to the rest of the form. */
@@ -511,7 +511,8 @@ summary:focus-visible,
    single-selector rules so the duplicate-selector guard can tell a deliberate
    override apart from an accidental copy. */
 .badge-required,
-.badge-optional {
+.badge-optional,
+.badge-important {
   display: inline-block;
   padding: 2px var(--space-2);
   font-size: 0.6875rem;
@@ -522,8 +523,20 @@ summary:focus-visible,
 
 .badge-required { background-color: #fee2e2; color: #b91c1c; }
 .badge-optional { background-color: var(--slate-100); color: var(--slate-500); }
+
+/* Marks a section the standard cannot do without, on a form where nothing is
+   forced. The rule is a nudge, not a lock: nothing is refused on save. */
+.badge-important { background-color: var(--amber-50); color: var(--amber-800); }
+
 [data-theme="dark"] .badge-required { background-color: #7f1d1d; color: #fecaca; }
 [data-theme="dark"] .badge-optional { background-color: var(--slate-200); color: var(--slate-500); }
+[data-theme="dark"] .badge-important { background-color: #78350f; color: #fde68a; }
+
+/* A meter's width comes from data, so it is carried by a data attribute
+   instead of a style attribute. app.js turns it into a width, clamped, so a
+   bad or hostile percent cannot lay the bar out past its track. */
+.meter-fill { width: 0; }
+.meter-fill[data-percent] { transition: width 240ms ease; }
 
 /* Marks a field the system fills in itself, so the user knows not to type it. */
 .field-auto {

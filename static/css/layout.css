@@ -2,12 +2,17 @@
    Layout, chrome, brand and print.
 
    This file owns the frame every page shares: the shell width, the header, the
-   navigation, the footer, the flash stack, and the print layer. The earlier
-   version of it held a second @media print block that contradicted the one in
+   navigation, the footer, the flash stack, and the print layer. An earlier
+   version held a second @media print block that contradicted the one in
    custom.css, and the print rules referenced .table and .report-section, which
-   no template uses. Those selectors styled nothing; the real table and card
-   classes are .data-table and .surface-card, and neither was given print
-   treatment at all.
+   no template uses. Those selectors styled nothing.
+
+   The replacement went the other way and named a class that also turned out
+   to be unused: .data-table, which no template has ever rendered, so the
+   printed report table got no cell borders and no shaded header. The real
+   table in a report is .report-table, and it is styled below. A print rule for
+   a class nobody renders is decoration - it reads like coverage and prints
+   like nothing.
    ========================================================================== */
 
 :root {
@@ -16,6 +21,17 @@
   --shell-max: 64rem;
   --header-h: 3.75rem;
   --nav-h: 2.75rem;
+  /* Two z-index scales exist and they are not interchangeable. custom.css
+     declares the app-wide one (--z-index-sticky 1100 .. --z-index-toast
+     2000), which the utility classes .z-30 and .z-[var(--z-index-fixed)]
+     consume. The two here are the frame's own, and they sit at 30 and 40
+     because the sticky header and the mobile nav have to stack above page
+     content but below the utility-layer components.
+
+     They were left as separate scales on purpose: folding them together
+     changes the stacking order of the header against .z-30, and that is a
+     visual change nobody asked for. If they are ever unified, the header's
+     value is what has to move - up to the 1100 scale - and the nav with it. */
   --z-sticky: 30;
   --z-fixed: 40;
 }
@@ -321,16 +337,16 @@ html { scroll-behavior: smooth; }
      row across a page boundary. */
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
-  tr, .surface-card, .data-table img { break-inside: avoid; page-break-inside: avoid; }
+  tr, .surface-card, .report-table img { break-inside: avoid; page-break-inside: avoid; }
   h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
 
   .surface-card,
-  .data-table {
+  .report-table {
     box-shadow: none !important;
     border: 1px solid #b0b0b0 !important;
   }
-  .data-table th, .data-table td { border: 1px solid #b0b0b0 !important; }
-  .data-table th { background: #f0f0f0 !important; }
+  .report-table th, .report-table td { border: 1px solid #b0b0b0 !important; }
+  .report-table th { background: #f0f0f0 !important; }
 
   .print-letterhead { margin-bottom: 6mm; }
   .print-letterhead-row {

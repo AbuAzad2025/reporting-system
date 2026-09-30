@@ -920,7 +920,7 @@ def ui_new(kind):
         obj = model(**{k: v for k, v in cleaned.items() if hasattr(model, k)})
         obj.signatory_name = current_user.full_name
         obj.user_id = current_user.id
-        obj.serial = next_serial(KIND_MODEL[kind][1] if False else M.OPS_MODULES[kind][1], model)
+        obj.serial = next_serial(M.OPS_MODULES[kind][1], model)
         db.session.add(obj)
         try:
             db.session.commit()

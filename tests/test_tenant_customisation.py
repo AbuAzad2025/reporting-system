@@ -1,16 +1,27 @@
-"""Tenant customisation contract: branding, field overrides, reordering.
+"""Tenant customisation contract: branding, field overrides, ordering.
 
 `apply_brand_to_template`, `apply_tenant_overrides` and `build_tenant_fields`
 are the in-memory (never persisted) customisation layer a tenant uses to
 reshape a system template. These tests pin their real behaviour: gradient
-composition, field deletion, per-field rule overrides, custom additions and
-ordering.
+composition, field deletion, per-field rule overrides and custom additions.
+
+Ordering is deliberately absent from that list. `reordered_fields` is stored on
+the override row and is not read by either function, so a tenant cannot
+reorder a template - only the platform owner can, through the per-field move
+buttons on /admin/fields, which write `DynamicField.position`. The design for
+closing that gap, and the reason it was not closed in passing, are written up
+in docs/architecture/roadmap_reordered_fields.md; TestNoUnexecutedOverride
+below is what stops the column drifting back into looking implemented.
 
 `apply_tenant_branding` used to be part of that layer. It is gone; the reason
 is written out where it used to be tested, in
 TestBrandingDoesNotRewriteTemplates.
 """
+import ast
 import io
+import os
+import pathlib
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -124,6 +135,16 @@ class TestBrandingDoesNotRewriteTemplates:
             "is no such thing unless something generates the selector")
 
     def test_the_card_receives_the_colour_as_a_custom_property(self, app, client):
+        """A tenant's colours must reach the report cards.
+
+        The colours used to be written onto each card as
+        `style="--card-from: ..."`. They are now published once, on :root, as
+        --brand-primary / --brand-secondary, and the .report-card rule maps
+        them into the gradient. Both halves of that chain are asserted here,
+        because either one alone leaves the cards unbranded: publishing the
+        properties without the rule that reads them, or the rule without the
+        values, both render a default-coloured card.
+        """
         from app.models import Project, TenantBranding, User
         from app.extensions import db
         from app.ops.models import ProjectMember
@@ -146,9 +167,26 @@ class TestBrandingDoesNotRewriteTemplates:
                     data={"username": username, "password": password},
                     follow_redirects=True)
         body = client.get("/dashboard").get_data(as_text=True)
+
+        # 1. The card is the tenant's, not the template gradient.
         assert "report-card" in body
-        assert "--card-from: #112233" in body
-        assert "--card-to: #445566" in body
+        # 2. The values are published for the page.
+        assert "--brand-primary: #112233" in body, (
+            "the tenant's primary colour is not published on the page")
+        assert "--brand-secondary: #445566" in body, (
+            "the tenant's secondary colour is not published on the page")
+
+        # 3. Something reads them and paints the card.
+        layout = io.open(os.path.join("static", "css", "layout.css"),
+                         encoding="utf-8").read()
+        rule = re.search(r"\.report-card\s*\{(.*?)\}", layout, re.DOTALL)
+        assert rule, "no .report-card rule"
+        assert "--card-from: var(--brand-primary)" in rule.group(1), (
+            ".report-card no longer maps the tenant's primary colour")
+        assert "--card-to: var(--brand-secondary)" in rule.group(1), (
+            ".report-card no longer maps the tenant's secondary colour")
+        assert "background-image" in rule.group(1), (
+            ".report-card no longer paints a gradient from them")
 
 
 class TestBuildTenantFields:
@@ -354,3 +392,113 @@ class TestFieldDictContract:
 
     def test_unknown_template_key_yields_no_fields(self):
         assert default_fields_for("does-not-exist") == []
+
+
+# ------------------------------------------------- no unexecuted overrides
+class TestNoUnexecutedOverride:
+    """`reordered_fields` must not look implemented when it is not.
+
+    The column was read into a local named `reordered` in both override
+    functions and never used again. Nothing failed: the functions have no
+    production caller, the linter was configured to ignore the module, and the
+    test module's own docstring listed "ordering" among the behaviours it
+    pinned. Three independent signals all said the feature worked, and it had
+    never run once.
+
+    An assignment that is written and then ignored is the specific shape that
+    caused it, so that is what is banned here. The roadmap is at
+    docs/architecture/roadmap_reordered_fields.md; implement the feature and
+    delete this class in the same change, or leave the column alone.
+    """
+
+    #: Files allowed to mention the column at all.
+    ALLOWED = ("app/models.py", "app/services/default_templates.py")
+
+    def _sources(self):
+        root = pathlib.Path("app")
+        for path in sorted(root.rglob("*.py")):
+            posix = path.as_posix()
+            yield posix, path.read_text(encoding="utf-8")
+
+    def test_no_local_is_bound_to_reordered_fields(self):
+        """A binding is the ghost: it reads as intent and executes as nothing."""
+        offenders = []
+        for posix, text in self._sources():
+            if posix not in self.ALLOWED:
+                continue
+            tree = ast.parse(text)
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                    continue
+                # Walk the whole right-hand side rather than testing it for
+                # being an Attribute: the ghost was written as
+                # `reordered = override.reordered_fields or []`, which parses as
+                # a BoolOp, so a test that only matched a bare Attribute would
+                # have sat here green through the whole time.
+                for inner in ast.walk(node.value) if node.value else ():
+                    if not isinstance(inner, ast.Attribute):
+                        continue
+                    if inner.attr != "reordered_fields":
+                        continue
+                    if isinstance(inner.value, ast.Name) and \
+                            inner.value.id == "override":
+                        line = getattr(node, "lineno", 0)
+                        offenders.append(
+                            f"{posix}:{line} reads override.reordered_fields")
+        assert not offenders, (
+            "override.reordered_fields is read by application code again. "
+            "Either the feature is being implemented - in which case delete this "
+            "class and the roadmap - or the read is a ghost: "
+            + "; ".join(offenders))
+
+
+    def test_the_column_is_still_declared_so_no_migration_is_owed(self):
+        """Dropping the column is a schema change; keeping it is the cheap call."""
+        models = pathlib.Path("app/models.py").read_text(encoding="utf-8")
+        assert "reordered_fields = db.Column(db.JSON, default=list)" in models
+
+    def test_reordering_the_fields_is_the_platform_owners_job(self):
+        """The one reorder path that does work, asserted so it is not confused
+        with the tenant one.
+
+        `field_move` swaps `DynamicField.position` between two sibling fields
+        and `ReportTemplate.ordered_fields` orders by that column. That is a
+        platform-level capability, reachable from /admin/fields, and it is the
+        only ordering the application honours. A tenant-level order list has to
+        compose with it, not replace it - see the roadmap.
+        """
+        routes = pathlib.Path("app/admin/routes.py").read_text(encoding="utf-8")
+        assert "def field_move" in routes
+        assert "DynamicField.position" in routes
+        models = pathlib.Path("app/models.py").read_text(encoding="utf-8")
+        assert 'order_by="DynamicField.position"' in models
+
+    def test_the_override_functions_have_no_production_caller(self):
+        """Records why the column is inert, so nobody debugs it in production.
+
+        These two functions are the only readers of the override columns, and
+        only tests call them. The consequence is recorded here as an assertion
+        rather than left as a discovery: if a route is ever wired to them, this
+        fails and the point is to then decide deliberately whether the dict
+        output is what the renderer needs - it is not, see the roadmap.
+        """
+        callers = []
+        for posix, text in self._sources():
+            if posix == "app/services/default_templates.py":
+                continue
+            for name in ("apply_tenant_overrides", "build_tenant_fields"):
+                if name in text:
+                    callers.append(f"{posix}: {name}")
+        for path in sorted(pathlib.Path(".").rglob("*.py")):
+            posix = path.as_posix().lstrip("./")
+            if posix.startswith("tests") or posix.startswith("app/"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for name in ("apply_tenant_overrides", "build_tenant_fields"):
+                if name in text:
+                    callers.append(f"{posix}: {name}")
+        assert not callers, (
+            "the override functions now have a production caller, so the "
+            "column may be reachable. Re-read the roadmap before assuming the "
+            "dict output is what the form renderer consumes: "
+            + "; ".join(sorted(set(callers))))

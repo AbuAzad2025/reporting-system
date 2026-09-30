@@ -1,7 +1,23 @@
 // Azadexa professional front-end: toasts, dismissible flashes,
 // non-blocking geolocation, safe offline drafts, dynamic tables.
+//
+// Loaded as an ES module, so the DOM is already parsed when this runs. The
+// script used to be a classic script that queried the document while the
+// parser was still working through it, which only found what happened to be
+// above the <script> tag.
+import { showToast } from './share.js';
+
 (function () {
   "use strict";
+
+  // Meters carry their value in data-percent so the template carries no
+  // presentation attribute. Clamped here, because a percentage that came from
+  // a database is not a number anyone has checked.
+  document.querySelectorAll(".meter-fill[data-percent]").forEach((el) => {
+    const raw = parseFloat(el.dataset.percent);
+    const pct = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : 0;
+    el.style.width = pct + "%";
+  });
 
   // Auto-grow textareas for field entry comfort.
   document.querySelectorAll("textarea.field-auto").forEach((el) => {
@@ -21,14 +37,14 @@
   });
 
   // Toast helper (replaces alert()).
+  //
+  // The implementation is share.js's showToast. It used to be a second copy
+  // here that appended to #toast-root with the .toast class - and .toast was
+  // fifteen Bootstrap custom properties that nothing read, so this copy
+  // rendered as unpositioned text while the three copies in the report
+  // templates rendered as unpositioned text somewhere else.
   function toast(msg) {
-    const root = document.getElementById("toast-root");
-    if (!root) { alert(msg); return; }
-    const el = document.createElement("div");
-    el.className = "toast";
-    el.textContent = msg;
-    root.appendChild(el);
-    setTimeout(() => el.remove(), 3200);
+    showToast(msg);
   }
   window.azadToast = toast;
 

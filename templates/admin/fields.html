@@ -38,10 +38,6 @@
       <textarea id="f-columns" name="columns" rows="3" dir="ltr" class="form-control w-full text-left" placeholder="name | الاسم | text | required&#10;role | المهنة | dropdown | required | مهندس, فني, عامل&#10;count | العدد | number | required"></textarea>
       <p class="text-[11px] text-slate-400 mt-1">الأنواع: text / number / dropdown / date — يمكن إضافة أعمدة لاحقاً من الأسفل.</p>
     </div>
-    <script>
-    (function(){var s=document.getElementById('field_type'),b=document.getElementById('columns_box');
-    function t(){b.classList.toggle('hidden',s.value!=='table');}s.addEventListener('change',t);t();})();
-    </script>
     <div class="sm:col-span-2">
       <label class="font-bold text-xs" for="f-placeholder">نص مساعد (placeholder)</label>
       <input id="f-placeholder" name="placeholder" class="form-control w-full">
@@ -107,4 +103,10 @@
   <div class="bg-white rounded-2xl shadow p-6 text-center text-sm text-slate-400">لا توجد حقول — أضف أول حقل من الأعلى.</div>
   {% endfor %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+  import { initFieldTypeEditor } from '{{ asset_url('js/admin-fields.js') }}';
+  initFieldTypeEditor();
+</script>
 {% endblock %}

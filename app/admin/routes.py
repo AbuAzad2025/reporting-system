@@ -14,7 +14,7 @@ from app.admin import bp
 from app.extensions import db
 from app.models import (User, Project, ReportTemplate, DynamicField,
                         ReportSubmission, Report, ROLES, FIELD_TYPES,
-                        TenantBranding, TenantTemplateOverride)
+                        TenantBranding)
 from app.utils.decorators import (template_manager_required, roles_required,
                                   permission_required)
 from app.ops.isolation import roles_required_json
@@ -409,7 +409,7 @@ def backup_index():
     try:
         from app.services.storage import list_backups
         backups = list_backups()
-    except Exception as exc:
+    except Exception:
         logging.getLogger(__name__).exception("backup list failed")
         flash("تعذر جلب قائمة النسخ الاحتياطية. حدّث الصفحة أو تحقق من إعدادات التخزين.", "danger")
     return render_template("admin/backup.html", backups=backups)
@@ -429,7 +429,7 @@ def backup_export():
     filename = backup_filename()
     try:
         storage_upload(data, filename)
-    except Exception as exc:
+    except Exception:
         logging.getLogger(__name__).exception("backup upload failed")
         flash("فشل الرفع إلى التخزين. تحقق من الاتصال وإعدادات التخزين ثم أعد المحاولة.", "danger")
         return redirect(url_for("admin.backup_index"))
@@ -456,7 +456,7 @@ def backup_import():
         return redirect(url_for("admin.backup_index"))
     try:
         counts = restore_backup(data)
-    except Exception as exc:
+    except Exception:
         logging.getLogger(__name__).exception("backup restore failed")
         flash("فشل الاستعادة. تأكد من سلامة الملف وأعد المحاولة.", "danger")
         return redirect(url_for("admin.backup_index"))
@@ -474,7 +474,7 @@ def backup_download(key):
     from app.services.storage import download as storage_download
     try:
         data = storage_download(key)
-    except Exception as exc:
+    except Exception:
         logging.getLogger(__name__).exception("backup download failed")
         flash("تعذر تنزيل النسخة. أعد المحاولة.", "danger")
         return redirect(url_for("admin.backup_index"))
@@ -493,7 +493,7 @@ def backup_delete(key):
     try:
         storage_delete(key)
         flash(f"تم حذف النسخة: {key}", "info")
-    except Exception as exc:
+    except Exception:
         logging.getLogger(__name__).exception("backup delete failed")
         flash("تعذر حذف النسخة. أعد المحاولة.", "danger")
     return redirect(url_for("admin.backup_index"))

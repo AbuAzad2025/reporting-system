@@ -74,7 +74,12 @@ OPS_MODULES = {
                        "HSE Safety Report"),
 }
 
-from app.services.reference_data import (  # noqa: E402
+#: Re-exported from app.services.reference_data so that `app.ops.models` is the
+#: single import point for the ops vocabulary. These names are not referenced in
+#: this module - the whole point is that other modules import them from here, so
+#: a linter reading them as unused is correct about the reference and wrong
+#: about the intent. Deleting them would be an API change, not a cleanup.
+from app.services.reference_data import (  # noqa: E402,F401
     TEST_CATEGORIES_DICT as TEST_CATEGORIES,
     BALL_IN_COURT_DICT as BALL_IN_COURT,
     WEATHER_DICT as WEATHER,
@@ -99,7 +104,7 @@ from app.services.reference_data import (  # noqa: E402
     SUB_RECOMMENDATIONS_LIST,
     EQUIPMENT_STATUS_LIST,
     COMMENT_PARTIES_LIST,
-)
+)  # noqa: E402,F401
 #: dual-party feedback: supervision side (consultant/management) vs
 #: execution side (contractor/site team). Derived from the author's role.
 SUPERVISION_ROLES = {"senior_consultant", "project_manager",

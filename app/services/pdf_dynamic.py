@@ -6,8 +6,6 @@ FIELD_SPECS. The page itself carries only the report title, its serial number,
 the content, two blank signature boxes, and the page number: no letterhead, no
 running header, no footer band.
 """
-from datetime import datetime
-
 from utils.pdf_generator import (_styles, _info_table, _section_title,
                                  _kv_table, ar, NAVY)
 from reportlab.lib.pagesizes import A4
@@ -45,7 +43,7 @@ def _resolve_upload_abs(key: str) -> str | None:
 
 def _branding_for(project_id):
     """The project's identity, with a usable fallback outside a request."""
-    from flask import current_app, has_app_context
+    from flask import has_app_context
     if has_app_context():
         from app.services.branding import branding_for_project
         return branding_for_project(project_id)

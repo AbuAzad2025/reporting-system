@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{% from "_macros.html" import checkbox, submit_btn %}
+{# Notification preferences are read here rather than in the template: the
+   column is JSON and can be null on a row written before the column existed,
+   and the route's defaults are the ones that should win in that case. #}
+{% set prefs = current_user.notification_prefs or {'email': True, 'sms': False, 'push': True, 'in_app': True} %}
 {% block title %}الملف الشخصي{% endblock %}
 {% block content %}
 <div class="max-w-3xl mx-auto bg-white rounded-3xl shadow p-6 space-y-6">
@@ -22,7 +27,7 @@
     <div>
       <label class="font-bold text-sm" for="f-avatar">الصورة الشخصية</label>
       <div class="mt-2 flex items-center gap-4">
-        <input id="f-avatar" type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="form-control w-full max-w-xs" onchange="previewAvatar(this)">
+        <input id="f-avatar" type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="form-control w-full max-w-xs">
         {% if current_user.avatar %}
         <form method="POST" action="{{ url_for('main.remove_avatar') }}" class="inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -56,5 +61,44 @@
       <div>
         <label class="font-bold text-sm" for="f-phone">الجوال</label>
         <input id="f-phone" name="phone" dir="ltr" value="{{ current_user.phone or '' }}" class="form-control w-full text-left">
-      </div
+      </div>
+      <div>
+        <label class="font-bold text-sm" for="f-company">الشركة</label>
+        <input id="f-company" name="company" value="{{ current_user.company or '' }}" placeholder="مثال: شركة المقاولات" class="form-control w-full">
+      </div>
+    </div>
+
+    <hr class="border-slate-200">
+
+    {# Notification preferences. The route reads all four of these names, and
+       a missing checkbox posts as absent, which the route records as False. #}
+    <div>
+      <h3 class="font-bold text-base text-navy mb-3">🔔 تفضيلات التنبيه</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {{ checkbox('notify_email', 'البريد الإلكتروني', prefs.email) }}
+        {{ checkbox('notify_sms', 'رسائل الجوال', prefs.sms) }}
+        {{ checkbox('notify_push', 'الإشعارات الفورية', prefs.push) }}
+        {{ checkbox('notify_in_app', 'التنبيه داخل التطبيق', prefs.in_app) }}
+      </div>
+    </div>
+
+    <hr class="border-slate-200">
+
+    <div>
+      <h3 class="font-bold text-base text-navy mb-3">🔒 تغيير كلمة المرور</h3>
+      <label class="font-bold text-sm" for="f-new_password">كلمة المرور الجديدة</label>
+      <input id="f-new_password" name="new_password" type="password" placeholder="اتركها فارغة للإبقاء على الحالية" class="form-control w-full">
+      <p class="text-xs text-slate-500 mt-1">8 أحرف على الأقل. تُتجاهل إن تُركت فارغة.</p>
+    </div>
+
+    {{ submit_btn('💾 حفظ التعديلات', 'w-full') }}
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+  import { initAvatarPreview } from '{{ asset_url('js/profile.js') }}';
+  initAvatarPreview();
+</script>
 {% endblock %}

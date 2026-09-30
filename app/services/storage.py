@@ -13,7 +13,6 @@ Configuration is read from environment variables at import time:
   AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER
   GCS_BUCKET, GCS_CREDENTIALS
 """
-import io
 import os
 from datetime import datetime, timezone
 from typing import Any

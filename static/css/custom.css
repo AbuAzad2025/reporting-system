@@ -35,7 +35,20 @@
   --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
-  
+
+  /* Status Palette
+
+     The surface / border / text triple that a status-coloured component needs.
+     .flash-* in layout.css reads these and nothing else, so the four variants
+     are one declaration each instead of three hard-coded values per variant.
+     The values are the same hexes the .bg-*/.border-*/.text-* utilities in
+     utilities.css already use, so a flash and a badge of the same status are
+     the same colour by construction rather than by coincidence. */
+  --green-50: #f0fdf4;  --green-200: #bbf7d0;  --green-800: #166534;
+  --red-50: #fef2f2;    --red-200: #fecaca;    --red-800: #b91c1c;
+  --amber-50: #fffbeb;  --amber-200: #fde68a;  --amber-800: #92400e;
+  --sky-50: #eff6ff;    --sky-200: #bfdbfe;    --sky-800: #1e40af;
+
   /* Typography */
   --font-primary: 'Cairo', 'Tahoma', sans-serif;
   --font-mono: 'Courier New', monospace;
@@ -64,6 +77,10 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-2xl: 20px;
+  /* The largest radius in the system. It was the one step of the scale with no
+     token, so .rounded-3xl - used on the report cards and the landing page -
+     carried a hard-coded 24px as a var() fallback instead. */
+  --radius-3xl: 24px;
   --radius-full: 9999px;
   
   /* Shadows */
@@ -71,6 +88,22 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Focus ring
+
+     The teal halo a focused control gets. It was written out in full at eight
+     call sites, so changing the focus colour meant finding all eight. Held as
+     a box-shadow shorthand because that is how every one of them used it.
+
+     Deliberately the light-theme teal in both themes: it was a literal before
+     this token existed, so tying it to --teal would change how the ring looks
+     in dark mode. A focus ring is a contrast decision, not a decoration, and
+     that is worth revisiting on its own rather than as a side effect of a
+     refactor. */
+  --focus-ring: 0 0 0 3px rgba(14, 124, 123, 0.25);
+
+  /* Teal at 90% - the hover tint on a teal action. */
+  --teal-90: var(--teal-90);
   
   /* Transitions */
   --transition-fast: 150ms ease;
@@ -126,6 +159,16 @@
   --warning: #fbbf24;
   --error: #f87171;
   --info: #60a5fa;
+
+  /* Status Palette
+
+     Inverted the same way the neutrals above are: the surface becomes the
+     deep end of the ramp and the text becomes its light end, so contrast
+     holds without a second set of rules. */
+  --green-50: #14532d;  --green-200: #166534;  --green-800: #bbf7d0;
+  --red-50: #7f1d1d;    --red-200: #b91c1c;    --red-800: #fecaca;
+  --amber-50: #78350f;  --amber-200: #b45309;  --amber-800: #fde68a;
+  --sky-50: #1e3a8a;    --sky-200: #1d4ed8;    --sky-800: #bfdbfe;
 }
 
 /* Base Styles */
@@ -396,7 +439,7 @@ p {
 .form-control:focus {
   border-color: var(--teal);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: var(--focus-ring);
 }
 
 .form-control::-webkit-input-placeholder {
@@ -453,7 +496,7 @@ p {
 .form-select:focus {
   border-color: var(--teal);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: var(--focus-ring);
 }
 
 .form-select:disabled, .form-select[readonly] {
@@ -504,11 +547,11 @@ p {
 }
 
 .form-range:focus::-webkit-slider-thumb {
-  box-shadow: 0 0 0 1px #fff, 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: 0 0 0 1px #fff, var(--focus-ring);
 }
 
 .form-range:focus::-moz-range-thumb {
-  box-shadow: 0 0 0 1px #fff, 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: 0 0 0 1px #fff, var(--focus-ring);
 }
 
 .form-range::-webkit-slider-thumb {
@@ -628,7 +671,7 @@ p {
   background-color: var(--teal);
   border-color: var(--teal);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: var(--focus-ring);
 }
 
 .btn:active, .btn.active, .show>.btn.dropdown-toggle {
@@ -881,18 +924,10 @@ p {
   border-bottom-width: 0;
 }
 
-.table-striped>tbody>tr:nth-of-type(odd) {
-  background-color: rgba(var(--slate-200-rgb), 0.05);
-}
-
 .table-active,
 .table-active>td,
 .table-active>th {
   background-color: var(--slate-200);
-}
-
-.table-hover>tbody>tr:hover {
-  background-color: rgba(var(--teal-rgb), 0.075);
 }
 
 .table-responsive {
@@ -1109,7 +1144,7 @@ p {
   color: var(--slate-800);
   background-color: var(--slate-100);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: var(--focus-ring);
 }
 
 .page-item.active .page-link {
@@ -1296,7 +1331,7 @@ p {
   z-index: 3;
   border-color: var(--teal);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.25);
+  box-shadow: var(--focus-ring);
 }
 
 .accordion-body {
@@ -1313,23 +1348,30 @@ p {
   border-left: 0; /* RTL override */
 }
 
-/* Toast */
+/* Toast
+
+   This rule used to declare fifteen `--bs-toast-*` custom properties and
+   nothing else. Bootstrap is not loaded, so no other rule ever read them: the
+   toast was a fixed-position box with no position, no offset and no z-index,
+   because `bottom-24`, `left-1/2`, `-translate-x-1/2` and
+   `z-[var(--z-index-toast)]` are all spelled with classes that no stylesheet
+   defines. Every toast in the app rendered unpositioned.
+
+   The component owns its own placement so a caller only has to add `.toast`. */
 .toast {
-  --bs-toast-zindex: var(--z-index-toast);
-  --bs-toast-padding-x: var(--space-4);
-  --bs-toast-padding-y: var(--space-3);
-  --bs-toast-spacing: var(--space-2);
-  --bs-toast-max-width: 350px;
-  --bs-toast-color: var(--slate-50);
-  --bs-toast-bg: var(--navy);
-  --bs-toast-border-width: 0;
-  --bs-toast-border-color: var(--slate-200);
-  --bs-toast-border-radius: var(--radius-lg);
-  --bs-toast-box-shadow: var(--shadow-md);
-  --bs-toast-header-color: var(--slate-300);
-  --bs-toast-header-bg: var(--slate-50);
-  --bs-toast-header-border-color: var(--slate-200);
-  --bs-toast-header-font-size: 0.875rem;
+  position: fixed;
+  bottom: var(--space-24);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-index-toast);
+  max-width: 22rem;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-xl);
+  background: var(--navy);
+  color: var(--slate-50);
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
 }
 
 /* Offcanvas */
@@ -1406,10 +1448,6 @@ p {
 
 .text-reset {
   color: inherit !important;
-}
-
-.bg-gradient {
-  background-image: var(--bs-gradient) !important;
 }
 
 .user-select-all {
