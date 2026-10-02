@@ -62,7 +62,8 @@ class TestAdminTemplatesReal:
             db.session.add(tpl)
             db.session.commit()
             tid = tpl.id
-        login_as(client, "t_admin")
+        # superadmin-only route: see TestAdminFieldsReal.test_fields_get_real.
+        login_as(client, "t_owner")
         r = client.get(f"/admin/templates/{tid}/edit")
         assert r.status_code == 200
 
@@ -75,7 +76,8 @@ class TestAdminTemplatesReal:
             db.session.add(tpl)
             db.session.commit()
             tid = tpl.id
-        login_as(client, "t_admin")
+        # superadmin-only route: see TestAdminFieldsReal.test_fields_get_real.
+        login_as(client, "t_owner")
         r = client.post(f"/admin/templates/{tid}/delete", follow_redirects=True)
         assert r.status_code == 200
 
@@ -88,7 +90,8 @@ class TestAdminTemplatesReal:
             db.session.add(tpl)
             db.session.commit()
             tid = tpl.id
-        login_as(client, "t_admin")
+        # superadmin-only route: see TestAdminFieldsReal.test_fields_get_real.
+        login_as(client, "t_owner")
         r = client.post(f"/admin/templates/{tid}/delete", follow_redirects=True)
         assert r.status_code == 200
         with app.app_context():
@@ -111,9 +114,29 @@ class TestAdminFieldsReal:
             db.session.add(tpl)
             db.session.commit()
             tid = tpl.id
-        login_as(client, "t_admin")
+        # t_owner, not t_admin. Editing the shared field schema is superadmin
+        # only: those routes change the form every company fills in, and a
+        # company now customises its own form through /admin/companies instead.
+        login_as(client, "t_owner")
         r = client.get(f"/admin/templates/{tid}/fields")
         assert r.status_code == 200
+
+    def test_a_plain_admin_can_no_longer_edit_the_shared_form(self, client,
+                                                              app):
+        """The restriction is the feature, so it is asserted rather than assumed."""
+        from tests.conftest import login_as
+        from app.extensions import db
+        from app.models import ReportTemplate
+        with app.app_context():
+            tpl = ReportTemplate(key="f500b", name_ar="حقول", created_by_id=1)
+            db.session.add(tpl)
+            db.session.commit()
+            tid = tpl.id
+        # Deliberately t_admin, not t_owner: this is the assertion that the
+        # restriction holds, so it must be the role that is meant to be refused.
+        login_as(client, "t_admin")
+        r = client.get(f"/admin/templates/{tid}/fields")
+        assert r.status_code in (302, 403)
 
     def test_field_add_valid_real(self, client, app):
         from tests.conftest import login_as
@@ -124,7 +147,8 @@ class TestAdminFieldsReal:
             db.session.add(tpl)
             db.session.commit()
             tid = tpl.id
-        login_as(client, "t_admin")
+        # superadmin-only route: see TestAdminFieldsReal.test_fields_get_real.
+        login_as(client, "t_owner")
         r = client.post(f"/admin/templates/{tid}/fields", data={
             "field_key": "real_f_500",
             "label_ar": "حقل حقيقي",

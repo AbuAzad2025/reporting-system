@@ -480,23 +480,34 @@ class TestNoUnexecutedOverride:
         rather than left as a discovery: if a route is ever wired to them, this
         fails and the point is to then decide deliberately whether the dict
         output is what the renderer needs - it is not, see the roadmap.
+
+        Matched on the parsed tree rather than on the file text. A grep for the
+        names also matches a docstring, and app/services/tenant_fields.py
+        explains in its module docstring exactly why these two were not the
+        thing to wire up - so the text version failed on the documentation of
+        the problem while saying nothing about whether the problem came back.
         """
+        wanted = ("apply_tenant_overrides", "build_tenant_fields")
         callers = []
-        for posix, text in self._sources():
-            if posix == "app/services/default_templates.py":
-                continue
-            for name in ("apply_tenant_overrides", "build_tenant_fields"):
-                if name in text:
-                    callers.append(f"{posix}: {name}")
         for path in sorted(pathlib.Path(".").rglob("*.py")):
             posix = path.as_posix().lstrip("./")
-            if posix.startswith("tests") or posix.startswith("app/"):
+            if posix.startswith("tests"):
                 continue
-            text = path.read_text(encoding="utf-8")
-            for name in ("apply_tenant_overrides", "build_tenant_fields"):
-                if name in text:
-                    callers.append(f"{posix}: {name}")
+            if posix == "app/services/default_templates.py":
+                continue          # their own definitions
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                name = getattr(func, "attr", None) or getattr(func, "id", None)
+                if name in wanted:
+                    callers.append(f"{posix}:{node.lineno} {name}")
         assert not callers, (
+
             "the override functions now have a production caller, so the "
             "column may be reachable. Re-read the roadmap before assuming the "
             "dict output is what the form renderer consumes: "

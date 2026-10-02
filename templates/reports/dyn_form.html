@@ -58,12 +58,12 @@
 
     {# simple (non-table) dynamic fields #}
     {% set ns = namespace(has_simple=false) %}
-    {% for f in tpl.ordered_fields %}{% if f.field_type != 'table' %}{% set ns.has_simple = true %}{% endif %}{% endfor %}
+    {% for f in fields %}{% if f.field_type != 'table' %}{% set ns.has_simple = true %}{% endif %}{% endfor %}
     {% if ns.has_simple %}
     <section class="card p-5" aria-label="حقول إضافية">
       <h2 class="font-extrabold text-navy text-sm mb-3">📝 الحقول الإضافية للقالب</h2>
       <div class="space-y-4">
-      {% for f in tpl.ordered_fields %}
+      {% for f in fields %}
       {% if f.field_type != 'table' %}
       <div>
         <label class="form-label" for="f_{{ f.field_key }}">{{ f.label_ar }} {% if f.field_key in critical_fields %}<span class="badge badge-warning" title="قسم أساسي: يظهر التنبيه إن تُرك فارغاً">مهم</span>{% elif f.required %}<span class="badge badge-required">*</span>{% else %}<span class="badge badge-optional">اختياري</span>{% endif %}</label>
@@ -95,7 +95,7 @@
     {% endif %}
 
     {# table sections as collapsible professional groups #}
-    {% for f in tpl.ordered_fields %}
+    {% for f in fields %}
     {% if f.field_type == 'table' %}
     {% set cols = f.sub_columns() %}
     {% set rows = table_rows.get(f.field_key, [{}]) %}

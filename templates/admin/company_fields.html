@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% from "_macros.html" import submit_btn %}
+{% block title %}تخصيص «{{ tpl.name_ar }}» — {{ project.name }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between flex-wrap gap-2">
+    <div>
+      <h1 class="font-extrabold text-lg text-navy">
+        {{ tpl.icon }} تخصيص «{{ tpl.name_ar }}»
+      </h1>
+      <p class="text-xs text-slate-500 mt-1">
+        الشركة: <b class="text-navy">{{ project.name }}</b> — التعديلات تخص هذه الشركة فقط.
+      </p>
+    </div>
+    <a href="{{ url_for('admin.companies') }}"
+       class="bg-slate-100 text-sm font-bold px-4 py-2 rounded-xl">→ كل الشركات</a>
+  </div>
+
+  <p class="sr-only" role="status">
+    هذا نموذج تخصيص خاص بـ {{ project.name }} ولا يؤثر على غيره.
+  </p>
+
+  {# ---- the form a user at this company will actually fill in ---- #}
+  <div class="bg-white rounded-3xl shadow p-5 mt-4">
+    <h2 class="font-extrabold text-sm text-navy mb-3">📋 حقول هذه الشركة</h2>
+
+    {% if not fields %}
+    <div class="text-xs text-amber-700 bg-amber-50 rounded-xl p-3 mb-3">
+      ⚠️ أخفت الشركة كل حقول هذا القالب. أضف حقلاً واحداً على الأقل، أو استعد الكل.
+    </div>
+    {% endif %}
+
+    <form method="POST" class="space-y-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      {# order: the list is rendered in resolved order and posted back as-is #}
+      <input type="hidden" name="action" value="order">
+      <div class="space-y-2" id="fieldList">
+        {% for f in fields %}
+        <div class="border rounded-xl p-3 text-sm flex items-center gap-2 flex-wrap"
+             data-key="{{ f.field_key }}">
+          <span class="font-bold text-navy">{{ loop.index }}.</span>
+          <input name="order_keys" type="hidden" value="{{ f.field_key }}">
+          <span class="font-extrabold">{{ f.label_ar }}</span>
+          <bdi dir="ltr" class="text-xs text-slate-400">{{ f.field_key }}</bdi>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            {{ field_types.get(f.field_type, f.field_type) }}
+          </span>
+          {% if f.required %}
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">مطلوب</span>
+          {% endif %}
+          {% if f.is_custom %}
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-navy">مضاف من الشركة</span>
+          {% endif %}
+          {% if f.options_list() %}
+          <span class="text-[11px] text-slate-500 truncate max-w-xs">
+            {{ f.options_list()|join('، ') }}
+          </span>
+          {% endif %}
+          {% if f.sub_columns() %}
+          <span class="text-[11px] text-slate-500">
+            {{ f.sub_columns()|length }} عمود
+          </span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="flex gap-2 flex-wrap">
+        {{ submit_btn('💾 حفظ الترتيب', '') }}
+      </div>
+    </form>
+
+    {# ---- hide a platform field for this company only ---- #}
+    {% set platform_keys = platform_fields | map(attribute='field_key') | list %}
+    {% set shown = fields | map(attribute='field_key') | list %}
+    {% set hidden = platform_keys | reject('in', shown) | list %}
+    {% if hidden %}
+    <form method="POST" class="mt-4 pt-4 border-t">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="restore">
+      <div class="text-xs font-bold text-slate-600 mb-2">
+        حقول القالب المخفية لهذه الشركة: {{ hidden|length }}
+      </div>
+      <div class="flex flex-wrap gap-2 mb-2">
+        {% for k in hidden %}<span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full">{{ k }}</span>{% endfor %}
+      </div>
+      {{ submit_btn('↩ استعادة كل حقول القالب', 'bg-slate-100 text-navy') }}
+    </form>
+    {% endif %}
+  </div>
+
+  {# ---- relabel / retype / require an existing field ---- #}
+  <div class="bg-white rounded-3xl shadow p-5 mt-4">
+    <h2 class="font-extrabold text-sm text-navy mb-1">✏️ تعديل الحقول الحالية</h2>
+    <p class="text-xs text-slate-500 mb-3">
+      غيّر الاسم أو النوع أو خيارات القائمة لهذه الشركة. اترك الاسم كما هو للإبقاء عليه.
+    </p>
+    <form method="POST" class="space-y-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="edit">
+      {% for f in fields %}
+      <div class="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center text-sm border-b pb-2">
+        <input type="hidden" name="edit_key" value="{{ f.field_key }}">
+        <div class="sm:col-span-2">
+          <label class="sr-only" for="lbl_{{ f.field_key }}">اسم {{ f.field_key }}</label>
+          <input id="lbl_{{ f.field_key }}" name="edit_label" value="{{ f.label_ar }}"
+                 class="form-control text-sm">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="sr-only" for="typ_{{ f.field_key }}">نوع {{ f.field_key }}</label>
+          <select id="typ_{{ f.field_key }}" name="edit_type" class="form-control text-sm">
+            {% for value, label in field_types.items() %}
+            <option value="{{ value }}" {% if value == f.field_type %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="sr-only" for="opt_{{ f.field_key }}">خيارات {{ f.field_key }}</label>
+          <input id="opt_{{ f.field_key }}" name="edit_options" dir="ltr"
+                 value="{{ f.options_list()|join(', ') }}" placeholder="خيارات، مفصولة بفاصلة"
+                 class="form-control text-sm text-left">
+        </div>
+        <div class="sm:col-span-2 flex items-center gap-3">
+          <label class="flex items-center gap-1 text-xs font-bold">
+            <input type="checkbox" name="edit_required" value="{{ f.field_key }}"
+                   class="w-4 h-4 rounded border-slate-300 accent-teal-600"
+                   {% if f.required %}checked{% endif %}>
+            مطلوب
+          </label>
+        </div>
+      </div>
+      {% endfor %}
+      {{ submit_btn('💾 حفظ التعديلات', '') }}
+    </form>
+  </div>
+
+  {# ---- hide a platform field, for this company only ---- #}
+  <div class="bg-white rounded-3xl shadow p-5 mt-4">
+    <h2 class="font-extrabold text-sm text-navy mb-1">🙈 إخفاء حقول</h2>
+    <p class="text-xs text-slate-500 mb-3">
+      الحقل المخفي يختفي من نموذج هذه الشركة فقط. الحقل يبقى في القالب الأصلي
+      ويمكن استعادته من الأعلى.
+    </p>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="hide">
+      <div class="flex flex-wrap gap-3 mb-3">
+        {% for f in fields %}
+        <label class="flex items-center gap-1 text-xs font-bold">
+          <input type="checkbox" name="hidden_fields" value="{{ f.field_key }}"
+                 class="w-4 h-4 rounded border-slate-300 accent-teal-600">
+          {{ f.label_ar }}
+        </label>
+        {% endfor %}
+      </div>
+      {{ submit_btn('🙈 إخفاء المحدد', 'bg-slate-100 text-navy') }}
+    </form>
+  </div>
+
+  {# ---- add a field this company needs and the platform does not ---- #}
+  <div class="bg-white rounded-3xl shadow p-5 mt-4">
+    <h2 class="font-extrabold text-sm text-navy mb-3">➕ حقل خاص بهذه الشركة</h2>
+    <form method="POST" class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="add">
+      <div>
+        <label class="font-bold text-xs" for="k">المفتاح (إنجليزي)</label>
+        <input id="k" name="key" dir="ltr" required placeholder="ملاحظتي"
+               class="form-control w-full text-left">
+      </div>
+      <div>
+        <label class="font-bold text-xs" for="la">العنوان (عربي)</label>
+        <input id="la" name="label_ar" required placeholder="ملاحظة سلامة"
+               class="form-control w-full">
+      </div>
+      <div>
+        <label class="font-bold text-xs" for="ft">النوع</label>
+        <select id="ft" name="field_type" class="form-control w-full">
+          {% for value, label in field_types.items() %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="font-bold text-xs" for="op">الخيارات (للقائمة فقط)</label>
+        <input id="op" name="options" dir="ltr" placeholder="ممتاز, جيد, ضعيف"
+               class="form-control w-full text-left">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="flex items-center gap-2 text-sm font-bold">
+          <input type="checkbox" name="required" value="1" class="w-4 h-4 rounded border-slate-300 accent-teal-600">
+          حقل مطلوب
+        </label>
+      </div>
+      <div class="sm:col-span-2">
+        {{ submit_btn('➕ إضافة الحقل للشركة', '') }}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -329,7 +329,7 @@ class TestParseTableColumns:
 class TestAdminTableColumnRoundTrips:
     def test_table_field_stores_parsed_columns(self, app, client):
         tid = _template_id(app, "hardening_cols")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         raw = "code | الرمز | text | 1\nqty | الكمية | number | required\n"
         r = _add_field(client, tid, "items", "بنود", "table", columns=raw)
         assert r.status_code == 200
@@ -351,7 +351,7 @@ class TestAdminTableColumnRoundTrips:
 
     def test_column_add_normalises_and_persists(self, app, client):
         tid = _template_id(app, "hardening_add")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "items", "بنود", "table")
         fid = _field_id(app, tid, "items")
         r = client.post(f"/admin/fields/{fid}/columns", data={
@@ -366,7 +366,7 @@ class TestAdminTableColumnRoundTrips:
 
     def test_column_add_coerces_unknown_type(self, app, client):
         tid = _template_id(app, "hardening_type")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "items", "بنود", "table")
         fid = _field_id(app, tid, "items")
         client.post(f"/admin/fields/{fid}/columns", data={
@@ -378,7 +378,7 @@ class TestAdminTableColumnRoundTrips:
 
     def test_column_add_rejects_duplicate_key(self, app, client):
         tid = _template_id(app, "hardening_dup")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "items", "بنود", "table")
         fid = _field_id(app, tid, "items")
         client.post(f"/admin/fields/{fid}/columns", data={
@@ -393,7 +393,7 @@ class TestAdminTableColumnRoundTrips:
 
     def test_column_add_requires_key_and_label(self, app, client):
         tid = _template_id(app, "hardening_missing")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "items", "بنود", "table")
         fid = _field_id(app, tid, "items")
         r = client.post(f"/admin/fields/{fid}/columns", data={"col_label": "بلا مفتاح"},
@@ -403,7 +403,7 @@ class TestAdminTableColumnRoundTrips:
 
     def test_column_add_refused_for_non_table_field(self, app, client):
         tid = _template_id(app, "hardening_nontable")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "note", "ملاحظة", "text")
         fid = _field_id(app, tid, "note")
         r = client.post(f"/admin/fields/{fid}/columns", data={
@@ -422,7 +422,7 @@ class TestAdminTableColumnRoundTrips:
         could not have failed for the right reason.
         """
         tid = _template_id(app, "hardening_cap")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         spec = "\n".join(f"c{i} | عمود {i} | text" for i in range(12))
         _add_field(client, tid, "items", "بنود", "table", columns=spec)
         fid = _field_id(app, tid, "items")
@@ -442,7 +442,7 @@ class TestAdminTableColumnRoundTrips:
 
     def test_column_delete_then_readd_round_trip(self, app, client):
         tid = _template_id(app, "hardening_del")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "items", "بنود", "table",
                    columns="code | الرمز | text | 1\nqty | الكمية | number")
         fid = _field_id(app, tid, "items")
@@ -458,7 +458,7 @@ class TestAdminTableColumnRoundTrips:
 
     def test_column_delete_unknown_key_is_a_no_op(self, app, client):
         tid = _template_id(app, "hardening_delmiss")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "items", "بنود", "table",
                    columns="code | الرمز | text | 1")
         fid = _field_id(app, tid, "items")
@@ -472,7 +472,7 @@ class TestAdminTableColumnRoundTrips:
         from app.extensions import db
         from app.models import DynamicField
         tid = _template_id(app, "hardening_fdel")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         _add_field(client, tid, "items", "بنود", "table",
                    columns="code | الرمز | text | 1")
         fid = _field_id(app, tid, "items")
@@ -484,10 +484,15 @@ class TestAdminTableColumnRoundTrips:
 
 
 # ========================================================= admin: field moves
+# These log in as t_owner, not t_admin. The shared field schema is the platform
+# owner's: those routes change the form every company fills in, so a company
+# customises its own form through /admin/companies instead. The restriction
+# itself is asserted in test_admin_500_real.py and
+# test_company_customisation.py.
 class TestAdminFieldMoves:
     def test_move_up_and_down_swap_positions(self, app, client):
         tid = _template_id(app, "hardening_move")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         for key in ("a", "b", "c"):
             _add_field(client, tid, key, "حقل " + key)
         assert _positions(app, tid) == [("a", 1), ("b", 2), ("c", 3)]
@@ -500,7 +505,7 @@ class TestAdminFieldMoves:
 
     def test_move_at_the_edges_changes_nothing(self, app, client):
         tid = _template_id(app, "hardening_edges")
-        login_as(client, "t_admin")
+        login_as(client, "t_owner")
         for key in ("a", "b"):
             _add_field(client, tid, key, "حقل " + key)
         a_id = _field_id(app, tid, "a")

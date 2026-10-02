@@ -3,10 +3,17 @@ user administration, system-wide analytics.
 
 Gates: templates/fields/projects/analytics -> admin+superadmin.
 Users suspend/delete -> superadmin only for delete; admin can suspend.
+
+The five field-schema routes are superadmin-only, and that is a deliberate
+tightening rather than an oversight. Those routes change the form **every
+company** fills in: `DynamicField` is the platform template, shared by all of
+them. A project manager editing it changed every customer's report, with no
+per-company recourse. A company now customises its own form through the
+per-company surface instead, and only the platform owner edits the shared one.
 """
 import logging
 from datetime import date, timedelta
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func
 
@@ -15,12 +22,22 @@ from app.extensions import db
 from app.models import (User, Project, ReportTemplate, DynamicField,
                         ReportSubmission, Report, ROLES, FIELD_TYPES,
                         TenantBranding)
-from app.utils.decorators import (template_manager_required, roles_required,
-                                  permission_required)
+from app.ops.isolation import (get_linked_project_or_404, visible_projects)
+from app.services.tenant_fields import resolve_fields, save_override
+from app.utils.decorators import (admin_required, norm_role,
+                                  permission_required, roles_required,
+                                  superadmin_required, template_manager_required)
 from app.ops.isolation import roles_required_json
+
+#: Roles that may change a company's report form. A company's own manager does;
+#: an engineer filling the form in does not.
 from app.services.db_lookup import get_or_404
 from app.services.default_templates import ensure_default_templates
 from app.services import branding as branding_service
+
+#: Roles that may change a company's report form. A company's own manager does;
+#: an engineer filling the form in does not.
+_CUSTOMISER_ROLES = frozenset({"admin", "superadmin", "project_manager"})
 
 log = logging.getLogger(__name__)
 
@@ -175,7 +192,7 @@ def parse_table_columns(raw: str) -> list:
 
 @bp.route("/templates/<int:template_id>/fields", methods=["GET", "POST"])
 @login_required
-@template_manager_required
+@superadmin_required
 def fields(template_id):
     tpl = get_or_404(ReportTemplate, template_id)
     if request.method == "POST":
@@ -216,7 +233,7 @@ def fields(template_id):
 
 @bp.route("/fields/<int:field_id>/delete", methods=["POST"])
 @login_required
-@template_manager_required
+@superadmin_required
 def field_delete(field_id):
     f = get_or_404(DynamicField, field_id)
     tid = f.template_id
@@ -228,7 +245,7 @@ def field_delete(field_id):
 
 @bp.route("/fields/<int:field_id>/move/<direction>", methods=["POST"])
 @login_required
-@template_manager_required
+@superadmin_required
 def field_move(field_id, direction):
     f = get_or_404(DynamicField, field_id)
     sibs = DynamicField.query.filter_by(template_id=f.template_id).order_by(
@@ -244,7 +261,7 @@ def field_move(field_id, direction):
 
 @bp.route("/fields/<int:field_id>/columns", methods=["POST"])
 @login_required
-@template_manager_required
+@superadmin_required
 def field_column_add(field_id):
     """Append one column to a table field."""
     f = get_or_404(DynamicField, field_id)
@@ -278,7 +295,7 @@ def field_column_add(field_id):
 
 @bp.route("/fields/<int:field_id>/columns/<col_key>/delete", methods=["POST"])
 @login_required
-@template_manager_required
+@superadmin_required
 def field_column_delete(field_id, col_key):
     f = get_or_404(DynamicField, field_id)
     kept = [c for c in f.sub_columns() if c["key"] != col_key]
@@ -287,6 +304,170 @@ def field_column_delete(field_id, col_key):
         db.session.commit()
         flash("تم حذف العمود.", "info")
     return redirect(url_for("admin.fields", template_id=f.template_id))
+
+
+# ------------------------------------------- per-company report customisation
+# The shared template above is the platform owner's. These routes are the
+# company's: they change one company's form and nothing else.
+
+
+def _split_options(raw: str) -> list[str]:
+    """Comma-separated dropdown options, trimmed and de-blanked.
+
+    "ممتاز, جيد, ضعيف" has to become three options, not three with a leading
+    space on two of them - the space ends up in the <option> text and in the
+    value stored against the submission, so "جيد" and " جيد" become two
+    different answers to the same question.
+    """
+    return [part.strip() for part in (raw or "").split(",") if part.strip()]
+
+
+def _tenant_can_customise(user, project):
+    """Whether this user may change this company's report form.
+
+    The platform owner may do it for anyone. Otherwise the user has to be a
+    manager *of that project* - a company admin customises their own form, and
+    an engineer in another company cannot touch it.
+
+    `can_access_project` is the same check the linked-report path uses, so
+    there is one definition of "may this user act for this project" rather than
+    two that can drift.
+    """
+    from app.ops.isolation import can_access_project, is_platform_manager
+    if is_platform_manager(user):
+        return True
+    if not can_access_project(user, project.id):
+        return False
+    return norm_role(getattr(user, "role", "")) in _CUSTOMISER_ROLES
+
+
+@bp.route("/companies", methods=["GET"])
+@login_required
+@admin_required
+def companies():
+    """Pick a company, then a template, to customise its report form.
+
+    `admin_required` rather than `template_manager_required`: a project manager
+    has to reach this, because customising their own company's form is exactly
+    what they are for. What they may not do is edit the shared template, which
+    is why the field-manager routes above are superadmin-only.
+    """
+    projects = visible_projects(current_user)
+    templates = ReportTemplate.query.filter_by(
+        is_active=True).order_by(ReportTemplate.id).all()
+    return render_template("admin/companies.html", projects=projects,
+                           templates=templates)
+
+
+@bp.route("/companies/<int:project_id>/templates/<template_key>", methods=["GET", "POST"])
+@login_required
+@admin_required
+def company_templates(project_id, template_key):
+    """Customise one company's form for one template.
+
+    Deliberately a single POST surface with explicit actions rather than a set
+    of "toggle" endpoints: a customisation is one document, and four
+    independently-toggling columns would let two browser tabs overwrite each
+    other's work.
+    """
+    # 404 rather than 403 for a project the caller cannot act for, so the page
+    # is not an existence oracle for other companies' ids.
+    project = get_linked_project_or_404(current_user, project_id)
+    if not _tenant_can_customise(current_user, project):
+        abort(404)
+    # get_or_404 takes a primary key, not a filter; this is a lookup by natural
+    # key, so it goes through the query.
+    tpl = ReportTemplate.query.filter_by(
+        key=template_key, is_active=True).first_or_404()
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        try:
+            if action == "hide":
+                save_override(tpl.key, project.id, deleted_fields=[
+                    k for k in request.form.getlist("hidden_fields")])
+                flash("تم تحديث حقول الشركة.", "success")
+            elif action == "restore":
+                save_override(tpl.key, project.id, deleted_fields=[])
+                flash("تم استعادة كل حقول القالب.", "success")
+            elif action == "add":
+                save_override(tpl.key, project.id, added_fields=[
+                    {"key": request.form.get("key", ""),
+                     "label_ar": request.form.get("label_ar", ""),
+                     "type": request.form.get("field_type", "text"),
+                     "required": bool(request.form.get("required")),
+                     "options": _split_options(
+                         request.form.get("options", "")),
+                     "columns": [{"key": c.get("key", ""),
+                                  "label_ar": c.get("label_ar", ""),
+                                  "type": c.get("type", "text"),
+                                  "required": bool(c.get("required")),
+                                  "options": []}
+                                 for c in _posted_columns(request.form)]}])
+                flash("تمت إضافة الحقل للشركة.", "success")
+            elif action == "edit":
+                save_override(tpl.key, project.id, fields_config={
+                    key: {"label_ar": label, "required": bool(req),
+                          "field_type": ftype or "text",
+                          "options": _split_options(opts)}
+                    for key, label, ftype, req, opts in _posted_edits(request.form)
+                    if key})
+                flash("تم تحديث تخصيص الحقول.", "success")
+            elif action == "order":
+                save_override(tpl.key, project.id, reordered_fields=[
+                    k for k in request.form.getlist("order_keys") if k])
+                flash("تم تحديث ترتيب الحقول.", "success")
+            else:
+                flash("إجراء غير معروف.", "danger")
+        except ValueError as exc:
+            flash(str(exc), "danger")
+        return redirect(url_for("admin.company_templates",
+                                project_id=project.id, template_key=tpl.key))
+
+    fields = resolve_fields(tpl, project.id)
+    return render_template("admin/company_fields.html", project=project,
+                           tpl=tpl, fields=fields,
+                           platform_fields=list(tpl.ordered_fields),
+                           field_types=FIELD_TYPES)
+
+
+def _posted_columns(form):
+    """The column rows posted by the add-field form, as a list of dicts."""
+    keys = form.getlist("col_key")
+    labels = form.getlist("col_label")
+    types = form.getlist("col_type")
+    rows = []
+    for index, key in enumerate(keys):
+        if not key.strip():
+            continue
+        rows.append({
+            "key": key,
+            "label_ar": labels[index] if index < len(labels) else "",
+            "type": types[index] if index < len(types) else "text",
+            "required": bool(form.getlist("col_required")
+                             and index < len(form.getlist("col_required"))),
+            "options": [],
+        })
+    return rows
+
+
+def _posted_edits(form):
+    """The per-field edit rows, as (key, label, type, required, options)."""
+    keys = form.getlist("edit_key")
+    labels = form.getlist("edit_label")
+    types = form.getlist("edit_type")
+    required = set(form.getlist("edit_required"))
+    options = form.getlist("edit_options")
+    out = []
+    for index, key in enumerate(keys):
+        out.append((
+            key,
+            labels[index] if index < len(labels) else "",
+            types[index] if index < len(types) else "",
+            str(key) in required,
+            options[index] if index < len(options) else "",
+        ))
+    return out
 
 
 # ---------------------------------------------------------------- projects — with professional logo upload

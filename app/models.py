@@ -405,9 +405,25 @@ class TenantBranding(db.Model):
 
 
 class TenantTemplateOverride(db.Model):
+    """One company's customisation of one platform template.
+
+    Scoped to a project, not to a user: a company customises its report once and
+    every engineer filling it in sees that version. Scoping it to a user was the
+    original design and would have meant a company of thirty engineers each
+    filling in a different form.
+
+    The JSON columns hold, respectively: per-field changes to type/label/
+    options/placeholder/rules, field keys to remove, whole fields to add, and
+    the field order. `reordered_fields` is stored but not yet applied - see
+    docs/architecture/roadmap_reordered_fields.md.
+    """
     __tablename__ = "tenant_template_overrides"
     id = db.Column(db.Integer, primary_key=True)
     template_key = db.Column(db.String(60), nullable=False, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), index=True)
+    #: Legacy. The original design scoped customisation to a user; nothing in
+    #: the application ever wrote it, and it is kept only so this migration
+    #: does not have to be destructive. Do not read it. See the migration.
     tenant_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
     is_active = db.Column(db.Boolean, default=True)
     fields_config = db.Column(db.JSON, default=dict)
@@ -418,9 +434,9 @@ class TenantTemplateOverride(db.Model):
     updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (
-        db.UniqueConstraint("template_key", "tenant_id",
-                            name="uq_tenant_tpl_tenant"),
+        db.UniqueConstraint("template_key", "project_id",
+                            name="uq_tenant_tpl_project"),
     )
 
     def __repr__(self):
-        return f"<TenantTemplateOverride {self.template_key}:{self.tenant_id}>"
+        return f"<TenantTemplateOverride {self.template_key}:{self.project_id}>"

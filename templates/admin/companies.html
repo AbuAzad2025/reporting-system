@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}تخصيص تقارير الشركات{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="bg-white rounded-3xl shadow p-5 flex items-center justify-between flex-wrap gap-2">
+    <div>
+      <h1 class="font-extrabold text-lg text-navy">🏢 تخصيص تقارير الشركات</h1>
+      <p class="text-xs text-slate-500 mt-1">
+        اختر الشركة ثم التقرير. التخصيص يخص هذه الشركة وحدها ولا يؤثر على غيرها،
+        والقالب الأصلي يبقى كما هو.
+      </p>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="bg-slate-100 text-sm font-bold px-4 py-2 rounded-xl">→ اللوحة</a>
+  </div>
+
+  {% if not projects %}
+  <div class="bg-white rounded-3xl shadow p-8 text-center mt-4">
+    <p class="text-sm text-slate-500">لا توجد شركات متاحة لك.</p>
+  </div>
+  {% else %}
+  <div class="mt-4 space-y-3">
+    {% for p in projects %}
+    <div class="bg-white rounded-2xl shadow p-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <div class="font-extrabold text-navy">{{ p.name }}</div>
+          <div class="text-xs text-slate-500">
+            {{ p.location or '—' }}{% if p.client %} · {{ p.client }}{% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-3">
+        {% for t in templates %}
+        <a href="{{ url_for('admin.company_templates', project_id=p.id, template_key=t.key) }}"
+           class="text-xs font-bold px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">
+          {{ t.icon }} {{ t.name_ar }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

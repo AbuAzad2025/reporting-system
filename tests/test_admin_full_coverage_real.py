@@ -51,7 +51,8 @@ class TestAdminFieldsReal:
             db.session.add(tpl)
             db.session.commit()
             tid = tpl.id
-        login_as(client, "t_admin")
+        # superadmin-only: the shared field schema is the platform owner's.
+        login_as(client, "t_owner")
         r = client.get(f"/admin/templates/{tid}/fields")
         assert r.status_code == 200
 

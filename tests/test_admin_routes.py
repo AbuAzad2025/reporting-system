@@ -247,7 +247,9 @@ class TestAdminFields:
             db.session.commit()
             tid = tpl.id
 
-        login_as(client, "t_admin")
+        # t_owner: adding a field to the shared template is superadmin-only,
+        # because that template is the form every company fills in.
+        login_as(client, "t_owner")
         r = client.post(f"/admin/templates/{tid}/fields", data={
             "field_key": "test_field",
             "label_ar": "حقل اختبار",

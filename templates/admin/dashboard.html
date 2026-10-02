@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}لوحة الإدارة{% endblock %}
 {% block content %}
+<div class="bg-white rounded-2xl shadow p-4 mb-6 flex items-center justify-between flex-wrap gap-2">
+  <div>
+    <h3 class="font-bold text-navy">🏢 تخصيص تقارير الشركات</h3>
+    <p class="text-xs text-slate-500">خصّص نموذج تقرير لكل شركة — يخصّها وحدها ولا يؤثر على غيرها.</p>
+  </div>
+  <a href="{{ url_for('admin.companies') }}"
+     class="bg-teal2 text-white text-sm font-bold px-4 py-2 rounded-xl">اختيار شركة ←</a>
+</div>
+
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
   <div class="card p-4">
     <div class="flex items-center justify-between">

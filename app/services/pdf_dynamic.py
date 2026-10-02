@@ -109,12 +109,21 @@ class _DynReportAdapter:
         return self._template.name_ar
 
 
-def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
-    """Render A4 PDF for a dynamic submission. Returns raw bytes."""
+def build_dynamic_pdf(submission, template, generated_at: str = "",
+                      fields=None) -> bytes:
+    """Render A4 PDF for a dynamic submission. Returns raw bytes.
+
+    `fields` is the company's custom field list, resolved by the caller. The
+    printout is the deliverable, so it has to be built from the same list the
+    form was: a PDF that carried the platform order beside a custom form would
+    show sections the user never filled in and omit the ones they did.
+    """
     st = _styles()
     adapter = _DynReportAdapter(submission, template)
     payload = submission.data or {}
     brand = _branding_for(submission.project_id)
+    if fields is None:
+        fields = template.ordered_fields
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=10 * mm,
                             leftMargin=10 * mm, topMargin=12 * mm,
@@ -198,7 +207,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "") -> bytes:
     items = []
     tables = []  # (field label, cols, body rows) for line items — cols kept for image handling
     gallery = []  # (abs image path, caption) for the photo gallery section
-    for f in template.ordered_fields:
+    for f in fields:
         val = payload.get(f.field_key, "")
         if f.field_type == "table":
             cols = f.sub_columns() if hasattr(f, "sub_columns") else []

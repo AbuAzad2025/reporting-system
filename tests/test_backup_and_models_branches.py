@@ -768,13 +768,15 @@ def test_branding_and_override_reprs_name_their_row(app):
         branding = TenantBranding(project_id=alpha.id,
                                   company_name_en="Alpha Contracting")
         override = TenantTemplateOverride(template_key="daily",
-                                          tenant_id=_user("t_admin").id,
+                                          project_id=alpha.id,
                                           fields_config={"notes": "wide"})
         db.session.add_all([branding, override])
         db.session.commit()
         assert repr(branding) == f"<TenantBranding {branding.id} proj={alpha.id}>"
-        assert override.tenant_id == _user("t_admin").id
-        assert repr(override) == f"<TenantTemplateOverride daily:{override.tenant_id}>"
+        # Scoped to a company, not a user: a customisation belongs to the
+        # project, so it is the project the repr names.
+        assert override.project_id == alpha.id
+        assert repr(override) == f"<TenantTemplateOverride daily:{alpha.id}>"
         assert TenantTemplateOverride.query.filter_by(
             template_key="daily", tenant_id=override.tenant_id).count() == 1
 

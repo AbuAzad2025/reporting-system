@@ -54,14 +54,21 @@ def _is_declared_na(value) -> bool:
     return str(value or "").strip().lower() in NOT_APPLICABLE
 
 
-def missing_critical_fields(template, payload: dict | None) -> list[tuple[str, str]]:
+def missing_critical_fields(
+        template, payload: dict | None, fields=None) -> list[tuple[str, str]]:
     """The critical fields this submission left empty.
 
     Returns ``(field_key, label)`` for each, in the order the standard lists
     them. An empty list means the report can be signed off as it stands.
+
+    `fields` is the company's custom field list when there is one. It has to be
+    the same list the form was rendered from, or the warning would name fields
+    the form did not show, or miss ones it did.
     """
     payload = payload or {}
-    by_key = {f.field_key: f for f in template.ordered_fields}
+    if fields is None:
+        fields = template.ordered_fields
+    by_key = {f.field_key: f for f in fields}
     missing = []
     for key, why in CRITICAL_FIELDS.items():
         field = by_key.get(key)

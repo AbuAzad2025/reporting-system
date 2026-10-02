@@ -31,6 +31,7 @@ from app.ops.isolation import visible_projects, get_linked_project_or_404
 from utils.helpers import FIELD_SPECS
 from app.services.pdf_dynamic import build_dynamic_pdf
 from app.services.report_completeness import missing_critical_fields
+from app.services.tenant_fields import resolve_fields
 from app.services.share import get_share_data
 
 log = logging.getLogger(__name__)
@@ -335,16 +336,26 @@ def _display_table_rows(field, form):
     return rows
 
 
-def _table_rows_map(template, form):
+def _table_rows_map(template, form, fields=None):
+    if fields is None:
+        fields = template.ordered_fields
     return {f.field_key: _display_table_rows(f, form)
-            for f in template.ordered_fields if f.field_type == "table"}
+            for f in fields if f.field_type == "table"}
 
 
-def _collect_dynamic(template, form):
-    """Validate + collect answers per DynamicField schema + JSON rules."""
+def _collect_dynamic(template, form, fields=None):
+    """Validate + collect answers per DynamicField schema + JSON rules.
+
+    `fields` is the company's custom field list when it has one. It must be the
+    list the form was rendered from: validating against the platform list
+    instead would reject a company's own added field as unknown, and would
+    accept a value for a field the company deleted.
+    """
     from app.services.field_validation import validate_field_value
+    if fields is None:
+        fields = template.ordered_fields
     payload, errors = {}, []
-    for f in template.ordered_fields:
+    for f in fields:
         if f.field_type == "table":
             cols = f.sub_columns()
             if not cols:
@@ -514,6 +525,11 @@ def dyn_new(template_key):
             project_id = get_linked_project_or_404(
                 current_user, project_id).id
             project_name = db.session.get(Project, project_id).name
+        # The company chosen on this POST decides which form is being filled in
+        # and validated against. On a GET the choice has not been made yet, so
+        # the platform template is shown - and picking a company reloads the
+        # page (see the form) so that what is filled in matches what is shown.
+        fields = resolve_fields(tpl, project_id)
         location = request.form.get("location", "").strip()
         contractor = request.form.get("contractor", "").strip()
         try:
@@ -521,7 +537,7 @@ def dyn_new(template_key):
                 request.form.get("report_date", ""), "%Y-%m-%d").date()
         except ValueError:
             report_date = None
-        payload, errors = _collect_dynamic(tpl, request.form)
+        payload, errors = _collect_dynamic(tpl, request.form, fields=fields)
         # geolocation auto-tag (PWA)
         try:
             if request.form.get("geo_lat"):
@@ -563,22 +579,30 @@ def dyn_new(template_key):
                       "danger")
         return render_template("reports/dyn_form.html", mode="new", tpl=tpl,
                                projects=projects, form_data=request.form,
-                               missing_critical=missing_critical_fields(tpl, payload),
-                               table_rows=_table_rows_map(tpl, request.form))
+                               fields=fields,
+                               missing_critical=missing_critical_fields(
+                                   tpl, payload, fields=fields),
+                               table_rows=_table_rows_map(tpl, request.form,
+                                                          fields=fields))
+    fields = resolve_fields(tpl, None)
     return render_template("reports/dyn_form.html", mode="new", tpl=tpl,
-                           projects=projects, form_data={},
-                           table_rows=_table_rows_map(tpl, {}))
+                           projects=projects, form_data={}, fields=fields,
+                           table_rows=_table_rows_map(tpl, {}, fields=fields))
 
 
 @bp.route("/dyn/<int:sub_id>")
 @login_required
 def dyn_view(sub_id):
     s = _visible_submission(sub_id)
+    # Resolved from the company the submission belongs to, so what is read here
+    # is the same list the form was filled in with.
+    fields = resolve_fields(s.template, s.project_id)
     # The reading page is where a missing section matters: the printed report
     # will not carry it, so it is named here rather than only on the form.
     return render_template("reports/dyn_view.html", s=s, tpl=s.template,
+                           fields=fields,
                            missing_critical=missing_critical_fields(
-                               s.template, s.data))
+                               s.template, s.data, fields=fields))
 
 
 @bp.route("/dyn/<int:sub_id>/edit", methods=["GET", "POST"])
@@ -587,6 +611,10 @@ def dyn_edit(sub_id):
     s = _visible_submission(sub_id)
     tpl = s.template
     projects = visible_projects(current_user)
+    # The company decides which form this is. On a GET that is the company the
+    # submission is already filed under; on a POST it is the one just selected,
+    # which may be a change - so the two are resolved separately below.
+    fields = resolve_fields(tpl, s.project_id)
     if request.method == "POST":
         project_name = request.form.get("project_name", "").strip()
         link_id = request.form.get("project_id") or None
@@ -595,11 +623,20 @@ def dyn_edit(sub_id):
             linked = get_linked_project_or_404(current_user, link_id)
             project_name = linked.name
         try:
+            project_id = int(link_id) if link_id else None
+        except ValueError:
+            project_id = None
+        # Re-resolved against the company just chosen, not the one the row
+        # currently points at: the POST may be moving the submission to a
+        # different company, and validating against the old form would reject
+        # that company's own fields as unknown.
+        fields = resolve_fields(tpl, project_id)
+        try:
             report_date = datetime.strptime(
                 request.form.get("report_date", ""), "%Y-%m-%d").date()
         except ValueError:
             report_date = None
-        payload, errors = _collect_dynamic(tpl, request.form)
+        payload, errors = _collect_dynamic(tpl, request.form, fields=fields)
         if not project_name or report_date is None:
             errors.insert(0, "تحقق من اسم المشروع والتاريخ.")
         elif ReportSubmission.query.filter(
@@ -624,19 +661,22 @@ def dyn_edit(sub_id):
     # Two different answers to "what is still missing": a rejected POST is
     # judged on what the user just typed, a first GET on what was saved.
     if request.method == "POST":
-        missing = missing_critical_fields(tpl, payload)
+        missing = missing_critical_fields(tpl, payload, fields=fields)
         return render_template("reports/dyn_form.html", mode="edit", tpl=tpl,
                                s=s, projects=projects, form_data=request.form,
-                               missing_critical=missing,
-                               table_rows=_table_rows_map(tpl, request.form))
+                               missing_critical=missing, fields=fields,
+                               table_rows=_table_rows_map(tpl, request.form,
+                                                          fields=fields))
     prefill = {"project_name": s.project_name, "location": s.location,
                "contractor": s.contractor, "report_date": str(s.report_date),
                "project_id": s.project_id,
                **{f"f_{k}": v for k, v in (s.data or {}).items()}}
     return render_template("reports/dyn_form.html", mode="edit", tpl=tpl, s=s,
-                           projects=projects, form_data=prefill,
-                           missing_critical=missing_critical_fields(tpl, s.data),
-                           table_rows=_table_rows_map(tpl, prefill))
+                           projects=projects, form_data=prefill, fields=fields,
+                           missing_critical=missing_critical_fields(
+                               tpl, s.data, fields=fields),
+                           table_rows=_table_rows_map(tpl, prefill,
+                                                      fields=fields))
 
 
 @bp.route("/dyn/<int:sub_id>/delete", methods=["POST"])
@@ -654,7 +694,9 @@ def dyn_delete(sub_id):
 def dyn_pdf(sub_id):
     s = _visible_submission(sub_id)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    data = build_dynamic_pdf(s, s.template, generated_at=stamp)
+    data = build_dynamic_pdf(s, s.template, generated_at=stamp,
+                             fields=resolve_fields(s.template, s.project_id))
+
     return Response(data, mimetype="application/pdf",
                     headers={"Content-Disposition":
                              f"inline; filename=submission-{s.id}.pdf"})
