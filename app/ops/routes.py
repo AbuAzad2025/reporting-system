@@ -665,10 +665,12 @@ def _commit_with_serial(obj, kind, model):
     """
     _m, prefix, _a, _e = M.OPS_MODULES[kind]
     for attempt in range(SERIAL_ALLOCATION_ATTEMPTS):
-        # Called through the module-level name rather than M.next_serial, so
-        # that this stays the one place the collision handling lives and tests
-        # can substitute an allocation strategy at a single point.
-        obj.serial = next_serial(prefix, model, offset=attempt)
+        # Resolved off the models module at call time, so the one definition in
+        # app.ops.models is also the one substitution point. Calling through the
+        # alias imported into this module would give two patch targets for one
+        # behaviour, and a test patching the other one would silently stop
+        # simulating the collision it exists to simulate.
+        obj.serial = M.next_serial(prefix, model, offset=attempt)
         db.session.add(obj)
         try:
             db.session.commit()

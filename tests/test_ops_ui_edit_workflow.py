@@ -705,6 +705,7 @@ class TestUiNew:
         this path used to make a single attempt, so any collision failed
         immediately while the JSON API absorbed five.
         """
+        from app.ops import models as M
         from app.ops import routes
         alpha = _project(app, "Alpha Tower")
         _login(client, "t_eng")
@@ -714,7 +715,11 @@ class TestUiNew:
             attempts.append(k.get("offset"))
             return "RFI-000001"
 
-        monkeypatch.setattr(routes, "next_serial", _always_the_same)
+        # Patched on the definition, which is the single substitution point for
+        # serial allocation. The other endpoint's test does the same; patching
+        # the alias imported into routes would leave a second target, and this
+        # one would quietly stop simulating a collision.
+        monkeypatch.setattr(M, "next_serial", _always_the_same)
         r = client.post("/ops/ui/rfis/new", data={
             "project_id": str(alpha), "subject": "تكرار",
             "question": "سؤال"})
