@@ -170,27 +170,55 @@ def archive():
                            per_page=per_page, total_pages=total_pages)
 
 
-# Allowed avatar MIME types and max size (2 MB)
-ALLOWED_AVATAR_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+# Allowed avatar MIME types and max size (2 MB). No PDF: an avatar is a photo.
+ALLOWED_AVATAR_MIME = frozenset({"image/jpeg", "image/png", "image/gif",
+                                 "image/webp"})
 MAX_AVATAR_SIZE = 2 * 1024 * 1024
+
+#: What the user is told, per rejection code from mime_guard.validate_upload.
+#: A rejection code is not shown: "content" means the bytes were not the type
+#: they claimed, and saying so tells an attacker which probe failed.
+_AVATAR_ERRORS = {
+    "filename": "اسم الملف غير صالح.",
+    "type": "نوع الملف غير مدعوم (JPG, PNG, GIF, WebP فقط).",
+    "size": "حجم الصورة يتجاوز 2 ميغابايت.",
+    "content": "محتوى الملف لا يطابق نوعه المعلن.",
+}
 
 
 def _save_avatar(file_storage) -> str:
-    """Save uploaded avatar to uploads/avatars/ and return storage key."""
+    """Save an uploaded avatar and return its storage key.
+
+    The content is sniffed, not trusted. This used to check only
+    ``file.mimetype`` - which the client sets - and take the stored extension
+    from the uploaded filename, so a file called ``avatar.html`` declared as
+    ``image/jpeg`` and containing HTML was written into the web-served
+    ``static/uploads/avatars/`` directory as ``.html``. Declaring a JPEG was
+    enough to store a page that runs on this origin.
+
+    Both halves are fixed here rather than at the caller: the bytes must match
+    the declared type, and the extension that is written comes from the
+    confirmed type, never from the name the user chose.
+    """
+    from app.services import mime_guard
+
     if not file_storage or file_storage.filename == "":
         return ""
-    filename = os.path.basename(file_storage.filename)
-    mime = (file_storage.mimetype or "").lower()
-    if mime not in ALLOWED_AVATAR_MIME:
-        raise ValueError("نوع الملف غير مدعوم (JPG, PNG, GIF, WebP فقط).")
     content = file_storage.read()
-    if len(content) > MAX_AVATAR_SIZE:
-        raise ValueError("حجم الصورة يتجاوز 2 ميغابايت.")
-    # Generate unique storage key
-    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    try:
+        mime = mime_guard.validate_upload(
+            content, file_storage.filename,
+            file_storage.mimetype or "",
+            allowed=ALLOWED_AVATAR_MIME, max_bytes=MAX_AVATAR_SIZE)
+    except mime_guard.UploadRejected as exc:
+        raise ValueError(_AVATAR_ERRORS[exc.code]) from exc
+
+    # The extension follows the type the bytes actually are.
+    ext = mime_guard.stored_extension(mime) or ".jpg"
     import time
     storage_key = f"avatars/{current_user.id}_{int(time.time())}{ext}"
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "uploads")
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                              "static", "uploads")
     avatar_dir = os.path.join(upload_dir, "avatars")
     os.makedirs(avatar_dir, exist_ok=True)
     dest = os.path.join(avatar_dir, os.path.basename(storage_key))

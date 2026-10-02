@@ -1,15 +1,29 @@
 """The upload guard is shared, so a spoof is refused on every path.
 
 `ops` evidence and dynamic-report attachments used to carry two copies of the
-allow-list rule, and the dynamic path trusted the client's Content-Type with no
-byte check at all. Both now go through `app.services.mime_guard`.
+allow-list rule. The third path - the profile avatar - trusted the client's
+Content-Type with no byte check at all and stored the extension the user chose,
+so `avatar.html` declared as `image/jpeg` was written into the web-served
+static/uploads/avatars/ directory as `.html`. All three now go through
+`app.services.mime_guard.validate_upload`.
 """
 import io
+import os
 
 import pytest
 
 from app.services import mime_guard
 from tests.conftest import login_as
+
+
+def _source(path):
+    """The text of a module, given a path relative to the repo root."""
+    if not os.path.isabs(path):
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), path)
+    with io.open(path, encoding="utf-8") as handle:
+        return handle.read()
+
 
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
@@ -163,9 +177,47 @@ class TestGuardIsTheSingleSourceOfTruth:
         assert routes.MAX_UPLOAD_BYTES == mime_guard.MAX_UPLOAD_BYTES
 
     def test_reports_module_reuses_the_shared_rule(self):
+        """Both upload paths must call the one guard, not a copy of it.
+
+        Asserted by what the module actually calls. It used to assert
+        ``routes.is_allowed_upload is mime_guard.is_allowed_upload``, which
+        only held because reports routes re-exported the name by import - a
+        contract on an import rather than on behaviour, and one that a
+        module-object import breaks without anything getting weaker.
+        """
         from app.reports import routes
-        assert routes.is_allowed_upload is mime_guard.is_allowed_upload
+        assert routes.mime_guard is mime_guard
+        assert "mime_guard.validate_upload" in _source(routes.__file__)
         assert routes.MAX_UPLOAD_DYN == mime_guard.MAX_UPLOAD_BYTES
+
+    def test_the_ops_path_calls_the_shared_guard_too(self):
+        from app.ops import routes as ops_routes
+        assert ops_routes.mime_guard is mime_guard
+        assert "mime_guard.validate_upload" in _source(ops_routes.__file__)
+
+    def test_the_avatar_path_calls_the_shared_guard(self):
+        """The path that trusted file.mimetype and skipped the sniff entirely."""
+        from app.main import routes as main_routes
+        assert "validate_upload" in _source(main_routes.__file__)
+
+    def test_no_path_calls_the_byte_sniffer_directly_any_more(self):
+        """One decision, one owner.
+
+        A path calling ``sniff_mime`` on its own is re-implementing part of the
+        rule, and that is how the three paths came to disagree about what an
+        acceptable upload was.
+        """
+        for module in ("app/ops/routes.py", "app/reports/routes.py",
+                       "app/main/routes.py"):
+            source = _source(module)
+            assert ".sniff_mime(" not in source, (
+                f"{module} sniffs the bytes itself instead of asking the guard")
+
+    def test_every_upload_path_goes_through_the_guard(self):
+        for module in ("app/ops/routes.py", "app/reports/routes.py",
+                       "app/main/routes.py"):
+            assert "validate_upload" in _source(module), (
+                f"{module} accepts an upload without the shared guard")
 
     def test_allow_list_contains_only_real_image_and_pdf_types(self):
         assert mime_guard.ALLOWED_MIME == frozenset({

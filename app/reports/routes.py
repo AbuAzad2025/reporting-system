@@ -22,7 +22,7 @@ import uuid
 from flask import current_app
 
 from app.services.db_lookup import get_or_404
-from app.services.mime_guard import is_allowed_upload
+from app.services import mime_guard
 
 from app.reports import bp
 from app.extensions import db
@@ -37,8 +37,19 @@ from app.services.share import get_share_data
 log = logging.getLogger(__name__)
 
 # secure upload for dynamic table file cells (mirrors ops secure handling)
-ALLOWED_MIME_DYN = {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}
+ALLOWED_MIME_DYN = {"image/jpeg", "image/png", "image/gif", "image/webp",
+                    "application/pdf"}
 MAX_UPLOAD_DYN = 4 * 1024 * 1024
+
+#: What the field author is told, per rejection code from the shared guard.
+#: The codes are not shown to the user - "content" says the bytes were not the
+#: type they claimed, and naming it tells an attacker which probe failed.
+_DYN_UPLOAD_ERRORS = {
+    "filename": "اسم الملف غير صالح.",
+    "type": "نوع الملف غير مدعوم ({mime}).",
+    "size": "الملف يتجاوز 4MB.",
+    "content": "محتوى الملف لا يطابق نوعه المعلن.",
+}
 
 
 def _safe_filename_dyn(name: str) -> str:
@@ -421,22 +432,23 @@ def _collect_dynamic(template, form, fields=None):
                             if not safe:
                                 errors.append(f"«{f.label_ar}» — الصف {idx + 1}: اسم الملف غير صالح.")
                                 continue
-                            mime = (getattr(file_obj, "mimetype", "") or "application/octet-stream").lower()
-                            if mime not in ALLOWED_MIME_DYN:
-                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: نوع الملف غير مدعوم ({mime}).")
-                                continue
+                            mime = (getattr(file_obj, "mimetype", "")
+                                    or "application/octet-stream").lower()
                             try:
                                 file_obj.stream.seek(0)
                             except Exception as exc:
                                 # Non-seekable stream: read() below still works.
                                 log.debug("upload stream not seekable: %s", exc)
                             buf = file_obj.read()
-                            if len(buf) > MAX_UPLOAD_DYN:
-                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: الملف يتجاوز 4MB.")
-                                continue
-                            if not is_allowed_upload(buf, safe, mime):
-                                errors.append(f"«{f.label_ar}» — الصف {idx + 1}: "
-                                              "محتوى الملف لا يطابق نوعه المعلن.")
+                            # One decision, one owner - the same call the ops
+                            # attachment endpoint and the avatar upload make.
+                            try:
+                                mime_guard.validate_upload(buf, safe, mime)
+                            except mime_guard.UploadRejected as exc:
+                                errors.append(
+                                    f"«{f.label_ar}» — الصف {idx + 1}: "
+                                    + _DYN_UPLOAD_ERRORS[exc.code].format(
+                                        mime=mime))
                                 continue
                             try:
                                 storage_key = _store_dyn_file(template.key, safe, buf)

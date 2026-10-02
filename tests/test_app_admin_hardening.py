@@ -1025,6 +1025,91 @@ class TestMainAvatar:
         assert "حجم الصورة يتجاوز 2 ميغابايت." in r.get_data(as_text=True)
         with app.app_context():
             assert User.query.filter_by(username="t_eng").one().avatar == ""
+
+    # ------------------------------------------------- the spoof this closed
+    # The avatar path used to check only file.mimetype - which the client sets -
+    # and take the stored extension from the uploaded filename. So a file
+    # called avatar.html, declared image/jpeg and containing HTML, was written
+    # into static/uploads/avatars/ as .html and served from the app's own origin.
+    # Declaring a JPEG was the whole attack.
+
+    def test_html_declared_as_jpeg_is_refused(self, app, avatar_client,
+                                               tmp_path):
+        from app.models import User
+        login_as(avatar_client, "t_eng")
+        r = avatar_client.post("/profile", data={
+            "full_name": "خالد سعيد محمود عبدالله",
+            "avatar": (io.BytesIO(b"<script>alert(1)</script>"), "avatar.png")},
+            follow_redirects=True)
+        assert r.status_code == 200
+        assert "محتوى الملف لا يطابق نوعه المعلن." in r.get_data(as_text=True)
+        with app.app_context():
+            assert User.query.filter_by(username="t_eng").one().avatar == ""
+        avatars = _avatar_root(tmp_path) / "avatars"
+        assert not avatars.exists() or not list(avatars.iterdir())
+
+    def test_real_png_bytes_named_html_are_refused(
+            self, app, avatar_client, tmp_path):
+        """A non-media name is refused even when the bytes really are a PNG.
+
+        That is the pre-existing rule on every upload path - a name carrying a
+        non-media extension is refused outright - so the avatar path now agrees
+        with the other two instead of being the one exception. The important
+        half is the one below: a name that *is* allowed never gets an extension
+        it did not earn.
+        """
+        from app.models import User
+        png = b"\x89PNG\r\n\x1a\n" + b"real-pixels" * 4
+        login_as(avatar_client, "t_eng")
+        avatar_client.post("/profile", data={
+            "full_name": "خالد سعيد محمود عبدالله",
+            "avatar": (io.BytesIO(png), "payload.html")}, follow_redirects=True)
+        with app.app_context():
+            assert User.query.filter_by(username="t_eng").one().avatar == ""
+        avatars = _avatar_root(tmp_path) / "avatars"
+        assert not avatars.exists() or not list(avatars.iterdir())
+
+    def test_the_stored_extension_comes_from_the_confirmed_type(
+            self, app, avatar_client, tmp_path):
+        """A crafted client cannot talk the app into the wrong extension.
+
+        Three tuples set Content-Type explicitly, which a browser would not do
+        here - it derives the type from the filename, so `.png` would come in
+        as image/png. A client that sends real JPEG bytes while declaring
+        image/jpeg, with a `.png` name, passes every type check (the bytes do
+        match the declared type), and would previously have been stored as
+        `.png`. It is stored as `.jpg` instead: the extension follows the
+        confirmed type.
+        """
+        from app.models import User
+        jpeg = b"\xff\xd8\xff\xe0" + b"jpeg-pixels" * 4
+        login_as(avatar_client, "t_eng")
+        avatar_client.post("/profile", data={
+            "full_name": "خالد سعيد محمود عبدالله",
+            "avatar": (io.BytesIO(jpeg), "portrait.png", "image/jpeg")},
+            follow_redirects=True)
+        with app.app_context():
+            user = User.query.filter_by(username="t_eng").one()
+            assert user.avatar, "a real JPEG should still be accepted"
+            assert user.avatar.endswith(".jpg"), user.avatar
+            saved = _avatar_root(tmp_path) / user.avatar
+            assert saved.is_file()
+            assert saved.read_bytes() == jpeg
+            stored = [p.name for p in
+                      (_avatar_root(tmp_path) / "avatars").iterdir()]
+            assert not any(n.endswith((".html", ".htm", ".svg", ".xhtml"))
+                           for n in stored), stored
+
+    def test_an_executable_name_is_refused_even_with_real_png_bytes(
+            self, app, avatar_client, tmp_path):
+        from app.models import User
+        png = b"\x89PNG\r\n\x1a\n" + b"pixels" * 4
+        login_as(avatar_client, "t_eng")
+        avatar_client.post("/profile", data={
+            "full_name": "خالد سعيد محمود عبدالله",
+            "avatar": (io.BytesIO(png), "payload.exe")}, follow_redirects=True)
+        with app.app_context():
+            assert User.query.filter_by(username="t_eng").one().avatar == ""
         assert not (_avatar_root(tmp_path) / "avatars").exists()
 
     def test_remove_deletes_the_file_and_clears_the_key(

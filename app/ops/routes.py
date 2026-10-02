@@ -1314,12 +1314,19 @@ def attachment_upload(kind, obj_id):
     if not filename:
         return jsonify({"error": "invalid filename"}), 400
     mime = (file.mimetype or "application/octet-stream").lower()
-    if mime not in ALLOWED_MIME:
-        return jsonify({"error": f"unsupported type: {mime}"}), 415
     buf = file.read()
-    if len(buf) > MAX_UPLOAD_BYTES:
-        return jsonify({"error": "file exceeds 4 MB limit"}), 413
-    if mime_guard.sniff_mime(buf, mime) is None:
+    # One decision, one owner: mime_guard decides, this route only renders the
+    # answer. The status codes and bodies below are a machine contract asserted
+    # by tests, so they are reproduced exactly rather than reworded.
+    try:
+        mime_guard.validate_upload(buf, filename, mime)
+    except mime_guard.UploadRejected as exc:
+        if exc.code == "filename":
+            return jsonify({"error": "invalid filename"}), 400
+        if exc.code == "size":
+            return jsonify({"error": "file exceeds 4 MB limit"}), 413
+        if exc.code == "type":
+            return jsonify({"error": f"unsupported type: {mime}"}), 415
         return jsonify({"error": f"content does not match type: {mime}"}), 415
     try:
         storage_key = _store_file(kind, record.id, filename, buf)
