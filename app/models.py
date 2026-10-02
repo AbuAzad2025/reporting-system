@@ -47,6 +47,32 @@ ROLE_KEYS = ["superadmin", "admin", "project_manager", "project_director",
              "qa_qc_inspector", "senior_consultant", "procurement_officer",
              "safety_officer", "site_engineer"]
 
+#: Roles that exist under an older name. Applied by normalise_role.
+LEGACY_ROLE_MAP = {"user": "site_engineer"}
+
+#: What an unrecognised or missing role becomes.
+#:
+#: Fail-closed, deliberately. A gate that treats an unknown role as "no role at
+#: all" and denies is safe; one that passes the raw string through is only safe
+#: as long as every membership test happens to reject it, which is a property
+#: of the callers rather than of the value. There were four normalisers in this
+#: codebase and they disagreed about exactly this: two coerced, two passed the
+#: raw value through. Both readings deny a mistyped role today, so unifying on
+#: the strict one changes no outcome - it removes the possibility of a fifth
+#: caller inheriting the permissive one.
+FALLBACK_ROLE = "site_engineer"
+
+
+def normalise_role(role: str | None) -> str:
+    """The one definition of what a role value means.
+
+    Maps a legacy alias, then returns the role if it is a known one, and
+    otherwise returns :data:`FALLBACK_ROLE`.
+    """
+    if not role:
+        return FALLBACK_ROLE
+    return LEGACY_ROLE_MAP.get(role, role if role in ROLE_KEYS else FALLBACK_ROLE)
+
 FIELD_TYPES = {
     "text": "نص قصير",
     "textarea": "نص طويل",
@@ -151,7 +177,15 @@ class User(UserMixin, db.Model):
     # -- RBAC helpers (legacy-aware)
     @property
     def norm_role(self) -> str:
-        return {"user": "site_engineer"}.get(self.role, self.role)
+        """This user's role, normalised.
+
+        Delegates to :func:`normalise_role` rather than keeping a second
+        opinion. It used to map the legacy alias and pass anything else
+        through, which meant ``is_admin`` and the route decorators could
+        disagree about what a mistyped role was - the decorators coerced to
+        site_engineer, this passed "typo" straight on.
+        """
+        return normalise_role(self.role)
 
     @property
     def is_admin(self) -> bool:

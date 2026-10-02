@@ -577,8 +577,12 @@ class Attachment(db.Model):
 # ---------------------------------------------------------------- feedback
 def comment_party(role: str) -> str:
     """Map an author role onto the dual-party feedback side."""
-    role = {"user": "site_engineer"}.get(role or "", role or "")
-    return "consultant" if role in SUPERVISION_ROLES else "contractor"
+    from app.models import normalise_role
+    # One normaliser. This carried its own copy of the legacy-alias map, so the
+    # same author could be filed as the consultant side here and the contractor
+    # side by a caller that read the role a different way.
+    return "consultant" if normalise_role(role) in SUPERVISION_ROLES \
+        else "contractor"
 
 
 class OpsRecordComment(db.Model):

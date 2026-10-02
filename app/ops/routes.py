@@ -51,6 +51,11 @@ from app.services.reference_data import (
 
 log = logging.getLogger(__name__)
 
+#: How many serial numbers to try before giving up. Five absorbs the ordinary
+#: case of a handful of concurrent writers; a genuine serial storm should
+#: surface as an error rather than spin.
+SERIAL_ALLOCATION_ATTEMPTS = 5
+
 KIND_MODEL = {
     "site-inspections": M.SiteInspection,
     "material-submittals": M.MaterialSubmittal,
@@ -642,6 +647,37 @@ def listing(kind):
     return jsonify({"results": [_serialize(kind, r) for r in q.all()]})
 
 
+def _commit_with_serial(obj, kind, model):
+    """Insert `obj`, resolving the serial-collision race. True when committed.
+
+    `next_serial` derives the number from max(id)+1, so two concurrent inserts
+    can pick the same one and the UNIQUE constraint rejects the loser. Its own
+    docstring says callers must retry the whole insert with an increasing
+    offset; this is that loop, in one place.
+
+    It was written once inline in this JSON endpoint - five attempts - and the
+    HTML `ui_new` form did not retry at all. A collision the API absorbed five
+    times failed the form on the first, and was reported as "duplicate record",
+    which is a different fact: the record was never a duplicate, two writers
+    just wanted the same number.
+
+    Returns False after exhausting the attempts, with the session rolled back.
+    """
+    _m, prefix, _a, _e = M.OPS_MODULES[kind]
+    for attempt in range(SERIAL_ALLOCATION_ATTEMPTS):
+        # Called through the module-level name rather than M.next_serial, so
+        # that this stays the one place the collision handling lives and tests
+        # can substitute an allocation strategy at a single point.
+        obj.serial = next_serial(prefix, model, offset=attempt)
+        db.session.add(obj)
+        try:
+            db.session.commit()
+            return True
+        except IntegrityError:
+            db.session.rollback()
+    return False
+
+
 @bp.route("/<kind>", methods=["POST"])
 @login_required
 @permission_required("create_reports")
@@ -657,18 +693,7 @@ def create(kind):
     cleaned.pop("project_id", None)  # set explicitly below (no dup kwargs)
     record = model(project_id=project.id, user_id=current_user.id,
                    signatory_name=current_user.full_name, **cleaned)
-    _m, prefix, _a, _e = M.OPS_MODULES[kind]
-    committed = False
-    for attempt in range(5):  # serial race retry under UNIQUE constraint
-        record.serial = M.next_serial(prefix, model, offset=attempt)
-        db.session.add(record)
-        try:
-            db.session.commit()
-            committed = True
-            break
-        except IntegrityError:
-            db.session.rollback()
-    if not committed:
+    if not _commit_with_serial(record, kind, model):
         return jsonify({"error": "could not allocate serial"}), 409
     return jsonify(_serialize(kind, record)), 201
 
@@ -920,14 +945,13 @@ def ui_new(kind):
         obj = model(**{k: v for k, v in cleaned.items() if hasattr(model, k)})
         obj.signatory_name = current_user.full_name
         obj.user_id = current_user.id
-        obj.serial = next_serial(M.OPS_MODULES[kind][1], model)
-        db.session.add(obj)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
+        if not _commit_with_serial(obj, kind, model):
+            # Not "a duplicate": every attempt collided on the serial number,
+            # which is what the offset is for. Saying "duplicate" sent the user
+            # looking for a record that was never created.
             from flask import flash as _fl2
-            _fl2("تعذر الحفظ — سجل مكرر.", "danger")
+            _fl2("تعذر الحفظ — تعذّر حجز رقم تسلسلي فريد. حاول مرة أخرى.",
+                 "danger")
             return render_template("ops/form.html", kind=kind, kind_title=OPS_UI_TITLES.get(kind, kind), schema=schema, enum_labels=enum_labels(kind), projects=projects, form_data=data, mode="new",
                                    fields=ui_fields(kind, model), flabel=flabel, long_text_fields=LONG_TEXT_FIELDS)
         from flask import flash as _fl3, redirect, url_for

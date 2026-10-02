@@ -8,28 +8,30 @@ from functools import wraps
 from flask import flash, jsonify, redirect, request, url_for
 from flask_login import current_user
 
+# Legacy aliases still stored in old rows. Re-exported from app.models, which
+# owns the definition; keeping a second copy here is what let the gate
+# decorators and the User properties drift apart.
+from app.models import LEGACY_ROLE_MAP  # noqa: F401  (re-export)
+
 # Role hierarchy (low -> high privilege)
 ROLE_ORDER = ["site_engineer", "safety_officer", "procurement_officer",
               "qa_qc_inspector", "senior_consultant", "project_manager",
               "project_director", "admin", "superadmin"]
-# Legacy aliases still stored in old rows
-LEGACY_ROLE_MAP = {"user": "site_engineer"}
-
 MANAGER_ROLES = {"admin", "superadmin", "project_manager", "project_director"}
 TEMPLATE_MANAGER_ROLES = {"admin", "superadmin"}
 USER_MANAGER_ROLES = {"admin", "superadmin"}
 
 
 def norm_role(role: str) -> str:
-    role = role or "site_engineer"
-    # Legacy aliases
-    if role in LEGACY_ROLE_MAP:
-        return LEGACY_ROLE_MAP[role]
-    # Valid roles
-    valid_roles = {"superadmin", "admin", "project_manager", "project_director",
-                   "qa_qc_inspector", "senior_consultant", "procurement_officer",
-                   "safety_officer", "site_engineer"}
-    return role if role in valid_roles else "site_engineer"
+    """Normalise a role for a gate decision.
+
+    Delegates to `app.models.normalise_role`, which is the single definition.
+    This had its own copy with its own hard-coded role list and its own idea of
+    what an unknown role means, which is how the gate decorators and the User
+    properties came to disagree about the same user.
+    """
+    from app.models import normalise_role
+    return normalise_role(role)
 
 
 #: URL prefixes served as machine-readable JSON APIs (denials are 401/403,

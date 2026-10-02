@@ -74,7 +74,7 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
 
 FLASH_SAVED = ("success", "تم الحفظ بنجاح.")
 FLASH_UPDATED = ("success", "تم التحديث.")
-FLASH_DUPLICATE = ("danger", "تعذر الحفظ — سجل مكرر.")
+FLASH_DUPLICATE = ("danger", "تعذر الحفظ — تعذّر حجز رقم تسلسلي فريد. حاول مرة أخرى.")
 FLASH_EMPTY_COMMENT = ("danger", "لا يمكن إضافة تعليق فارغ.")
 
 #: base.html renders each flash as ``<div role="alert" class="... bg-<tone>-50">
@@ -692,19 +692,62 @@ class TestUiNew:
 
     def test_a_duplicate_serial_is_reported_without_writing(
             self, app, client, monkeypatch):
+        """An unresolvable collision fails the form and writes nothing.
+
+        The allocation is stubbed to return the same serial every time, which
+        is the worst case: all five attempts collide. The form must say so and
+        leave the table alone.
+
+        The message is about the serial, not a duplicate record. Nothing was a
+        duplicate - two writers wanted the same number - and telling the user
+        otherwise sent them looking for a record that was never created. It
+        also said "duplicate" for the one case the form never handled at all:
+        this path used to make a single attempt, so any collision failed
+        immediately while the JSON API absorbed five.
+        """
         from app.ops import routes
         alpha = _project(app, "Alpha Tower")
         _login(client, "t_eng")
-        monkeypatch.setattr(routes, "next_serial",
-                            lambda *a, **k: "RFI-000001")
+        attempts = []
+
+        def _always_the_same(*a, **k):
+            attempts.append(k.get("offset"))
+            return "RFI-000001"
+
+        monkeypatch.setattr(routes, "next_serial", _always_the_same)
         r = client.post("/ops/ui/rfis/new", data={
             "project_id": str(alpha), "subject": "تكرار",
             "question": "سؤال"})
         assert r.status_code == 200
         assert _flashes(client, r) == [FLASH_DUPLICATE]
+        # The retry actually happened, rather than the stub simply being
+        # consulted once and the form giving up.
+        assert attempts == list(range(routes.SERIAL_ALLOCATION_ATTEMPTS)), attempts
         assert _count(app, "RFI") == 1
         assert _count(app, "RFI", subject="تكرار") == 0
         assert "إنشاء طلبات الاستفسار" in r.get_data(as_text=True)
+
+    def test_the_form_and_the_api_allocate_serials_the_same_way(self, app,
+                                                                client,
+                                                                monkeypatch):
+        """Both paths go through one helper, so neither can forget to retry.
+
+        The JSON create endpoint and the HTML form used to be separate
+        implementations of the same rule: five attempts and one attempt. The
+        form now calls the same function, and this asserts the single call
+        site rather than the behaviour of either route.
+        """
+        import inspect
+
+        from app.ops import routes
+        source = inspect.getsource(routes.ui_new) + inspect.getsource(routes.create)
+        assert "_commit_with_serial(" in source
+        # and no path re-implements the loop inline
+        full = inspect.getsource(routes)
+        loops = full.count("range(SERIAL_ALLOCATION_ATTEMPTS)")
+        assert loops == 1, (
+            f"the serial retry loop exists in {loops} places; there should be "
+            "one, and both endpoints should call it")
 
     def test_new_post_cannot_write_into_another_tenant(self, app, eng_client):
         """Security invariant only — see DEFECT 1 in the module docstring.

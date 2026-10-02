@@ -17,8 +17,16 @@ from app.models import MANAGER_ROLES
 
 
 def _norm_role(user) -> str:
-    return {"user": "site_engineer"}.get(getattr(user, "role", ""),
-                                         getattr(user, "role", "") or "")
+    """The user's normalised role. Delegates to the single definition.
+
+    It used to apply only the legacy alias and pass anything else through
+    unchanged, which meant `is_platform_manager` and the route decorators could
+    read the same user as two different roles. An unknown role now resolves to
+    site_engineer everywhere - fail-closed, and the outcome for a mistyped role
+    is unchanged because neither reading granted anything.
+    """
+    from app.models import normalise_role
+    return normalise_role(getattr(user, "role", ""))
 
 
 def is_platform_manager(user) -> bool:

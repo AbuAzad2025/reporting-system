@@ -53,12 +53,20 @@ def test_profile_update_extended_fields(eng_client):
 
 
 def test_avatar_upload_and_remove(eng_client, app):
-    """Avatar upload stores file and can be removed."""
+    """Avatar upload stores file and can be removed.
+
+    The bytes here are a real JPEG header. It used to be the literal
+    ``b"fake-jpg-data"`` named ``test.jpg``, which passed only because the
+    upload path never looked at the content - it trusted the client's
+    Content-Type. Any byte string named .jpg was accepted, which is the hole
+    that let a declared JPEG store an HTML page.
+    """
     login_as(eng_client, "t_eng")
     # Upload with required fields
     data = {
-        "avatar": (io.BytesIO(b"fake-jpg-data"), "test.jpg"),
-        "full_name": "أحمد محمد علي حسن",
+        "avatar": (io.BytesIO(b"\xff\xd8\xff\xe0" + b"jpeg-bytes" * 8),
+                   "test.jpg"),
+        "full_name": "محمد أحمد علي حسن",
     }
     r = eng_client.post("/profile", data=data, content_type="multipart/form-data")
     assert r.status_code in (200, 302)
@@ -66,6 +74,7 @@ def test_avatar_upload_and_remove(eng_client, app):
         u = User.query.filter_by(username="t_eng").first()
         assert u.avatar != ""
         assert u.avatar.startswith("avatars/")
+        assert u.avatar.endswith(".jpg")
     # Remove
     r = eng_client.post("/profile/avatar/remove", follow_redirects=True)
     assert r.status_code == 200
