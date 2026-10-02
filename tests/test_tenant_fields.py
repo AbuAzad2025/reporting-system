@@ -197,6 +197,50 @@ class TestTenantFieldMirrorsDynamicField:
                     assert res.sub_columns() == plat.sub_columns()
 
 
+class TestBranchesTheFormDoesNotReach:
+    """The paths a dropdown on the admin form cannot produce.
+
+    The admin POST splits a comma-separated string, so `options` arrives as a
+    list of plain strings and `placeholder`/`rules` arrive as text. The lines
+    below are only reachable from a row written by hand or by a version that
+    validated less - which is exactly when they matter, because that is the
+    input that is not shaped like the form.
+    """
+
+    def test_a_dict_shaped_option_is_unwrapped_to_its_value(self, app):
+        field = TenantField(field_key="k", label_ar="k", field_type="dropdown",
+                            options=[{"value": "أ", "label": "أول"},
+                                     {"label": "ثانٍ"}])
+        assert field.options_list() == ["أ", "ثانٍ"]
+
+    def test_options_that_are_not_a_list_are_dropped(self, app):
+        with app.app_context():
+            out = sanitise_added_fields(
+                [{"key": "k", "type": "dropdown", "options": "not a list"}])
+            assert out[0]["options"] == []
+
+    def test_placeholder_and_rules_survive_a_stored_config(self, app):
+        cfg = sanitise_config({"k": {"placeholder": "اكتب هنا",
+                                      "rules": {"min": 1, "max": 9}}})
+        assert cfg["k"]["placeholder"] == "اكتب هنا"
+        assert cfg["k"]["rules"] == {"min": 1, "max": 9}
+
+    def test_a_blank_option_value_is_not_offered(self, app):
+        field = TenantField(field_key="k", label_ar="k",
+                            options=["", None, "ب"])
+        assert field.options_list() == ["ب"]
+
+    def test_the_repr_names_the_field(self, app):
+        assert repr(TenantField(field_key="k", label_ar="k",
+                                field_type="number")) == \
+            "<TenantField k:number>"
+
+    def test_a_company_added_field_has_no_database_identity(self, app):
+        custom = TenantField(field_key="k", label_ar="k", is_custom=True)
+        assert custom.id is None and custom.template_id is None
+        assert custom.position == 0
+
+
 class TestResolveFields:
     def test_without_a_project_the_platform_template_is_untouched(self, app):
         with app.app_context():
