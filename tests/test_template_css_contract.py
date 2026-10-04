@@ -224,7 +224,6 @@ def test_no_form_is_nested_inside_another():
     so this counts depth rather than counting forms.
     """
     opener = re.compile(r"<form\b[^>]*>", re.I)
-    closer = re.compile(r"</form\s*>", re.I)
 
     offenders = []
     for path in sorted(pathlib.Path(TEMPLATES_DIR).rglob("*.html")):
@@ -258,6 +257,41 @@ def test_no_form_is_nested_inside_another():
     assert not offenders, (
         "a nested or unclosed form, which a browser silently restructures:\n  "
         + "\n  ".join(offenders))
+
+
+def test_no_test_function_is_defined_twice():
+    """A repeated test name does not fail - it deletes a test.
+
+    Two functions in test_bootstrap_failures.py were both called
+    `test_an_uncreatable_database_directory_is_reported` and both were valid:
+    one asserted it about UPLOAD_FOLDER, the other about the SQLite file's own
+    directory. The second definition replaced the first at import time, so the
+    upload-folder case silently stopped running. Nothing failed. The suite was
+    green and one assertion short, which is the worst way for a suite to be
+    wrong.
+
+    Only module-level functions are checked, and only within one file, which is
+    the scope in which the shadowing happens. Parameterised tests legitimately
+    repeat a name across files, and a helper deliberately redefined inside a
+    function body is not this.
+    """
+    import ast
+
+    duplicates = []
+    for path in sorted(pathlib.Path("tests").rglob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        seen: dict[str, int] = {}
+        for node in tree.body:  # module level only
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    and node.name.startswith("test_"):
+                seen[node.name] = seen.get(node.name, 0) + 1
+        for name, count in sorted(seen.items()):
+            if count > 1:
+                duplicates.append(f"{path}: {name} defined {count} times")
+
+    assert not duplicates, (
+        "a test defined twice is one test that never runs:\n  "
+        + "\n  ".join(duplicates))
 
 
 CSS_VAR_REF = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])")

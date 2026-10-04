@@ -34,7 +34,15 @@ def test_a_failing_storage_import_is_reported_not_fatal(app, monkeypatch):
     assert "checked" in result and "created" in result
 
 
-def test_an_uncreatable_database_directory_is_reported(app, tmp_path):
+def test_an_uncreatable_upload_directory_is_reported(app, tmp_path):
+    """UPLOAD_FOLDER is one of the paths ensure_directories provisions.
+
+    Named for what it covers: a second test further down asserts the same
+    behaviour for the SQLite file's own directory, and for a while the two
+    shared a name. Python does not complain about that - the second definition
+    simply replaces the first, so the upload-folder case was not being run at
+    all and the suite still passed.
+    """
     blocker = tmp_path / "blocker"
     blocker.write_text("not a directory", encoding="utf-8")
     app.config["UPLOAD_FOLDER"] = str(blocker / "nested")
