@@ -23,15 +23,30 @@
 .rf {
   display: grid;
   gap: var(--space-5);
-  padding-bottom: var(--space-16);
+  /* Clears the pinned save bar. The bar is roughly 7rem tall once its note,
+     button and padding are counted, and --space-16 (4rem) left the last
+     section's row of inputs underneath it - the same complaint as a header
+     that covers the top, at the other end of the page. */
+  padding-bottom: 11rem;
 }
 
 /* ------------------------------------------------------------- top summary */
 
+/* ----------------------------------------------------------------- top
+   The progress meter and the contents list. Deliberately NOT sticky.
+
+   It was, at `top: var(--header-h)` - the same offset the navigation uses -
+   which was two mistakes at once. It covered the navigation outright, because
+   two sticky elements at the same offset stack in DOM order and this one comes
+   second. And a block holding a completion meter plus an index of every
+   section is tall; pinned to the top of the viewport it covered a large part
+   of the report permanently, so the section a contents link scrolled to was
+   itself hidden. Pinned chrome that hides the thing it navigates to is worse
+   than no pinned chrome.
+
+   The persistent element on this page is the save bar at the bottom. This
+   scrolls away, which is what a reader expects of a summary. */
 .rf-top {
-  position: sticky;
-  top: var(--header-h);
-  z-index: calc(var(--z-sticky) - 1);
   display: grid;
   gap: var(--space-4);
   padding: var(--space-4);
@@ -476,11 +491,10 @@
   color: var(--amber-800);
 }
 
-/* On a phone the sticky summary would eat a third of the screen, and the
-   completion meter is the one part that can be read at a glance. */
+/* On a phone the save bar sits flush to the bottom edge, and the contents list
+   wraps onto many rows. The bar is the only pinned thing left, deliberately. */
 @media (max-width: 47.99rem) {
-  .rf-top { position: static; }
   .rf-toc-list { grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
   .rf-toc-text { white-space: normal; }
-  .rf-actions { bottom: 0; }
+  .rf-actions { bottom: 0; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
 }

@@ -12,6 +12,21 @@
       <input aria-label="العميل" name="client" placeholder="المالك" class="form-control flex-1">
       <button class="bg-teal2 text-white font-extrabold px-5 rounded-xl" aria-label="إضافة مشروع جديد">➕</button>
     </div>
+    {# These three are printed at the top of every report as the project-data
+       table. They were columns on the model with nothing to write them, so
+       every one of those rows came out as a dash. #}
+    <div class="sm:col-span-2">
+      <label class="text-[11px] font-bold text-slate-600" for="f-contract_no">رمز العقد / المناقصة <span class="font-normal text-slate-400">يظهر في جدول بيانات المشروع بالـ PDF</span></label>
+      <input id="f-contract_no" name="contract_no" placeholder="مثال: MOF/WB/2026/021-CTD" class="form-control w-full" dir="ltr">
+    </div>
+    <div>
+      <label class="text-[11px] font-bold text-slate-600" for="f-funding_source">جهة التمويل</label>
+      <input id="f-funding_source" name="funding_source" placeholder="مثال: البنك الدولي" class="form-control w-full">
+    </div>
+    <div>
+      <label class="text-[11px] font-bold text-slate-600" for="f-consultant">الجهة المشرفة</label>
+      <input id="f-consultant" name="consultant" placeholder="مثال: وزارة الاشغال العامة والإسكان" class="form-control w-full">
+    </div>
     <div class="sm:col-span-2">
       <label class="text-[11px] font-bold text-slate-600" for="f-logo">شعار المشروع (يظهر في هيدر PDF) <span class="font-normal text-slate-400">PNG/JPG ≤5MB</span></label>
       <input id="f-logo" type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="form-control w-full">

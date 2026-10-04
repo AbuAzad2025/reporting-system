@@ -34,6 +34,24 @@
      value is what has to move - up to the 1100 scale - and the nav with it. */
   --z-sticky: 30;
   --z-fixed: 40;
+
+  /* Everything that stays pinned to the top of the viewport, summed: the
+     sticky header and the sticky navigation below it.
+
+     Two things need this number and neither could work without it. A fragment
+     link scrolls its target to the very top of the viewport, which is behind
+     the header - so `#rf-sec-12` arrived with its own heading hidden under 60px
+     of chrome and there was no way to tell which section you had landed on.
+     scroll-padding-top on the scroll container fixes that for every anchor on
+     every page at once, rather than one section at a time. */
+  --chrome-h: calc(var(--header-h) + var(--nav-h));
+}
+
+/* Applies to fragment navigation and to scrollIntoView, so an in-page link
+   lands below the pinned header instead of behind it. The breathing room is one
+   gap so the target is not flush against the chrome. */
+html {
+  scroll-padding-top: calc(var(--chrome-h) + var(--space-4));
 }
 
 html { scroll-behavior: smooth; }

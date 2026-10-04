@@ -151,6 +151,34 @@ LIGHT = colors.HexColor("#eef3f7")
 GREY = colors.HexColor("#5b6b7c")
 GOLD = colors.HexColor("#c9a227")
 
+# ---- printed-document palette
+#
+# The brand palette above is for the application chrome. A report is a
+# different artefact with a different constraint: it is printed, in quantity,
+# mostly in mono, and a solid navy band across every section heading is a large
+# amount of ink to say nothing. The site's own approved daily-report conventions
+# settle this — headings and column titles in a deep blue on a very pale tint,
+# never a dark fill — so the printed documents use these two instead.
+#
+# DOC_TEXT on DOC_TINT is also a contrast fix rather than only an economy one:
+# white on navy measured about 4.6:1, which is fine, but the same text on the
+# pale tint measures far better and survives a mono printer, where a dark band
+# becomes a black smear over the column titles.
+DOC_TEXT = colors.HexColor("#1F4E79")   # headings, column titles
+DOC_TINT = colors.HexColor("#E9F0F8")   # their background
+DOC_RULE = colors.HexColor("#b9c6d2")   # cell borders, unchanged
+
+#: Page geometry, in millimetres. 8mm on three sides matches the approved
+#: document; the bottom is deeper because this renderer prints the page number
+#: in the footer area, which a 8mm bottom margin would sit inside.
+PAGE_MARGIN = 8 * mm
+PAGE_MARGIN_BOTTOM = 13 * mm
+
+#: Width available between the margins, i.e. the A4 measure every table is
+#: fitted to. The approved document sets its tables at 18.5cm, which is this
+#: figure rounded down to a clean 185mm.
+CONTENT_W = 185 * mm
+
 #: AZAD Intelligent Systems corporate identity for all documents.
 BRAND_AR = "شركة أزاد للأنظمة الذكية"
 BRAND_EN = "AZAD Intelligent Systems"
@@ -218,9 +246,9 @@ def _styles():
         "subtitle": ParagraphStyle("subtitle", fontName=FONT_NORMAL, fontSize=11,
                                    textColor=GREY, alignment=1, leading=16),
         "h2": ParagraphStyle("h2", fontName=FONT_BOLD, fontSize=13,
-                             textColor=colors.white, alignment=2, leading=18),
+                             textColor=DOC_TEXT, alignment=2, leading=18),
         "cell_h": ParagraphStyle("cell_h", fontName=FONT_BOLD, fontSize=10,
-                                 textColor=NAVY, alignment=2, leading=15),
+                                 textColor=DOC_TEXT, alignment=2, leading=15),
         "cell": ParagraphStyle("cell", **base_kwargs),
         "cell_small": ParagraphStyle("cell_small", fontName=FONT_NORMAL,
                                      fontSize=9, textColor=colors.black,
@@ -296,15 +324,73 @@ def _info_table(report, st):
 
 
 def _section_title(text_ar, st):
-    t = Table([[Paragraph(ar(text_ar), st["h2"])]], colWidths=[190 * mm])
+    """A section heading: deep blue on a pale tint, ruled underneath.
+
+    It was a solid navy band with white text. On paper that is a full-width
+    dark rectangle above every single section - on a daily report, seventeen of
+    them - and the approved document explicitly avoids dark fills to save ink.
+    The tint carries the same separation at a fraction of the toner.
+    """
+    t = Table([[Paragraph(ar(text_ar), st["h2"])]], colWidths=[CONTENT_W])
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), NAVY),
+        ("BACKGROUND", (0, 0), (-1, -1), DOC_TINT),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.8, DOC_TEXT),
         ("TOPPADDING", (0, 0), (-1, -1), 6),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("ROUNDEDCORNERS", [4, 4, 4, 4]),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
     ]))
     return t
+
+
+def fit_column_widths(labels, total=None, min_col=22 * mm, max_col=None):
+    """Column widths that always sum to the printable measure.
+
+    The renderer used one expression for every table - ``max(150/n, 25)`` per
+    column - which is fine up to six columns and then quietly wrong: the floor
+    of 25mm takes over and a nine-column table comes to 225mm on a page with
+    190mm between the margins. ReportLab does not clip it, so the last columns
+    run off the paper and the reader loses them.
+
+    This divides the available width in proportion to how much text each column
+    label carries, then clamps: a label-heavy column gets more room than a
+    one-word one, but every column keeps at least ``min_col`` so a checkbox
+    column does not collapse to nothing, and the total is corrected to the
+    measure afterwards so rounding cannot push the table over the edge.
+    """
+    total = CONTENT_W if total is None else total
+    n = len(labels)
+    if n == 0:
+        return []
+    if n == 1:
+        return [total]
+
+    # Width of the Arabic text in the label is the best cheap proxy for how
+    # much content the column will hold.
+    weights = []
+    for label in labels:
+        text = str(label or "")
+        weights.append(max(6, min(len(text), 34)))
+    scale = sum(weights)
+
+    floor = min(min_col, total / n)
+    widths = [max(total * w / scale, floor) for w in weights]
+
+    # Clamping can overshoot; take the excess from the widest columns first.
+    excess = sum(widths) - total
+    while excess > 0.5:
+        widest = widths.index(max(widths))
+        take = min(excess, widths[widest] - floor)
+        widths[widest] -= take
+        excess -= take
+        if take == 0:
+            break
+    # Any shortfall (every column at the floor) is shared out evenly.
+    shortfall = total - sum(widths)
+    if shortfall > 0.5:
+        for i in range(n):
+            widths[i] += shortfall / n
+    return widths
 
 
 def _kv_table(items, st):

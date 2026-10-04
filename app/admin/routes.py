@@ -490,10 +490,20 @@ def projects():
             # above would have raised before reaching the ALTER. It also meant an
             # implicit commit in the middle of a request. Schema changes belong
             # in a migration; the baseline covers this case.
+            # contract_no / funding_source / consultant are declared on the
+            # model and created by the baseline migration, so wiring them here
+            # needs no schema change. They were unreachable before: the columns
+            # existed, nothing wrote to them, and the printed report's
+            # "project data" table therefore fell back to a dash on every row
+            # that matters - the contract number, the funding source and the
+            # supervising party are the three a reader checks first.
             proj = Project(
                 name=name, location=request.form.get("location", "").strip(),
                 contractor=request.form.get("contractor", "").strip(),
-                client=request.form.get("client", "").strip())
+                client=request.form.get("client", "").strip(),
+                contract_no=request.form.get("contract_no", "").strip(),
+                funding_source=request.form.get("funding_source", "").strip(),
+                consultant=request.form.get("consultant", "").strip())
             for field_name, attr in (("logo", "logo_path"),
                                      ("logo2", "logo2_path")):
                 upload = request.files.get(field_name)
