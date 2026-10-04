@@ -29,10 +29,15 @@
       <div class="mt-2 flex items-center gap-4">
         <input id="f-avatar" type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" class="form-control w-full max-w-xs">
         {% if current_user.avatar %}
-        <form method="POST" action="{{ url_for('main.remove_avatar') }}" class="inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="text-sm text-red-600 hover:underline" data-confirm="حذف الصورة؟">حذف الصورة الحالية</button>
-        </form>
+        {# This used to be its own <form> nested inside the profile form, which
+           is not valid HTML and does not do what it looks like it does: a
+           browser cannot nest a form, so it hoists the inner one out and the
+           button ends up submitting the *profile* form - uploading whatever
+           was in the file box and saving the fields instead of deleting the
+           picture. The form now lives beside the profile form and the button
+           claims it with the form attribute. #}
+        <button type="submit" form="removeAvatarForm"
+                class="text-sm text-red-600 hover:underline" data-confirm="حذف الصورة؟">حذف الصورة الحالية</button>
         {% endif %}
       </div>
       <img id="avatarPreview" class="mt-3 hidden w-20 h-20 rounded-xl object-cover border">
@@ -93,6 +98,14 @@
 
     {{ submit_btn('💾 حفظ التعديلات', 'w-full') }}
   </form>
+
+  {# A sibling of the profile form, never inside it. Declared after it and
+     claimed by the button above through form="removeAvatarForm". #}
+  {% if current_user.avatar %}
+  <form method="POST" action="{{ url_for('main.remove_avatar') }}" id="removeAvatarForm" class="hidden">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  {% endif %}
 </div>
 {% endblock %}
 

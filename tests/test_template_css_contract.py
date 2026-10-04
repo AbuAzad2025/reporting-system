@@ -207,6 +207,59 @@ def test_the_content_security_policy_has_no_escape_hatch():
         "the policy is computed but never attached to a response")
 
 
+def test_no_form_is_nested_inside_another():
+    """A nested form does not do what it looks like it does.
+
+    profile.html had the remove-avatar form inside the profile form. HTML does
+    not allow it, and the browser's recovery is to hoist the inner form out of
+    the outer one - so the "delete picture" button submitted the *profile* form:
+    it uploaded whatever sat in the file box and saved the fields, and the
+    picture was never deleted. Nothing failed. The route was never reached, so
+    no test of the route could have caught it, and the page rendered correctly
+    with the button in the right place.
+
+    Nesting is invisible in a rendered screenshot and in a status code, which
+    is why it needs a structural check. Two forms on one page are fine - the
+    fixed markup has two, as siblings, joined by the button's form attribute -
+    so this counts depth rather than counting forms.
+    """
+    opener = re.compile(r"<form\b[^>]*>", re.I)
+    closer = re.compile(r"</form\s*>", re.I)
+
+    offenders = []
+    for path in sorted(pathlib.Path(TEMPLATES_DIR).rglob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        # Jinja can hide a tag inside an {% if %}, and the explanatory comments
+        # in this codebase quote markup verbatim - one of them contains a
+        # literal "<form>" while describing the very bug this checks for.
+        # Neither is rendered, so both are stripped before counting: a form in
+        # a comment is not a form on the page, and counting it would make the
+        # check fire on the comment describing the fix.
+        text = re.sub(r"\{#.*?#\}", " ", text, flags=re.S)
+        text = re.sub(r"\{%.*?%\}", " ", text, flags=re.S)
+        depth = 0
+        opened_at = 0
+        for match in re.finditer(r"<form\b[^>]*>|</form\s*>", text, re.I):
+            if opener.match(match.group(0)):
+                depth += 1
+                if depth == 1:
+                    opened_at = text[:match.start()].count("\n") + 1
+                elif depth == 2:
+                    line = text[:match.start()].count("\n") + 1
+                    offenders.append(
+                        f"{path.relative_to(TEMPLATES_DIR)}:{line} "
+                        f"form opened at line {opened_at} was never closed")
+            else:
+                depth -= 1
+        if depth > 0:
+            offenders.append(
+                f"{path.relative_to(TEMPLATES_DIR)}: {depth} form(s) never closed")
+
+    assert not offenders, (
+        "a nested or unclosed form, which a browser silently restructures:\n  "
+        + "\n  ".join(offenders))
+
+
 CSS_VAR_REF = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])")
 CSS_VAR_DECL = re.compile(r"(?m)(^|[;{\s])(--[A-Za-z0-9_-]+)\s*:")
 
