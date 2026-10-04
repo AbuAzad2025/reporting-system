@@ -102,8 +102,20 @@
      refactor. */
   --focus-ring: 0 0 0 3px rgba(14, 124, 123, 0.25);
 
-  /* Teal at 90% - the hover tint on a teal action. */
-  --teal-90: var(--teal-90);
+  /* Teal at 90% - the hover tint on a teal action.
+
+     This was `--teal-90: var(--teal-90)`, a custom property defined in terms of
+     itself. That is not a neutral no-op: a cyclic var() makes the declaration
+     invalid at computed-value time, so every property that read it computed to
+     `unset` - a background became transparent and a colour became inherited.
+     Two utilities read it, .bg-teal2\/90 and .hover\:bg-teal2\/90:hover, so
+     hovering a teal button did nothing at all and looked identical to the
+     un-hovered state.
+
+     The literal is teal over a light surface: the 90% mix reads as a tint on
+     white, and the dark-theme block below re-points it so the hover still
+     reads on a dark surface. */
+  --teal-90: #e6f2f2;
   
   /* Transitions */
   --transition-fast: 150ms ease;
@@ -137,6 +149,10 @@
   --teal: #2f9e9d;
   --teal-light: #50b7b6;
   --teal-dark: #0e7c7b;
+  /* The hover tint has to follow the theme, not just exist. #e6f2f2 is a pale
+     wash for a light surface; on a dark one it is brighter than the button it
+     sits on, so the hover reads as a flash rather than a tint. */
+  --teal-90: #164a4a;
   
   --gold: #d8b540;
   --gold-light: #e4c25d;

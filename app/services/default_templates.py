@@ -606,6 +606,18 @@ def default_fields_for(template_key):
     if template_key == "daily":
         # daily uses ONLY the ESHS model (the legacy FIELD_SPECS duplicated the
         # weather and manpower sections)
+        # The covered period and the shift. These were two facts the printed
+        # report's header table needed and the form never asked for, so the
+        # renderer had to invent one of them - "يوم واحد – <date>" - and had
+        # nowhere to get the other. The approved document carries both:
+        # "يوم واحد – 1/10/2026 – وردية النهار". They are optional because a
+        # report with no shift is still a valid report; when the shift is left
+        # blank the header falls back to the date alone.
+        out.append(_spec_to_field("report_period_label", "الفترة المشمولة بالتقرير", "text", False,
+                                  [], None))
+        out.append(_spec_to_field("shift_name", "الوردية", "dropdown", False,
+                                  ["وردية النهار", "وردية مسائية", "وردية ليلية", "وردية كاملة"],
+                                  None))
         # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
         out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False,
                                   [], (_example(template_key, "eshs_desc_81") or None)))

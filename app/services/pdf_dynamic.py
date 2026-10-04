@@ -19,6 +19,7 @@ from reportlab.lib.styles import ParagraphStyle
 import io
 import logging
 import os
+import re
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +28,37 @@ log = logging.getLogger(__name__)
 #: signature table share one page. Beyond that the report grows a page of
 #: photographs, which is the cost the cap exists to avoid.
 MAX_REPORT_PHOTOS = 7
+
+#: Matches a hand-written section number at the start of a field label:
+#: "1. حالة الطقس" -> "1.", "4.ب اعتماد" -> "4.ب", "8.4 أ. التلوث" -> "8.4 أ."
+#:
+#: The optional Arabic letter is the ESHS sub-item designator, and the lookahead
+#: is what makes it safe. Without it the letter class swallows the first
+#: character of any ordinary word, so "8.3 سجل النفايات" lost its س and printed
+#: as "جل النفايات" - a section heading silently misspelled. A real
+#: sub-designator stands alone: it is followed by a space, a full stop, or
+#: nothing. A letter inside a word is followed by another letter.
+_LEADING_NUMBER = re.compile(
+    r"^\s*\d+(?:\.\d+)*\s*(?:[ء-ي](?=\s|\.|$)\.?)?\s*[.\-–—]?\s*")
+
+
+def section_heading(label: str, number: int) -> str:
+    """A section heading numbered from its position, not from its own text.
+
+    The field labels carry their numbers typed into the string - "8.4 أ. التلوث
+    الهوائي" - which means the numbering is only as good as the last person who
+    added a section, and it drifts the moment one is inserted. It also puts the
+    same information in two places: the label says 8.4 and the document order
+    says something else entirely.
+
+    The number is taken from the order the template declares, and the typed one
+    is stripped from the label. A label with no leading number ("إجراءات إدارة
+    النفايات") is left alone and simply gets the sequence number, which is the
+    point: nothing depends on a human having typed a number correctly.
+    """
+    clean = _LEADING_NUMBER.sub("", str(label or "")).strip()
+    clean = clean or str(label or "").strip()
+    return f"{number}. {clean}"
 
 
 def _resolve_upload_abs(key: str) -> str | None:
@@ -214,7 +246,14 @@ def build_dynamic_pdf(submission, template, generated_at: str = "",
 
         covered = payload.get("report_period_label") or ""
         if not covered and submission.report_date:
+            # Composed from the shift when there is one, so the header reads the
+            # way the approved document does: "يوم واحد – 1/10/2026 – وردية
+            # النهار". Without a shift it stays the date alone rather than
+            # claiming a shift nobody entered.
             covered = f"يوم واحد – {submission.report_date}"
+            shift = str(payload.get("shift_name") or "").strip()
+            if shift:
+                covered = f"{covered} – {shift}"
 
         proj_rows = [
             ("اسم المشروع", submission.project_name or _pget("name", "project_name")),
@@ -270,6 +309,7 @@ def build_dynamic_pdf(submission, template, generated_at: str = "",
     blocks = []  # ("kv", [(label, value), ...]) | ("table", label, cols, rows)
     gallery = []  # (abs image path, caption) for the photo gallery section
     _pending_kv = []
+    _section_no = 0
 
     def _flush_kv():
         if _pending_kv:
@@ -303,7 +343,9 @@ def build_dynamic_pdf(submission, template, generated_at: str = "",
                 # A table is a block of its own, so the scalars declared before
                 # it have to be flushed first or they would print after it.
                 _flush_kv()
-                blocks.append(("table", f.label_ar, cols, body_rows))
+                _section_no += 1
+                blocks.append(("table", section_heading(f.label_ar, _section_no),
+                               cols, body_rows))
             # An empty table is not printed at all. It used to print
             # «لا بنود مسجلة», which put a heading and a line on every page for
             # a section that does not apply: a reader could not tell "not
