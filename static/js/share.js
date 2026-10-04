@@ -239,8 +239,9 @@ export function openArchiveShareMenu(data, { serial, title, project }) {
 /**
  * Wire a single report's page (reports/view.html, reports/dyn_view.html).
  *
- * Registers the globals its inline onclick attributes call, with the zero-
- * argument shapes the buttons use.
+ * The controls carry `data-share`; one delegated listener on the document
+ * dispatches them, so the template states what a button does and this file says
+ * what that means.
  */
 export function initReportShare({ reportType, reportId }) {
   reportContext = { reportType, reportId };
@@ -255,49 +256,63 @@ export function initReportShare({ reportType, reportId }) {
     }
   };
 
-  window.toggleShareMenu = toggleShareMenu;
-  window.closeShareMenu = closeShareMenu;
+  // The buttons in the template carry `data-share` and nothing else. These used
+  // to be five globals reached from five onclick attributes, which is the one
+  // shape a Content-Security-Policy cannot permit without also permitting
+  // injected script: there is no way to allow an inline handler and nothing
+  // else. The archive page already dispatched from a data attribute, so this
+  // follows it rather than inventing a second convention.
+  const actions = {
+    menu: toggleShareMenu,
 
-  window.shareNative = async (url, serial, title, project) => {
-    if (url) {
-      await shareNativeWith({ url, serial, title, project });
-      return;
-    }
-    closeShareMenu();
-    const data = await payloadFor();
-    if (!data) return;
-    await shareNativeWith({
-      url: data.url,
-      serial: data.payload.serial,
-      title: data.payload.title,
-      project: data.payload.project,
-    });
+    native: async (url, serial, title, project) => {
+      if (url) {
+        await shareNativeWith({ url, serial, title, project });
+        return;
+      }
+      closeShareMenu();
+      const data = await payloadFor();
+      if (!data) return;
+      await shareNativeWith({
+        url: data.url,
+        serial: data.payload.serial,
+        title: data.payload.title,
+        project: data.payload.project,
+      });
+    },
+
+    whatsapp: async () => {
+      closeShareMenu();
+      const data = await payloadFor();
+      if (!data) return;
+      window.open(data.whatsapp_url, '_blank');
+    },
+
+    copy: async (url) => {
+      if (url) {
+        await copyToClipboard(url);
+        return;
+      }
+      closeShareMenu();
+      const data = await payloadFor();
+      if (!data) return;
+      await copyToClipboard(data.url);
+    },
+
+    email: async () => {
+      closeShareMenu();
+      const data = await payloadFor();
+      if (!data) return;
+      window.location.href = data.email_url;
+    },
   };
 
-  window.shareWhatsApp = async () => {
-    closeShareMenu();
-    const data = await payloadFor();
-    if (!data) return;
-    window.open(data.whatsapp_url, '_blank');
-  };
-
-  window.copyLink = async (url) => {
-    if (url) {
-      await copyToClipboard(url);
-      return;
-    }
-    closeShareMenu();
-    const data = await payloadFor();
-    if (!data) return;
-    await copyToClipboard(data.url);
-  };
-
-  window.shareEmail = async () => {
-    closeShareMenu();
-    const data = await payloadFor();
-    if (!data) return;
-    window.location.href = data.email_url;
-  };
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-share]');
+    if (!btn) return;
+    const action = actions[btn.dataset.share];
+    if (action) action();
+  });
 }
 
 /**
@@ -328,11 +343,4 @@ export function initArchiveShare() {
       pending.remove();
     }
   });
-
-  // The archive sheet calls these two by name from its own buttons.
-  window.shareNative = (url, serial, title, project) =>
-    shareNativeWith({ url, serial, title, project });
-  window.copyLink = copyToClipboard;
-  window.showToast = showToast;
-  window.fallbackShare = fallbackShare;
 }

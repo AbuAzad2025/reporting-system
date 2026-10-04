@@ -32,7 +32,7 @@
       </div>
     </div>
     {% if not t.is_system %}
-    <form method="POST" action="{{ url_for('admin.template_delete', template_id=t.id) }}" onsubmit="return confirm('حذف القالب نهائياً؟')" class="mt-2">
+    <form method="POST" action="{{ url_for('admin.template_delete', template_id=t.id) }}" data-confirm="حذف القالب نهائياً؟" class="mt-2">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="text-xs text-red-500 font-bold">🗑️ حذف القالب</button>
     </form>

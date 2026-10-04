@@ -260,49 +260,80 @@ describe('showToast', () => {
   });
 });
 
-describe('globals the templates call', () => {
-  it('initReportShare installs every name the report pages use in onclick', () => {
+/**
+ * The module must leave no globals behind.
+ *
+ * These functions used to be installed on `window` for the sake of five
+ * `onclick="shareWhatsApp()"` attributes per report page. An inline handler is
+ * the one shape a Content-Security-Policy cannot permit without also
+ * permitting injected script, so the application could not ship a policy
+ * without `'unsafe-inline'` in script-src - which is the thing the policy is
+ * for. The controls now carry `data-share` and one delegated listener
+ * dispatches them.
+ *
+ * Asserting the absence is the point. A global that nothing calls is dead
+ * weight; a global that something does call is the inline handler coming back,
+ * and this is what says so.
+ */
+describe('globals', () => {
+  const FORMER_GLOBALS = ['toggleShareMenu', 'closeShareMenu', 'shareNative',
+                          'shareWhatsApp', 'copyLink', 'shareEmail',
+                          'showToast', 'fallbackShare'];
+
+  it('initReportShare installs nothing on window', () => {
     globalThis.document = stubDocument();
     initReportShare({ reportType: 'dynamic', reportId: 7 });
 
-    for (const name of ['toggleShareMenu', 'closeShareMenu', 'shareNative',
-                        'shareWhatsApp', 'copyLink', 'shareEmail']) {
-      expect(typeof window[name], `${name} is called but not installed`).toBe('function');
+    for (const name of FORMER_GLOBALS) {
+      expect(window[name], `${name} is back on window`).toBeUndefined();
     }
   });
 
-  it('initArchiveShare installs the names the archive sheet calls', () => {
+  it('initArchiveShare installs nothing on window', () => {
     globalThis.document = stubDocument();
     initArchiveShare();
 
-    for (const name of ['shareNative', 'copyLink', 'showToast', 'fallbackShare']) {
-      expect(typeof window[name], `${name} is called but not installed`).toBe('function');
+    for (const name of FORMER_GLOBALS) {
+      expect(window[name], `${name} is back on window`).toBeUndefined();
     }
   });
 });
 
 describe('contract with the templates', () => {
-  /** Every bare identifier an inline onclick attribute calls. */
-  function calledGlobals(html) {
+  /** Every `data-share` action a share template names. */
+  function shareActions(html) {
     const names = new Set();
-    for (const match of html.matchAll(/onclick="([a-zA-Z_$][\w$]*)\s*\(/g)) {
+    for (const match of html.matchAll(/data-share="([^"]+)"/g)) {
       names.add(match[1]);
     }
     return names;
   }
 
-  it('every onclick target in a share template is installed by an init function', () => {
-    globalThis.document = stubDocument();
-    initReportShare({ reportType: 'legacy', reportId: 1 });
-    initArchiveShare();
+  /**
+   * The actions initReportShare dispatches. Duplicated here rather than
+   * exported on purpose: if it were exported, a typo in the template would be
+   * masked by the same typo in the module, and the two lists are exactly what
+   * has to disagree for this test to catch anything.
+   */
+  const KNOWN_ACTIONS = ['menu', 'native', 'whatsapp', 'copy', 'email'];
 
+  it('every data-share action in a share template is one the module handles', () => {
     for (const path of SHARE_TEMPLATES) {
-      for (const name of calledGlobals(readFileSync(path, 'utf8'))) {
-        // `window.open` and `this.closest` are not ours to install.
-        if (name === 'window' || name === 'this') continue;
-        expect(typeof window[name], `${path} calls ${name}(), nothing installs it`)
-          .toBe('function');
+      for (const action of shareActions(readFileSync(path, 'utf8'))) {
+        expect(KNOWN_ACTIONS, `${path} asks for data-share="${action}", which `
+          + 'initReportShare does not dispatch').toContain(action);
       }
+    }
+  });
+
+  it('the share controls carry no inline handler at all', () => {
+    // Belt and braces: the Python contract test bans on* attributes across
+    // every template, and this states it for the share pages specifically,
+    // where an inline handler is what made a strict CSP impossible.
+    for (const path of SHARE_TEMPLATES) {
+      const html = readFileSync(path, 'utf8');
+      expect(html, `${path} still has an inline handler`)
+        .not.toMatch(/\son(click|submit)\s*=/);
     }
   });
 

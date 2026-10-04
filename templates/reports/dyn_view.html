@@ -20,26 +20,26 @@
       <a href="{{ url_for('reports.dyn_edit', sub_id=s.id) }}" class="shrink-0 min-h-[48px] inline-flex items-center bg-gold text-navy px-4 py-3 rounded-xl text-sm font-extrabold">✏️ تعديل البيانات</a>
       <!-- Share Dropdown -->
       <div class="relative shrink-0" id="shareMenu">
-        <button type="button" class="shrink-0 min-h-[48px] bg-teal2 text-white px-4 py-3 rounded-xl text-sm font-extrabold flex items-center gap-1 hover:bg-teal2/90" aria-label="مشاركة التقرير" onclick="toggleShareMenu()">
+        <button type="button" class="shrink-0 min-h-[48px] bg-teal2 text-white px-4 py-3 rounded-xl text-sm font-extrabold flex items-center gap-1 hover:bg-teal2/90" aria-label="مشاركة التقرير" data-share="menu">
           📤 مشاركة
         </button>
         <div class="absolute bottom-full left-0 mb-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 hidden" id="shareDropdown" role="menu">
           <div class="px-3 py-2 text-xs font-bold text-navy border-b border-slate-200">مشاركة التقرير</div>
-          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" onclick="shareNative()">
+          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" data-share="native">
             <span>📱</span> مشاركة النظام (Native)
           </button>
-          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" onclick="shareWhatsApp()">
+          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" data-share="whatsapp">
             <span>💬</span> واتساب (WhatsApp)
           </button>
-          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" onclick="copyLink()">
+          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" data-share="copy">
             <span>🔗</span> نسخ الرابط
           </button>
-          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" onclick="shareEmail()">
+          <button type="button" class="w-full text-right px-3 py-2 text-sm hover:bg-slate-50 rounded-xl flex items-center gap-2 text-slate-700" data-share="email">
             <span>✉️</span> البريد الإلكتروني
           </button>
         </div>
       </div>
-      <form method="POST" action="{{ url_for('reports.dyn_delete', sub_id=s.id) }}" onsubmit="return confirm('حذف هذا التقرير نهائياً؟')" class="shrink-0">
+      <form method="POST" action="{{ url_for('reports.dyn_delete', sub_id=s.id) }}" data-confirm="حذف هذا التقرير نهائياً؟" class="shrink-0">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="min-h-[48px] bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-bold">🗑️ حذف</button>
       </form>

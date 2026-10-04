@@ -39,7 +39,7 @@
             <td class="px-3 py-3 font-mono text-xs">{{ b }}</td>
             <td class="px-3 py-3 text-center flex gap-2 justify-center">
               <a href="{{ url_for('admin.backup_download', key=b) }}" class="bg-teal2 text-white text-xs font-bold px-4 py-2 rounded-xl">تنزيل</a>
-              <form method="post" action="{{ url_for('admin.backup_delete', key=b) }}" onsubmit="return confirm('حذف النسخة؟');" class="inline">
+              <form method="post" action="{{ url_for('admin.backup_delete', key=b) }}" data-confirm="حذف النسخة؟" class="inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-xl">حذف</button>
               </form>

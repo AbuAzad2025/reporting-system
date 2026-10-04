@@ -72,7 +72,7 @@
         {% for c in f.sub_columns() %}
         <div class="flex items-center justify-between gap-1 text-[11px] py-1 border-b border-slate-100 last:border-0">
           <span><b>{{ c.label_ar }}</b> <bdi dir="ltr" class="text-slate-400">{{ c.key }} • {{ c.type }}</bdi>{% if c.required %} <span class="text-red-600 font-bold">*</span>{% endif %}{% if c.options %} <span class="text-slate-400">{{ c.options|join('، ') }}</span>{% endif %}</span>
-          <form method="POST" action="{{ url_for('admin.field_column_delete', field_id=f.id, col_key=c.key) }}" onsubmit="return confirm('حذف العمود؟')">
+          <form method="POST" action="{{ url_for('admin.field_column_delete', field_id=f.id, col_key=c.key) }}" data-confirm="حذف العمود؟">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-red-500 font-bold px-2" aria-label="حذف العمود {{ c.label_ar }}">✕</button></form>
         </div>
         {% else %}
@@ -95,7 +95,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bg-slate-100 px-3 py-2 rounded-xl font-bold" aria-label="تحريك الحقل {{ f.label_ar }} إلى الأعلى">↑</button></form>
       <form method="POST" action="{{ url_for('admin.field_move', field_id=f.id, direction='down') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bg-slate-100 px-3 py-2 rounded-xl font-bold" aria-label="تحريك الحقل {{ f.label_ar }} إلى الأسفل">↓</button></form>
-      <form method="POST" action="{{ url_for('admin.field_delete', field_id=f.id) }}" onsubmit="return confirm('حذف الحقل؟')">
+      <form method="POST" action="{{ url_for('admin.field_delete', field_id=f.id) }}" data-confirm="حذف الحقل؟">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bg-red-50 text-red-600 px-3 py-2 rounded-xl font-bold" aria-label="حذف الحقل {{ f.label_ar }}">🗑️</button></form>
     </div>
   </div>

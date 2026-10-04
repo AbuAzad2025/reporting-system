@@ -17,6 +17,54 @@ from app.extensions import db, login_manager, migrate
 csrf = CSRFProtect()
 
 
+#: Origins the application actually loads from. The Google Fonts pair is the
+#: Cairo webfont linked in base.html; everything else - scripts, stylesheets,
+#: images, uploads - is served by this origin.
+_FONT_ORIGINS = "https://fonts.googleapis.com https://fonts.gstatic.com"
+
+
+def _content_security_policy() -> str:
+    """The policy this application can actually run under.
+
+    Written to be strict where strictness costs nothing, and explicit where the
+    markup forces a concession. Three concessions are load-bearing and each one
+    is there because something in the templates needs it:
+
+    * ``script-src 'self'`` with no ``'unsafe-inline'`` and no ``'unsafe-eval'``.
+      This is the whole point. There is no inline ``<script>`` in any template
+      and no ``on*`` attribute either - they were migrated to data attributes
+      dispatched from static/js - so both keywords could be left out rather than
+      added for convenience. Nothing in the shipped JavaScript evaluates a
+      string.
+    * ``'unsafe-inline'`` on ``style-src`` only. base.html carries an inline
+      ``<style>`` block that publishes a tenant's brand colours as custom
+      properties, which cannot be expressed as an attribute. Scoping the
+      concession to styles rather than to scripts keeps it as narrow as the
+      markup allows.
+    * The two font origins, for the Cairo stylesheet and its webfont files.
+
+    ``frame-ancestors 'self'`` repeats X-Frame-Options for browsers that
+    implement the directive, and ``X-Frame-Options`` is kept because the
+    directive is not universally supported.
+    """
+    directives = [
+        "default-src 'self'",
+        "script-src 'self'",
+        # The only inline style is the tenant brand block; see above.
+        "style-src 'self' 'unsafe-inline' " + _FONT_ORIGINS,
+        "font-src 'self' " + _FONT_ORIGINS,
+        # Uploaded photos and the tenant logo are served from /static and
+        # /uploads on this origin; data: covers the inline SVG fallback mark.
+        "img-src 'self' data: blob:",
+        "connect-src 'self'",
+        "form-action 'self'",
+        "base-uri 'self'",
+        "object-src 'none'",
+        "frame-ancestors 'self'",
+    ]
+    return "; ".join(directives)
+
+
 def _register_asset_cache_busting(app):
     """Give every static URL a version, so a deploy is visible immediately.
 
@@ -91,6 +139,7 @@ def create_app(config_class=Config):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        resp.headers.setdefault("Content-Security-Policy", _content_security_policy())
         return resp
 
     # Fail-closed API posture: unauthenticated /ops/* (and other JSON

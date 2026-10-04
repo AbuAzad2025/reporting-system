@@ -141,6 +141,72 @@ def test_no_presentation_attributes_in_templates():
     )
 
 
+def test_templates_carry_no_inline_event_handlers():
+    """An `on*` attribute cannot be allowed by a Content-Security-Policy.
+
+    The test above covers inline `<script>` blocks. It missed the other half of
+    the same problem: nineteen `onclick`/`onsubmit` attributes spread over eight
+    templates, which the browser runs as code with no policy able to allow them
+    without also allowing injected script. So the application could not ship a
+    CSP without `'unsafe-inline'` in `script-src`, which is the one thing a CSP
+    is for.
+
+    They were migrated to data attributes - `data-confirm` for the destructive
+    prompts, `data-share` for the share menu - dispatched from static/js. Both
+    now have exactly one implementation each, where before the confirm text was
+    restated nine times in nine templates.
+
+    The point of the test is the regression, not the migration: an inline
+    handler is the shape that makes a strict policy impossible, so it is
+    banned here rather than left to a reviewer's eye.
+    """
+    handler = re.compile(r"""\son(click|submit|change|input|load|error|"""
+                         r"""mouse\w+|key\w+|focus|blur)\s*=""", re.I)
+    offenders = []
+    for path in sorted(pathlib.Path(TEMPLATES_DIR).rglob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            match = handler.search(line)
+            if match:
+                offenders.append(
+                    f"{path.relative_to(TEMPLATES_DIR)}:{lineno} "
+                    f"on{match.group(1)}=  "
+                    f"{line[max(0, match.start() - 10):match.start() + 60].strip()}")
+    assert not offenders, (
+        "inline event handlers are back in a template, which would force "
+        "'unsafe-inline' back into script-src:\n  " + "\n  ".join(offenders[:8])
+    )
+
+
+def test_the_content_security_policy_has_no_escape_hatch():
+    """A policy nobody obeys is a comment.
+
+    The application ships no inline script and evaluates no strings, so both
+    `'unsafe-inline'` and `'unsafe-eval'` in script-src would be a concession to
+    nothing. If either appears, something started depending on it.
+    """
+    init = io.open(os.path.join("app", "__init__.py"), encoding="utf-8").read()
+    match = re.search(r"def _content_security_policy\(\).*?\n\n\ndef ", init,
+                      re.S)
+    assert match, "_content_security_policy() is gone from app/__init__.py"
+    body = match.group(0)
+
+    script_src = re.search(r'"script-src([^"]*)"', body)
+    assert script_src, "the policy states no script-src directive"
+    directives = script_src.group(1)
+    assert "unsafe-inline" not in directives, (
+        "script-src allows inline script, so injected markup runs. The "
+        "templates carry no inline script and share.js dispatches from data "
+        "attributes - find what started needing it.")
+    assert "unsafe-eval" not in directives, (
+        "script-src allows string evaluation, which is the warning this policy "
+        "was written to answer")
+
+    # The policy is only enforced if it is actually sent.
+    assert '"Content-Security-Policy"' in init, (
+        "the policy is computed but never attached to a response")
+
+
 CSS_VAR_REF = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])")
 CSS_VAR_DECL = re.compile(r"(?m)(^|[;{\s])(--[A-Za-z0-9_-]+)\s*:")
 

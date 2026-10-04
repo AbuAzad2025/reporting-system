@@ -36,6 +36,26 @@ import { showToast } from './share.js';
     if (printBtn) { e.preventDefault(); window.print(); }
   });
 
+  // Destructive actions ask first. This was nine inline handlers across the
+  // templates, and an inline handler is the one thing a Content-Security-Policy
+  // cannot allow without also allowing injected script. The control states the
+  // question in data-confirm; this decides.
+  //
+  // Bound to submit rather than click, so submitting with the keyboard is
+  // guarded too, and in the capture phase so it runs before the geolocation
+  // handler below has already decided to preventDefault.
+  document.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!(form && form.dataset)) return;
+    const submitter = e.submitter;
+    const ask = form.dataset.confirm ||
+      (submitter && submitter.dataset ? submitter.dataset.confirm : null);
+    if (ask && !window.confirm(ask)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+  }, true);
+
   // Toast helper (replaces alert()).
   //
   // The implementation is share.js's showToast. It used to be a second copy

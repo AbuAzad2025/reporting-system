@@ -36,7 +36,7 @@
           <button class="text-xs font-bold px-3 py-2 rounded-xl {% if u.is_active %}bg-amber-100 text-amber-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">{% if u.is_active %}إيقاف{% else %}تفعيل{% endif %}</button>
         </form>
         {% if current_user.is_superadmin %}
-        <form method="POST" action="{{ url_for('admin.user_delete', user_id=u.id) }}" onsubmit="return confirm('حذف الحساب نهائياً؟')">
+        <form method="POST" action="{{ url_for('admin.user_delete', user_id=u.id) }}" data-confirm="حذف الحساب نهائياً؟">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="text-xs font-bold bg-red-50 text-red-600 px-3 py-2 rounded-xl">حذف</button>
         </form>

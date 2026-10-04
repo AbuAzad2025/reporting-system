@@ -19,7 +19,7 @@
     <div class="flex items-center gap-2">
       <span class="text-[11px] font-bold px-2 py-1 rounded-full {{ 'bg-gold/20 text-[#7a5c00]' if m.role_in_project == 'owner' else 'bg-slate-100 text-slate-600' }}">{{ 'مالك' if m.role_in_project == 'owner' else 'عضو' }}</span>
       {% if can_manage and u.id != current_user.id %}
-      <form method="post" action="{{ url_for('main.project_member_remove', project_id=project.id, user_id=u.id) }}" onsubmit="return confirm('إزالة هذا العضو؟')">
+      <form method="post" action="{{ url_for('main.project_member_remove', project_id=project.id, user_id=u.id) }}" data-confirm="إزالة هذا العضو؟">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="text-xs text-red-600 font-bold hover:underline">إزالة</button>
       </form>
