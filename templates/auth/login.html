@@ -1,46 +1,80 @@
-{% extends "base.html" %}
-{% from "_macros.html" import field, card, checkbox, submit_btn %}
-{% block title %}تسجيل الدخول{% endblock %}
-{% block content %}
-<div class="max-w-md mx-auto mt-6 md:mt-12">
-  {% call card() %}
-    <div class="text-center mb-5">
-      <img src="{{ url_for('static', filename='img/brand/azad-logo.png') }}"
-           alt="{{ COMPANY_NAME_AR }}"
-           class="w-24 h-24 rounded-3xl object-cover mx-auto shadow">
-      <h1 class="text-xl font-extrabold text-navy mt-2">تسجيل الدخول</h1>
-      <p class="text-sm text-slate-500">{{ APP_NAME_AR }}</p>
+{% extends "auth/base.html" %}
+{% block title %}تسجيل الدخول — {{ APP_NAME_AR }}{% endblock %}
+
+{% block auth_card %}
+<section class="auth-card">
+
+  <header class="auth-card-head">
+    <h1 class="auth-card-title">تسجيل الدخول</h1>
+    <p class="auth-card-lede">أدخل بيانات حسابك للوصول إلى تقارير مشاريعك.</p>
+  </header>
+
+  <form method="POST" class="auth-form" data-auth-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="auth-field">
+      <label class="auth-label" for="f-username">اسم المستخدم أو البريد الإلكتروني</label>
+      <div class="auth-control-wrap">
+        <span class="auth-control-icon">{% with icon = 'user' %}{% include "_icon.html" %}{% endwith %}</span>
+        <input id="f-username" name="username" type="text" required aria-required="true"
+               class="form-control auth-input"
+               placeholder="مثال: engineer"
+               autocomplete="username" autocapitalize="none" spellcheck="false">
+      </div>
     </div>
 
-    <form method="POST" class="space-y-4">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-      {{ field('username', 'اسم المستخدم أو البريد الإلكتروني',
-               type='text', required=True, placeholder='مثال: engineer',
-               extra='autocomplete="username"') }}
-
-      <div class="relative">
-        {{ field('password', 'كلمة المرور', type='password', required=True,
-                 placeholder='••••••',
-                 extra='autocomplete="current-password"') }}
-        <button type="button" class="password-toggle"
-                aria-label="إظهار كلمة المرور" aria-pressed="false"
-                onclick="var p=document.getElementById('f-password');var s=p.type==='password';p.type=s?'text':'password';this.setAttribute('aria-pressed',String(s));this.textContent=s?'إخفاء':'إظهار';">
-          إظهار
+    <div class="auth-field">
+      <label class="auth-label" for="f-password">
+        كلمة المرور
+        <span class="auth-label-hint">٨ أحرف فأكثر</span>
+      </label>
+      <div class="auth-control-wrap">
+        <span class="auth-control-icon">{% with icon = 'lock' %}{% include "_icon.html" %}{% endwith %}</span>
+        <input id="f-password" name="password" type="password" required aria-required="true"
+               class="form-control auth-input"
+               placeholder="••••••••"
+               autocomplete="current-password"
+               data-password-input>
+        {# A glyph-only control, so it carries a name of its own: without one a
+           screen reader announces an unlabelled button. Both glyphs sit in the
+           DOM and the stylesheet shows the one that matches the input's type,
+           so the icon never lags a frame behind the state. #}
+        <button type="button" class="auth-reveal" data-password-reveal
+                aria-label="إظهار كلمة المرور" aria-pressed="false" title="إظهار كلمة المرور">
+          {% with icon = 'eye' %}{% include "_icon.html" %}{% endwith %}
+          {% with icon = 'eye-off' %}{% include "_icon.html" %}{% endwith %}
         </button>
       </div>
+    </div>
 
-      {{ checkbox('remember', 'تذكرني') }}
+    <div class="auth-meta">
+      <label class="auth-remember">
+        <input type="checkbox" name="remember" value="on" class="auth-remember-input">
+        <span>أبقني مسجّلاً على هذا الجهاز</span>
+      </label>
+      <a href="{{ url_for('main.index') }}" class="auth-alt-link">الصفحة الرئيسية</a>
+    </div>
 
-      <div>
-        {{ submit_btn('دخول', 'w-full justify-center') }}
-      </div>
-    </form>
+    <button type="submit" class="auth-submit" data-auth-submit>
+      <span class="auth-submit-spinner" aria-hidden="true"></span>
+      <span class="auth-submit-label">دخول</span>
+    </button>
+  </form>
 
-    <p class="text-center text-sm mt-4">
-      ليس لديك حساب؟
-      <a href="{{ url_for('auth.register') }}" class="text-teal2 font-bold">سجل الآن</a>
-    </p>
-  {% endcall %}
-</div>
+  <p class="auth-alt">
+    ليس لديك حساب؟
+    <a href="{{ url_for('auth.register') }}" class="auth-alt-link">أنشئ حساباً جديداً</a>
+  </p>
+
+</section>
+
+<p class="auth-trust">
+  <span class="auth-trust-item">{% with icon = 'shield' %}{% include "_icon.html" %}{% endwith %} اتصال مشفّر</span>
+  <span class="auth-trust-item">{% with icon = 'clock' %}{% include "_icon.html" %}{% endwith %} الجلسة تنتهي تلقائياً</span>
+  <span class="auth-trust-item">{% with icon = 'check' %}{% include "_icon.html" %}{% endwith %} لا نشارك بياناتك</span>
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ asset_url('js/auth.js') }}"></script>
 {% endblock %}

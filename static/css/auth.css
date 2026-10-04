@@ -1,0 +1,445 @@
+/* ============================================================================
+   Authentication screens.
+
+   /auth/login and /auth/register are not application pages. They render no
+   navigation, no footer and no print letterhead, so the frame that every other
+   page shares is noise on them - a login form wrapped in a site menu reads as
+   an unfinished page rather than a deliberate one.
+
+   What replaces it is a two-column screen: the brand panel states what the
+   product is, and the form panel does the one thing the visitor came for. The
+   panel is dropped below 62rem, where it would only push the form off screen,
+   and the brand survives as a compact lockup above the card.
+
+   Everything is expressed through the tokens custom.css declares, so the dark
+   theme arrives by the same mechanism it does everywhere else: [data-theme]
+   re-points --navy/--teal/--slate-* and these rules follow. Nothing here reads
+   a literal colour that a tenant cannot override through the brand palette.
+   ========================================================================== */
+
+.auth-shell {
+  --auth-panel: var(--brand-primary, #1e3a5f);
+  --auth-panel-deep: var(--navy-dark);
+  --auth-accent: var(--brand-secondary, #c9a227);
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--slate-50);
+}
+
+/* Replaces `.shell app-main` on <main>. The shell is dropped deliberately - its
+   64rem max-width would wrap a 27rem form in a wide empty gutter - and the
+   flex sizing is restated here so the layout still fills the window between
+   the top of the page and the bottom, with no footer to hold it open. */
+.auth-main {
+  display: flex;
+  flex: 1 0 auto;
+  min-width: 0;
+}
+.auth-main > .auth-shell { flex: 1 0 auto; }
+
+/* Flashed messages come from base.html, which renders them above the content
+   block. On this layout they would span the whole window, so they are held to
+   the width of the form column instead. */
+.auth-main .flash-stack { width: 100%; max-width: 27rem; margin: 0 auto var(--space-4); }
+
+/* ------------------------------------------------------------------ panel */
+
+.auth-panel {
+  position: relative;
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-8);
+  overflow: hidden;
+  color: #fff;
+  background-image:
+    radial-gradient(circle at 15% 12%, rgba(255, 255, 255, 0.16), transparent 45%),
+    linear-gradient(155deg, var(--auth-panel) 0%, var(--auth-panel-deep) 100%);
+}
+
+.auth-panel::after {
+  content: "";
+  position: absolute;
+  inset-block-end: -7rem;
+  inset-inline-start: -5rem;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  pointer-events: none;
+}
+
+.auth-lockup { display: flex; align-items: center; gap: var(--space-3); }
+
+.auth-lockup-logo {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-lg);
+  object-fit: contain;
+  background: #fff;
+  padding: var(--space-1);
+  flex: none;
+}
+.auth-lockup-logo-fallback {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--auth-panel);
+}
+
+.auth-lockup-text { display: flex; flex-direction: column; min-width: 0; }
+.auth-lockup-name { font-weight: 800; font-size: 1rem; line-height: 1.25; }
+.auth-lockup-org {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.auth-pitch { max-width: 30rem; }
+.auth-pitch-title {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #fff;
+  margin: 0 0 var(--space-3);
+}
+.auth-pitch-text {
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0;
+}
+
+.auth-points {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.auth-point { display: flex; align-items: flex-start; gap: var(--space-3); }
+
+.auth-point-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  color: var(--auth-panel-deep);
+  background-color: var(--auth-accent);
+}
+.auth-point-badge .icon { width: 1.125rem; height: 1.125rem; }
+
+.auth-point-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.auth-panel-foot {
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.62);
+}
+.auth-panel-foot a { color: rgba(255, 255, 255, 0.9); font-weight: 700; }
+.auth-panel-foot a:hover { color: #fff; }
+
+/* -------------------------------------------------------------- form side */
+
+.auth-stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-8) var(--space-5);
+}
+
+.auth-column {
+  width: 100%;
+  max-width: 27rem;
+  margin-inline: auto;
+}
+
+.auth-mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+.auth-mini-logo {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+  background: #fff;
+  padding: 2px;
+  flex: none;
+}
+.auth-mini-logo-fallback {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: var(--navy);
+}
+.auth-mini-org {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--slate-700);
+}
+
+.auth-card {
+  background-color: var(--surface);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-8) var(--space-6);
+}
+
+.auth-card-head { margin-bottom: var(--space-6); }
+.auth-card-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--slate-900);
+  margin: 0 0 var(--space-2);
+}
+.auth-card-lede {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--slate-500);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ fields */
+
+.auth-form { display: grid; gap: var(--space-5); }
+
+.auth-field { display: grid; gap: var(--space-2); }
+
+.auth-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--slate-700);
+}
+.auth-label-hint {
+  margin-inline-start: auto;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--slate-400);
+}
+
+/* The control is wrapped so the leading icon and the reveal button can sit
+   inside the field's own box: an icon floating over the border reads as an
+   overlay, not as part of the field. */
+.auth-control-wrap { position: relative; display: flex; align-items: center; }
+
+.auth-control-icon {
+  position: absolute;
+  inset-inline-start: var(--space-4);
+  color: var(--slate-400);
+  pointer-events: none;
+}
+.auth-control-icon .icon { width: 1.125rem; height: 1.125rem; }
+
+.auth-input {
+  width: 100%;
+  min-height: 3.25rem;
+  padding-block: var(--space-3);
+  padding-inline: var(--space-12) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+}
+.auth-input:focus { border-color: var(--teal); }
+
+.auth-reveal {
+  position: absolute;
+  inset-inline-end: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--slate-500);
+  cursor: pointer;
+  transition: color var(--transition-fast),
+              background-color var(--transition-fast);
+}
+.auth-reveal:hover { color: var(--teal); background-color: var(--slate-100); }
+.auth-reveal:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.auth-reveal .icon { width: 1.25rem; height: 1.25rem; }
+/* The two glyphs are both in the markup so neither is fetched on click; the
+   pressed state of the button is what decides which one is shown. */
+.auth-reveal .icon-eye-off { display: none; }
+.auth-reveal[aria-pressed="true"] .icon-eye { display: none; }
+.auth-reveal[aria-pressed="true"] .icon-eye-off { display: block; }
+
+/* Remember-me is a checkbox the visitor can hit with a thumb, not a 16px box
+   between two lines of text. */
+.auth-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.auth-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--slate-600);
+  cursor: pointer;
+  user-select: none;
+}
+.auth-remember-input {
+  appearance: none;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  border: 2px solid var(--slate-300);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast);
+}
+.auth-remember-input::before {
+  content: "";
+  width: 0.625rem;
+  height: 0.375rem;
+  border-inline-start: 2px solid #fff;
+  border-block-end: 2px solid #fff;
+  rotate: -45deg;
+  translate: 0 -1px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.auth-remember-input:checked { background-color: var(--teal); border-color: var(--teal); }
+.auth-remember-input:checked::before { opacity: 1; }
+.auth-remember-input:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+/* ------------------------------------------------------------------ submit */
+
+.auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 3.25rem;
+  padding: var(--space-3) var(--space-5);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background-image: linear-gradient(to left, var(--teal), var(--navy));
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-normal),
+              filter var(--transition-normal);
+}
+.auth-submit:hover { filter: brightness(1.08); box-shadow: var(--shadow-lg); }
+.auth-submit:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.auth-submit:disabled { opacity: .65; cursor: progress; }
+
+.auth-submit-spinner {
+  display: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: auth-spin 700ms linear infinite;
+}
+.auth-submit[data-busy="1"] .auth-submit-spinner { display: block; }
+.auth-submit-label { display: inline-block; }
+.auth-submit[data-busy="1"] .auth-submit-label { opacity: .85; }
+
+@keyframes auth-spin { to { rotate: 360deg; } }
+
+/* ------------------------------------------------------------------ footer */
+
+.auth-alt {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--slate-200);
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--slate-500);
+}
+.auth-alt-link {
+  font-weight: 800;
+  color: var(--teal);
+  text-decoration: none;
+}
+.auth-alt-link:hover { text-decoration: underline; }
+
+.auth-trust {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-6);
+  font-size: 0.75rem;
+  color: var(--slate-400);
+}
+.auth-trust-item { display: inline-flex; align-items: center; gap: var(--space-2); }
+.auth-trust-item .icon { width: 1rem; height: 1rem; color: var(--teal); }
+
+/* The register form is longer than the login form and must not stretch the
+   card past the fold on a short window. */
+.auth-card-wide { max-width: 34rem; }
+
+.auth-pair {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+}
+
+.auth-legal {
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--slate-500);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------- breakpoints */
+
+@media (min-width: 48rem) {
+  .auth-stage { padding: var(--space-10) var(--space-8); }
+  .auth-card { padding: var(--space-10) var(--space-8); }
+  .auth-pair { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 62rem) {
+  .auth-shell { grid-template-columns: 1.05fr 1fr; }
+  .auth-panel { display: flex; }
+  /* The brand panel replaces the compact lockup, so showing both would print
+     the organisation name twice on one screen. */
+  .auth-mini { display: none; }
+  .auth-stage { padding: var(--space-12); }
+  .auth-column { margin-inline: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-submit-spinner { animation: none; }
+  .auth-submit, .auth-input, .auth-reveal, .auth-remember-input { transition: none; }
+}

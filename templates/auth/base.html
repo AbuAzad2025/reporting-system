@@ -1,0 +1,84 @@
+{# The shell the two authentication screens share.
+
+   base.html draws the application frame - sticky header, navigation, footer,
+   print letterhead. None of that belongs on a sign-in screen: a menu the
+   visitor cannot use and a footer with a copyright line compete with the one
+   form on the page. So the blocks that own the chrome are emptied here and
+   replaced with a two-column layout that states what the product is on one
+   side and asks for the credentials on the other.
+
+   The empty blocks are written with their reason rather than silently dropped,
+   because a block that vanishes from a child template reads as an oversight
+   until you know it was deliberate. #}
+{% extends "base.html" %}
+
+{% block print_layer %}{% endblock %}
+{% block print_footblock %}{% endblock %}
+{% block app_header %}{% endblock %}
+{% block app_nav %}{% endblock %}
+{% block app_footer %}{% endblock %}
+
+{# No .shell here: the layout is a full-bleed grid, and the shell's max-width
+   would put a 64rem gutter around a 27rem form. #}
+{% block main_class %}auth-main{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+
+  <aside class="auth-panel">
+    <div class="auth-lockup">
+      {% if current_brand.logo_url %}
+        <img src="{{ current_brand.logo_url }}" alt="{{ current_brand.company_ar or APP_NAME_AR }}" class="auth-lockup-logo">
+      {% else %}
+        <span class="auth-lockup-logo auth-lockup-logo-fallback" aria-hidden="true">{{ (APP_NAME_AR or 'ا')[0] }}</span>
+      {% endif %}
+      <span class="auth-lockup-text">
+        <span class="auth-lockup-name">{{ APP_NAME_AR }}</span>
+        <span class="auth-lockup-org">{{ current_brand.company_ar }}</span>
+      </span>
+    </div>
+
+    <div class="auth-pitch">
+      <h2 class="auth-pitch-title">تقرير واحد من الموقع، يصل جاهزاً للاعتماد</h2>
+      <p class="auth-pitch-text">
+        قالب واحد يولّد كل تقارير المشروع — يومي، أسبوعي، شهري، سلامة —
+        والحقول تظهر فوراً في نموذج الهاتف وفي ملف الـ PDF الرسمي.
+      </p>
+      <ul class="auth-points">
+        <li class="auth-point">
+          <span class="auth-point-badge">{% with icon = 'bolt' %}{% include "_icon.html" %}{% endwith %}</span>
+          <span class="auth-point-text">تقرير من الهاتف إلى PDF خلال ثوانٍ، بدون مكتبة.</span>
+        </li>
+        <li class="auth-point">
+          <span class="auth-point-badge">{% with icon = 'pen' %}{% include "_icon.html" %}{% endwith %}</span>
+          <span class="auth-point-text">الاسم الرباعي يُختم تلقائياً كموقّع رسمي مع الوقت والتاريخ.</span>
+        </li>
+        <li class="auth-point">
+          <span class="auth-point-badge">{% with icon = 'shield' %}{% include "_icon.html" %}{% endwith %}</span>
+          <span class="auth-point-text">كل مشروع يرى مستخدموه ما يخصّه فقط — لا أكثر.</span>
+        </li>
+      </ul>
+    </div>
+
+    <p class="auth-panel-foot">
+      {{ DEVELOPER_AR }} · {{ HQ_AR }}<br>
+      {% if CONTACT_PHONE %}<a href="tel:{{ CONTACT_PHONE }}" dir="ltr">{{ CONTACT_PHONE }}</a>{% endif %}
+    </p>
+  </aside>
+
+  <div class="auth-stage">
+    <div class="auth-column">
+      <div class="auth-mini">
+        {% if current_brand.logo_url %}
+          <img src="{{ current_brand.logo_url }}" alt="{{ current_brand.company_ar or APP_NAME_AR }}" class="auth-mini-logo">
+        {% else %}
+          <span class="auth-mini-logo auth-mini-logo-fallback" aria-hidden="true">{{ (APP_NAME_AR or 'ا')[0] }}</span>
+        {% endif %}
+        <span class="auth-mini-org">{{ current_brand.company_ar or APP_NAME_AR }}</span>
+      </div>
+      {% block auth_card %}{% endblock %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

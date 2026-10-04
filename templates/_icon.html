@@ -1,9 +1,31 @@
+{# One SVG sprite sheet, included rather than imported, because a template that
+   needs an icon cannot import a macro and read the set without also getting
+   everything else in the file.
+
+   `icon` names the glyph and `icon_size` its pixel box; both default so that an
+   include with nothing set still renders. Sizes are the icon's own attribute
+   rather than a class, because the glyph scales with the box it is given and a
+   font-size on the parent is not that box. #}
 {% set ICONS = {
   'home': 'M3 10.5 12 3l9 7.5M5.5 9.5V20a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9.5',
   'projects': 'M3 20h18M5 20V9l7-5 7 5v11M9.5 20v-5.5h5V20',
   'reports': 'M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm7 0v5h4M9 13h7M9 17h5',
   'archive': 'M3 7h18v3H3zM5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M10 14h4',
   'profile': 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0',
-  'admin': 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8-3.5a8 8 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a8 8 0 0 0-2-1.2L15 3H9l-.5 2.6a8 8 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a8.4 8.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a8 8 0 0 0 2 1.2L9 21h6l.5-2.6a8 8 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z'
+  'admin': 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8-3.5a8 8 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a8 8 0 0 0-2-1.2L15 3H9l-.5 2.6a8 8 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a8.4 8.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a8 8 0 0 0 2 1.2L9 21h6l.5-2.6a8 8 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2Z',
+  'user': 'M12 11a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Zm-7.5 9.5a7.5 7.5 0 0 1 15 0',
+  'lock': 'M7 10V7.5a5 5 0 0 1 10 0V10M5.5 10h13a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-7A1.5 1.5 0 0 1 5.5 10Zm6.5 4v2',
+  'mail': 'M3.5 6h17a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Zm.5 1.5 8 5.5 8-5.5',
+  'eye': 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Zm9.5 2.75a2.75 2.75 0 1 0 0-5.5 2.75 2.75 0 0 0 0 5.5Z',
+  'eye-off': 'M4 4l16 16M9.6 9.7A2.75 2.75 0 0 0 12 14.75c.7 0 1.35-.26 1.83-.7M6.3 6.6C3.9 8.3 2.5 12 2.5 12S6 18.5 12 18.5c1.5 0 2.8-.35 3.95-.9M10.2 5.7A7.9 7.9 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.2 3',
+  'shield': 'M12 3.2 5 6v5.4c0 4.3 2.9 7.9 7 9.4 4.1-1.5 7-5.1 7-9.4V6l-7-2.8Zm-2.6 8.6 1.9 1.9 3.4-3.7',
+  'pdf': 'M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm7 0v5h4M9 13h6M9 16.5h4',
+  'mobile': 'M8 3h8a1.5 1.5 0 0 1 1.5 1.5v15A1.5 1.5 0 0 1 16 21H8a1.5 1.5 0 0 1-1.5-1.5v-15A1.5 1.5 0 0 1 8 3Zm3 14.5h2',
+  'pen': 'M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3ZM14.5 6.5l3 3',
+  'clock': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-13.5V12l3.5 2',
+  'bolt': 'M13.5 3 5.5 13.5H11l-.5 7.5 8-10.5H13l.5-7.5Z',
+  'check': 'M4.5 12.5 9.5 17.5 19.5 7',
+  'arrow-start': 'M19 12H5m0 0 6-6m-6 6 6 6'
 } %}
-<svg class="icon icon-{{ icon }}" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="{{ ICONS[icon] }}"/></svg>
+{% set icon_size = icon_size|default(18) %}
+<svg class="icon icon-{{ icon }}" viewBox="0 0 24 24" width="{{ icon_size }}" height="{{ icon_size }}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="{{ ICONS[icon] }}"/></svg>

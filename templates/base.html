@@ -41,6 +41,9 @@
   <link rel="stylesheet" href="{{ asset_url('css/custom.css') }}">
   <link rel="stylesheet" href="{{ asset_url('css/utilities.css') }}">
   <link rel="stylesheet" href="{{ asset_url('css/layout.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('css/auth.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('css/report-form.css') }}">
+  {% block head_extra %}{% endblock %}
 </head>
 <body class="app-body">
   <a href="#main-content" class="skip-link">تخطَّ إلى المحتوى</a>
@@ -52,6 +55,7 @@
     }</style>
   {% endif %}
 
+  {% block print_layer %}
   <div class="print-only print-letterhead">
     <div class="print-letterhead-row">
       <div class="print-letterhead-id">
@@ -65,7 +69,9 @@
     </div>
     <div class="print-rule"></div>
   </div>
+  {% endblock %}
 
+  {% block app_header %}
   <header class="app-header">
     <div class="shell app-header-inner">
       <a href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('main.index') }}" class="app-brand">
@@ -75,6 +81,7 @@
           <span class="app-brand-org">{{ current_brand.company_ar }}</span>
         </span>
       </a>
+      {% block header_actions %}
       {% if current_user.is_authenticated %}
         <div class="app-header-actions">
           <span class="app-user">
@@ -92,17 +99,21 @@
           </form>
         </div>
       {% endif %}
+      {% endblock %}
     </div>
     <div class="app-header-rule"></div>
   </header>
+  {% endblock %}
 
+  {% block app_nav %}
   {% if current_user.is_authenticated %}
     <nav aria-label="التنقل الرئيسي" class="app-nav no-print">
       <div class="shell app-nav-inner">{{ nav_items() }}</div>
     </nav>
   {% endif %}
+  {% endblock %}
 
-  <main id="main-content" class="shell app-main">
+  <main id="main-content" class="{% block main_class %}shell app-main{% endblock %}">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-stack" role="status">
@@ -116,6 +127,7 @@
     {% block content %}{% endblock %}
   </main>
 
+  {% block app_footer %}
   <footer class="app-footer no-print">
     <div class="shell app-footer-inner">
       {% if current_brand.header_ar or current_brand.header_en %}
@@ -130,7 +142,9 @@
       </p>
     </div>
   </footer>
+  {% endblock %}
 
+  {% block print_footblock %}
   <div class="print-only print-footblock">
     {% if current_brand.disclaimer %}<p class="print-disclaimer">{{ current_brand.disclaimer }}</p>{% endif %}
     <p class="print-signatures">
@@ -139,6 +153,7 @@
       <span>الاعتماد: ______________________</span>
     </p>
   </div>
+  {% endblock %}
 
   <div id="toast-root" aria-live="polite" class="no-print"></div>
   <script type="module" src="{{ asset_url('js/app.js') }}"></script>

@@ -1,54 +1,131 @@
-{% extends "base.html" %}
-{% from "_macros.html" import field, select, card, submit_btn %}
-{% block title %}إنشاء حساب{% endblock %}
-{% block content %}
-<div class="max-w-lg mx-auto mt-6 md:mt-12">
-  {% call card() %}
-    <div class="text-center mb-5">
-      <div class="text-4xl">📝</div>
-      <h1 class="text-xl font-extrabold text-navy mt-2">إنشاء حساب جديد</h1>
-      <p class="text-sm text-slate-500">الاسم الرباعي سيظهر كموقّع رسمي على كل تقاريرك</p>
+{% extends "auth/base.html" %}
+{% from "_macros.html" import select %}
+{% block title %}إنشاء حساب — {{ APP_NAME_AR }}{% endblock %}
+
+{% block auth_card %}
+<section class="auth-card auth-card-wide">
+
+  <header class="auth-card-head">
+    <h1 class="auth-card-title">إنشاء حساب</h1>
+    <p class="auth-card-lede">الاسم الرباعي سيظهر كموقّع رسمي على كل تقاريرك وملفاتك.</p>
+  </header>
+
+  <form method="POST" class="auth-form" data-auth-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="auth-field">
+      <label class="auth-label" for="f-full_name">الاسم الرباعي</label>
+      <div class="auth-control-wrap">
+        <span class="auth-control-icon">{% with icon = 'user' %}{% include "_icon.html" %}{% endwith %}</span>
+        <input id="f-full_name" name="full_name" type="text" required aria-required="true"
+               class="form-control auth-input"
+               placeholder="محمد أحمد علي حسن"
+               autocomplete="name">
+      </div>
+      <span class="form-hint" id="f-full_name-hint">أربعة مقاطع على الأقل، كما في الهوية الرسمية.</span>
     </div>
 
-    <form method="POST" class="space-y-4">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-      {{ field('full_name', 'الاسم الرباعي (أربعة مقاطع)', required=True,
-               placeholder='مثال: محمد أحمد علي حسن', extra='autocomplete="name"') }}
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {{ field('username', 'اسم المستخدم', required=True,
-                 extra='autocomplete="username"') }}
-        {{ field('email', 'البريد الإلكتروني', type='email', required=True,
-                 extra='dir="ltr" class="text-left" autocomplete="email"') }}
+    <div class="auth-pair">
+      <div class="auth-field">
+        <label class="auth-label" for="f-username">اسم المستخدم</label>
+        <div class="auth-control-wrap">
+          <span class="auth-control-icon">{% with icon = 'profile' %}{% include "_icon.html" %}{% endwith %}</span>
+          <input id="f-username" name="username" type="text" required aria-required="true"
+                 class="form-control auth-input"
+                 aria-describedby="f-username-hint"
+                 autocomplete="username" autocapitalize="none" spellcheck="false">
+        </div>
+        <span class="form-hint" id="f-username-hint">ثلاثة أحرف فأكثر، بلا مسافات.</span>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {{ field('password', 'كلمة المرور (8 أحرف فأكثر)', type='password',
-                 required=True, extra='autocomplete="new-password"') }}
-        {{ field('confirm', 'تأكيد كلمة المرور', type='password', required=True,
-                 extra='autocomplete="new-password"') }}
+      <div class="auth-field">
+        <label class="auth-label" for="f-email">البريد الإلكتروني</label>
+        <div class="auth-control-wrap">
+          <span class="auth-control-icon">{% with icon = 'mail' %}{% include "_icon.html" %}{% endwith %}</span>
+          <input id="f-email" name="email" type="email" required aria-required="true"
+                 class="form-control auth-input" dir="ltr"
+                 autocomplete="email" autocapitalize="none" spellcheck="false">
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-pair">
+      <div class="auth-field">
+        <label class="auth-label" for="f-password">كلمة المرور</label>
+        <div class="auth-control-wrap">
+          <span class="auth-control-icon">{% with icon = 'lock' %}{% include "_icon.html" %}{% endwith %}</span>
+          <input id="f-password" name="password" type="password" required aria-required="true"
+                 class="form-control auth-input"
+                 aria-describedby="f-password-hint"
+                 autocomplete="new-password"
+                 data-password-input>
+          <button type="button" class="auth-reveal" data-password-reveal
+                  aria-label="إظهار كلمة المرور" aria-pressed="false" title="إظهار كلمة المرور">
+            {% with icon = 'eye' %}{% include "_icon.html" %}{% endwith %}
+            {% with icon = 'eye-off' %}{% include "_icon.html" %}{% endwith %}
+          </button>
+        </div>
+        <span class="form-hint" id="f-password-hint">ثمانية أحرف فأكثر.</span>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {{ field('phone', 'الجوال (اختياري)', extra='dir="ltr" class="text-left" autocomplete="tel"') }}
-        {{ field('company', 'الشركة / الجهة (اختياري)', extra='autocomplete="organization"') }}
+      <div class="auth-field">
+        <label class="auth-label" for="f-confirm">تأكيد كلمة المرور</label>
+        <div class="auth-control-wrap">
+          <span class="auth-control-icon">{% with icon = 'check' %}{% include "_icon.html" %}{% endwith %}</span>
+          <input id="f-confirm" name="confirm" type="password" required aria-required="true"
+                 class="form-control auth-input"
+                 autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-pair">
+      <div class="auth-field">
+        <label class="auth-label" for="f-phone">الجوال</label>
+        <div class="auth-control-wrap">
+          <span class="auth-control-icon">{% with icon = 'mobile' %}{% include "_icon.html" %}{% endwith %}</span>
+          <input id="f-phone" name="phone" type="tel"
+                 class="form-control auth-input" dir="ltr" autocomplete="tel">
+        </div>
       </div>
 
+      <div class="auth-field">
+        <label class="auth-label" for="f-company">الشركة أو الجهة</label>
+        <div class="auth-control-wrap">
+          <span class="auth-control-icon">{% with icon = 'projects' %}{% include "_icon.html" %}{% endwith %}</span>
+          <input id="f-company" name="company" type="text"
+                 class="form-control auth-input" autocomplete="organization">
+        </div>
+      </div>
+    </div>
+
+    {# The label belongs to the macro: it renders the dropdown and its own label
+       bound by id, so a second one here would name the same control twice. #}
+    <div class="auth-field">
       {% set roles = role_choices if role_choices else [
         ('site_engineer', 'مهندس موقع'),
         ('safety_officer', 'مسؤول سلامة'),
         ('project_manager', 'مدير مشروع')] %}
-      {{ select('role', 'الدور', roles,
-                hint='أول حساب في المنصة يصبح مالك المنصة (Superadmin) تلقائياً.') }}
+      {{ select('role', 'الدور في المشروع', roles, id='f-role',
+                hint='أول حساب في المنصة يصبح مالكها تلقائياً.') }}
+    </div>
 
-      {{ submit_btn('إنشاء الحساب ✅', 'w-full justify-center') }}
-    </form>
+    <button type="submit" class="auth-submit" data-auth-submit>
+      <span class="auth-submit-spinner" aria-hidden="true"></span>
+      <span class="auth-submit-label">إنشاء الحساب</span>
+    </button>
 
-    <p class="text-center text-sm mt-4">
-      لديك حساب؟
-      <a href="{{ url_for('auth.login') }}" class="text-teal2 font-bold">سجل الدخول</a>
-    </p>
-  {% endcall %}
-</div>
+    <p class="auth-legal">بإنشائك الحساب توافق على استخدام اسمك الرباعي كموقّع في التقارير الرسمية.</p>
+  </form>
+
+  <p class="auth-alt">
+    لديك حساب بالفعل؟
+    <a href="{{ url_for('auth.login') }}" class="auth-alt-link">سجّل الدخول</a>
+  </p>
+
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ asset_url('js/auth.js') }}"></script>
 {% endblock %}

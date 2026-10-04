@@ -103,8 +103,18 @@ def register():
                            role_choices=[(k, ROLES[k]) for k in SELF_REGISTER_ROLES])
 
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["GET", "POST"])
 def logout():
+    """End the session.
+
+    POST is the method the header's sign-out form uses, because a state change
+    should not be reachable by following a link: a prefetcher, an antivirus
+    scanner or a pasted URL would all log the user out. GET is still accepted
+    so a bookmarked /auth/logout keeps working - it was the only method this
+    route had, and the header posts to it, so the button in the header returned
+    405 Method Not Allowed and the only way out of the application was to clear
+    the session cookie by hand.
+    """
     if current_user.is_authenticated:
         logout_user()
         flash("تم تسجيل الخروج بنجاح.", "info")
