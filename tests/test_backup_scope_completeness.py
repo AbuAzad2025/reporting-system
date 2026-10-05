@@ -20,6 +20,7 @@ import json
 import zipfile
 
 import pytest
+from types import SimpleNamespace
 
 from app.extensions import db
 from app.models import Report, ReportSubmission, User
@@ -32,63 +33,95 @@ def _read(data, name):
         return json.loads(archive.read(name).decode("utf-8"))
 
 
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Push an application context for every test in this file.
+
+    The conftest `app` fixture yields the application object and nothing else.
+    This module was written assuming a context was somehow present, which held
+    locally only because an earlier test in the process had left one pushed -
+    and CI, running the whole suite in one process in a different order,
+    reported "Working outside of application context" at setup for every test
+    here. Declaring the dependency removes the ordering assumption entirely.
+    """
+    with app.app_context():
+        yield
+
+
 @pytest.fixture
 def tenant(app):
-    """A project with one legacy report, one submission and one of each ops row."""
+    """A project with one legacy report, one submission and one of each ops row.
+
+    The body runs inside an explicit app context. The `app` fixture yields the
+    application object and nothing more - it does not push a context - so a
+    fixture that touches db.session without one only passes when some earlier
+    test in the same process happened to leave one pushed. That is why this file
+    was green locally and errored in CI, which runs the whole suite in one
+    process in a different order. A test that depends on the order it ran in is
+    a test that will fail somewhere you did not run it.
+    """
     from app.models import Project, ReportTemplate
     from datetime import date
+    from types import SimpleNamespace
 
-    user = User.query.filter_by(username="bk_user").first()
-    if user is None:
-        user = User(username="bk_user", email="bk@example.test",
-                    full_name="Backup User Full Name", role="site_engineer")
-        user.set_password("password123")
-        db.session.add(user)
+    with app.app_context():
+        user = User.query.filter_by(username="bk_user").first()
+        if user is None:
+            user = User(username="bk_user", email="bk@example.test",
+                        full_name="Backup User Full Name", role="site_engineer")
+            user.set_password("password123")
+            db.session.add(user)
 
-    project = Project.query.filter_by(name="BK Alpha").first()
-    if project is None:
-        project = Project(name="BK Alpha", location="Ramallah",
-                          contractor="Cont Co", client="Owner")
-        db.session.add(project)
+        project = Project.query.filter_by(name="BK Alpha").first()
+        if project is None:
+            project = Project(name="BK Alpha", location="Ramallah",
+                              contractor="Cont Co", client="Owner")
+            db.session.add(project)
+            db.session.flush()
+
+        tpl = ReportTemplate.query.filter_by(key="daily").first()
+
+        if not Report.query.filter_by(project_name="BK Alpha").first():
+            db.session.add(Report(
+                report_type="daily", project_name="BK Alpha",
+                report_date=date(2026, 3, 1), data={"note": "legacy"},
+                signatory_name="Backup User Full Name", user_id=user.id))
+        if not ReportSubmission.query.filter_by(project_name="BK Alpha").first():
+            db.session.add(ReportSubmission(
+                template_id=tpl.id, project_id=project.id,
+                project_name="BK Alpha", report_date=date(2026, 3, 2),
+                data={"note": "dynamic"}, signatory_name="Backup User Full Name",
+                user_id=user.id))
+        if not RFI.query.filter_by(project_id=project.id).first():
+            # Ops rows carry NOT NULL serial and user_id, and neither has a
+            # database default: the serial is allocated by the application and
+            # the user is a required foreign key.
+            db.session.add(RFI(project_id=project.id, user_id=user.id,
+                               serial="RFI-BK-0001", subject="bk rfi",
+                               question="q"))
+        if not DailySiteReport.query.filter_by(project_id=project.id).first():
+            db.session.add(DailySiteReport(
+                project_id=project.id, user_id=user.id,
+                report_date=date(2026, 3, 2), serial="DSR-BK-0001",
+                weather="", work_hours=8, engineers_count=1,
+                technicians_count=0, labor_count=2, status="draft",
+                signatory_name="Backup User"))
         db.session.flush()
 
-    tpl = ReportTemplate.query.filter_by(key="daily").first()
-
-    if not Report.query.filter_by(project_name="BK Alpha").first():
-        db.session.add(Report(
-            report_type="daily", project_name="BK Alpha",
-            report_date=date(2026, 3, 1), data={"note": "legacy"},
-            signatory_name="Backup User Full Name", user_id=user.id))
-    if not ReportSubmission.query.filter_by(
-            project_name="BK Alpha").first():
-        db.session.add(ReportSubmission(
-            template_id=tpl.id, project_id=project.id, project_name="BK Alpha",
-            report_date=date(2026, 3, 2), data={"note": "dynamic"},
-            signatory_name="Backup User Full Name", user_id=user.id))
-    if not RFI.query.filter_by(project_id=project.id).first():
-        # Ops rows carry NOT NULL serial and user_id, and neither has a database
-        # default: the serial is allocated by the application and the user is a
-        # required foreign key.
-        db.session.add(RFI(project_id=project.id, user_id=user.id,
-                           serial="RFI-BK-0001", subject="bk rfi",
-                           question="q"))
-    if not DailySiteReport.query.filter_by(project_id=project.id).first():
-        db.session.add(DailySiteReport(
-            project_id=project.id, user_id=user.id,
-            report_date=date(2026, 3, 2), serial="DSR-BK-0001",
-            weather="", work_hours=8, engineers_count=1, technicians_count=0,
-            labor_count=2, status="draft", signatory_name="Backup User"))
-    db.session.flush()
-
-    db.session.add(Attachment(
-        record_kind="daily-reports",
-        record_id=db.session.query(DailySiteReport).filter_by(
-            project_id=project.id).first().id,
-        project_id=project.id, filename="daily.jpg",
-        storage_key="bk/daily.jpg", mime_type="image/jpeg", byte_size=1,
-        uploaded_by=user.id))
-    db.session.commit()
-    return project
+        db.session.add(Attachment(
+            record_kind="daily-reports",
+            record_id=db.session.query(DailySiteReport).filter_by(
+                project_id=project.id).first().id,
+            project_id=project.id, filename="daily.jpg",
+            storage_key="bk/daily.jpg", mime_type="image/jpeg", byte_size=1,
+            uploaded_by=user.id))
+        db.session.commit()
+        # A plain pair of values, not the ORM instance. conftest tears the
+        # session down between the fixture and the test, so a Project handed
+        # back here arrives detached and reading tenant.id raises
+        # DetachedInstanceError. Copying the two scalars out is the whole reason
+        # this is not just `return project`.
+        return SimpleNamespace(id=project.id, name=project.name)
 
 
 # ------------------------------------------------------------------ 1
