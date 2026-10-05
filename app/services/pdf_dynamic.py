@@ -7,7 +7,7 @@ the content, two blank signature boxes, and the page number: no letterhead, no
 running header, no footer band.
 """
 from utils.pdf_generator import (_styles, _info_table, _section_title,
-                                 _kv_table, ar, NAVY, DOC_TEXT, DOC_TINT,
+                                 _kv_table, ar, DOC_TEXT, DOC_TINT,
                                  DOC_RULE, CONTENT_W, PAGE_MARGIN,
                                  PAGE_MARGIN_BOTTOM, fit_column_widths)
 from reportlab.lib.pagesizes import A4
@@ -263,13 +263,12 @@ def build_dynamic_pdf(submission, template, generated_at: str = "",
             ("المقاول المنفذ", submission.contractor or _pget("contractor", "contractor")),
             ("الجهة المشرفة", _pget("consultant", "consultant",
                                      "supervising_authority")),
+            ("إدارة المشروع", _pget("managing_agency", "managing_agency")),
             ("الموقع", submission.location or _pget("location", "project_location")),
             ("الفترة المشمولة بالتقرير", covered or "—"),
         ]
         if not is_daily:
             proj_rows += [
-                ("إدارة المشروع", _pget("managing_agency", "managing_agency",
-                                         "implementing_entity")),
                 ("مهندس المقاول / مدير المشروع", _pget("pm_name", "pm_name")),
                 ("مهندس السلامة", _pget("safety_eng", "safety_eng")),
                 ("تاريخ التقرير", str(submission.report_date or "")),

@@ -43,6 +43,20 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------- dashboard
+
+def _add_unless_unknown(total, value):
+    """Sum two figures, where either may be None meaning "not computable".
+
+    Once one report in a window cannot be computed, the window total cannot be
+    either - adding the reports that did parse would produce a number that is
+    quietly too small, which is the thing the caller is trying to avoid. Sticky
+    None is the honest answer, and it keeps `None + int` from raising.
+    """
+    if total is None or value is None:
+        return None
+    return total + value
+
+
 @bp.route("/")
 @login_required
 @template_manager_required
@@ -744,9 +758,18 @@ def _ops_analytics() -> dict:
         manpower["engineers"] += d.engineers_count or 0
         manpower["technicians"] += d.technicians_count or 0
         manpower["labor"] += d.labor_count or 0
-        manpower["structured_labor"] += d.labor_table_total
-        manpower["plant_hours"] += d.equipment_hours_total
-    manpower["plant_hours"] = round(manpower["plant_hours"], 2)
+        # The two structured totals return None when a cell in their table is
+        # not a number, because a figure that silently omits a row is worse than
+        # no figure. Adding that None is a TypeError, so the sum carries the
+        # uncertainty: once any report in the window cannot be computed, the
+        # window total cannot either, and the dashboard says so instead of
+        # 500-ing or quietly under-reporting.
+        manpower["structured_labor"] = _add_unless_unknown(
+            manpower["structured_labor"], d.labor_table_total)
+        manpower["plant_hours"] = _add_unless_unknown(
+            manpower["plant_hours"], d.equipment_hours_total)
+    if manpower["plant_hours"] is not None:
+        manpower["plant_hours"] = round(manpower["plant_hours"], 2)
 
     # open RFI queue by ball-in-court
     from app.ops.models import RFI

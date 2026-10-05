@@ -19,7 +19,7 @@ from app.services.default_templates import (_strip_leading_number,
                                             default_fields_for)
 
 APPROVED_ORDER = [
-    "report_period_label", "shift_name",
+    "report_period_label", "shift_name", "managing_agency",
     "weather_esha", "equipment_esha", "staff_esha", "work_progress_esha",
     "mockup_approval_esha", "materials_esha", "next_day_esha", "meetings_esha",
     "eshs_desc_81", "eshs_location_82", "waste_daily_esha", "waste_mgmt_esha",

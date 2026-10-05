@@ -665,6 +665,13 @@ def default_fields_for(template_key):
             ("field", "report_period_label", "الفترة المشمولة بالتقرير", "text", False, [], None),
             ("field", "shift_name", "الوردية", "dropdown", False,
              ["وردية النهار", "وردية مسائية", "وردية ليلية", "وردية كاملة"], None),
+            # The project's managing department, as distinct from the party
+            # supervising it. Both appear in the approved report's data table
+            # and they are not the same body: a ministry can supervise while a
+            # directorate administers. The Project model has a column for the
+            # supervisor (consultant) but none for this, so the report falls
+            # back to the payload and prints a dash until one is set.
+            ("field", "managing_agency", "إدارة المشروع", "text", False, [], None),
             ("table", "weather_esha"),
             ("table", "equipment_esha"),
             ("table", "staff_esha"),

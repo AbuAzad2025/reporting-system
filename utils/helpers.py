@@ -1,19 +1,20 @@
-"""Shared helpers: roles, report field specs, duplicate check."""
-from functools import wraps
-from flask import flash, redirect, url_for
-from flask_login import current_user
+"""Shared helpers: the legacy field specs, and the label lookups over them.
 
-from models import REPORT_TYPES
+Only FIELD_SPECS is imported from here (by app/reports/routes.py and
+app/services/default_templates.py). The rest of this module is the field
+catalogue for the legacy static report tables, which the dynamic template
+engine has since replaced.
 
-
-def admin_required(view):
-    @wraps(view)
-    def wrapper(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            flash("هذه الصفحة مخصصة لمديري المشاريع فقط.", "danger")
-            return redirect(url_for("main.dashboard"))
-        return view(*args, **kwargs)
-    return wrapper
+This module used to define its own ``admin_required``. That was removed rather
+than left in place: the real decorator is ``app.utils.decorators.admin_required``,
+which resolves through roles_required("admin", "superadmin",
+"project_manager"), and the copy here checked ``current_user.is_admin`` - the
+single-tier model the platform moved off. Two definitions of a gate, one of them
+weaker, in a file whose other contents nobody imports: exactly the pair where
+someone eventually imports the wrong one and a project manager is quietly
+administered by the old rule.
+"""
+from models import REPORT_TYPES  # noqa: F401
 
 
 # Field specifications per report type: (key, arabic label, input kind)
