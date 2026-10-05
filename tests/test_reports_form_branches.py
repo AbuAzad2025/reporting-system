@@ -41,12 +41,12 @@ LEGACY_FORM = {
 LEGACY_DAILY_AR = "التقرير اليومي"
 
 PHOTOS_TABLE = "photos_esha"
-PHOTOS_AR = "8.10 الصور التوثيقية مع التعليقات"
+PHOTOS_AR = "الصور التوثيقية مع التعليقات"
 WEATHER_TABLE = "weather_esha"
 EQUIPMENT_TABLE = "equipment_esha"
-EQUIPMENT_AR = "2. قائمة المعدات والآلات في الموقع"
+EQUIPMENT_AR = "قائمة المعدات والآلات في الموقع"
 WASTE_TABLE = "waste_mgmt_esha"
-WASTE_AR = "إجراءات إدارة النفايات (8.3)"
+WASTE_AR = "إجراءات إدارة النفايات"
 
 
 # ------------------------------------------------------------------ helpers

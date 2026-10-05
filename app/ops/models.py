@@ -447,37 +447,64 @@ class DailySiteReport(OpsRecordMixin, db.Model):
     def _rows(value):
         return [r for r in (value or []) if isinstance(r, dict)]
 
-    @property
-    def labor_table_total(self) -> int:
-        """Headcount summed across trades (structured breakdown)."""
-        total = 0
-        for r in self._rows(self.labor_table):
-            try:
-                total += int(float(r.get("count", 0) or 0))
-            except (TypeError, ValueError):
+    @staticmethod
+    def _numbers(rows, key, factor_key=None):
+        """Add up a numeric column of a breakdown table, refusing to guess.
+
+        A cell that is not a number used to be skipped, which is the wrong way
+        round: dropping a row under-reports the headcount, and dropping one out
+        of a mean inflates it. A printed figure nobody can account for is worse
+        than one that says it could not be computed, so an unusable cell makes
+        the whole total None and the caller prints a dash.
+        """
+        total = 0.0
+        for r in rows:
+            raw = r.get(key)
+            if raw is None or raw == "":
+                # A blank cell is a cell nobody filled in, not a bad value.
                 continue
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                return None
+            if factor_key is not None:
+                try:
+                    value *= float(r.get(factor_key) or 0)
+                except (TypeError, ValueError):
+                    return None
+            total += value
         return total
 
     @property
-    def equipment_hours_total(self) -> float:
+    def labor_table_total(self):
+        """Headcount summed across trades, or None when a cell is not a number."""
+        total = self._numbers(self._rows(self.labor_table), "count")
+        return None if total is None else int(total)
+
+    @property
+    def equipment_hours_total(self):
         """Plant-hours of the day: Σ qty × hours per equipment row."""
-        total = 0.0
-        for r in self._rows(self.equipment_table):
-            try:
-                total += float(r.get("qty", 0) or 0) * float(r.get("hours", 0) or 0)
-            except (TypeError, ValueError):
-                continue
-        return round(total, 2)
+        total = self._numbers(self._rows(self.equipment_table), "qty",
+                              factor_key="hours")
+        return None if total is None else round(total, 2)
 
     @property
     def fronts_avg_pct(self):
-        """Mean progress across staged work fronts (None when unstaged)."""
+        """Mean progress across staged work fronts (None when unstaged).
+
+        Also None when a front's percentage is unusable, for the same reason as
+        the totals: averaging over the rows that happened to parse is not the
+        average.
+        """
         pcts = []
         for r in self._rows(self.work_fronts):
-            try:
-                pcts.append(float(r.get("progress_pct", 0) or 0))
-            except (TypeError, ValueError):
+            raw = r.get("progress_pct")
+            if raw is None or raw == "":
                 continue
+            try:
+                pcts.append(float(raw))
+            except (TypeError, ValueError):
+                return None
         return round(sum(pcts) / len(pcts), 2) if pcts else None
 
 

@@ -3,6 +3,8 @@
 Used by seed + 'reset to defaults' admin action. Field dicts:
   key / label_ar / type / required / options / placeholder
 """
+import re
+
 from utils.helpers import FIELD_SPECS
 from app.models import TenantTemplateOverride
 
@@ -137,6 +139,41 @@ EXTRA_SPECS = {
 _KIND_MAP = {"text": "text", "textarea": "textarea", "number": "number",
              "dropdown": "dropdown", "date": "date", "checkbox": "checkbox",
              "table": "table", "file": "file"}
+
+
+#: A hand-written section number at the start of a label: "1. حالة الطقس",
+#: "8.4 أ. التلوث الهوائي", "8.3 سجل النفايات", "8.4 و/ز. الأراضي".
+#:
+#: The sub-designator is Arabic and takes three shapes in this schema - a bare
+#: letter ("أ"), a letter with a tatweel ("هـ"), and two joined by a slash
+#: ("و/ز") - so it is spelled out rather than reduced to one character.
+#:
+#: The lookahead is what makes it safe. The Arabic letter range also covers
+#: every letter in every ordinary word, so without it "8.3 سجل النفايات" lost
+#: its first character and printed as "جل النفايات". A real sub-designator
+#: stands alone: followed by a space, a full stop, or nothing.
+#: The sub-designator is short by construction - one or two letters, with an
+#: optional tatweel ("هـ"), optionally two of them joined by a slash ("و/ز").
+#: The {1,2} bound is what stops a whole word being eaten: the Arabic letter
+#: range covers every letter, so an unbounded class happily matches "سجل" or
+#: "المواد" in full, and the lookahead only saves the cases where another
+#: letter happens to follow.
+_LEADING_SECTION_NUMBER = re.compile(
+    r"^\s*\d+(?:\.\d+)*[.\s]*"
+    r"(?:[ء-ي]{1,2}ـ?(?:[/／][ء-ي]{1,2})?(?=\s|\.|$)\.?)?"
+    r"\s*[.\-–—]?\s*")
+
+
+def _strip_leading_number(label):
+    """Drop a section number typed into a label.
+
+    The printed report numbers from document position, so a number in the label
+    is a second, independently maintained copy that can only ever disagree with
+    it - and did: the form opened with "8.1 وصف أنشطة البناء" where the document
+    had item 1 there.
+    """
+    clean = _LEADING_SECTION_NUMBER.sub("", str(label or "")).strip()
+    return clean or str(label or "").strip()
 
 
 def _spec_to_field(key, label, kind, required=False, options=None,
@@ -399,7 +436,7 @@ DAILY_TABLES = [
         {"key": "w_dest", "label_ar": "الوجهة / موقع التفريغ", "type": "text", "required": False, "options": []},
         {"key": "w_mitigation", "label_ar": "إجراءات التخفيف أثناء النقل", "type": "text", "required": False, "options": []},
     ]),
-    ("waste_mgmt_esha", "إجراءات إدارة النفايات (8.3)", [
+    ("waste_mgmt_esha", "إجراءات إدارة النفايات", [
         {"key": "action", "label_ar": 'إجراء إدارة النفايات', "type": "dropdown", "required": True, "options": ['فرز النفايات حسب النوع', 'تجميع أنقاض البناء في منطقة محددة', 'استخدام حاويات مناسبة ومغلقة', 'وضع بطاقات تعريف وتحذير للنفايات', 'عدم حرق النفايات في الموقع', 'منع تسرب الدهانات والزيوت والمواد', 'تغطية الشاحنات أثناء نقل النفايات', 'نقل النفايات بصورة آمنة', 'نقل النفايات إلى مكب / جهة معتمدة', 'الاحتفاظ بسجل نقل والتخلص من النفايات']},
         {"key": "applied", "label_ar": "مطبَّق (تم)", "type": "checkbox", "required": False, "options": []},
         {"key": "notes", "label_ar": "الملاحظات / N/A", "type": "text", "required": False, "options": []},
@@ -606,37 +643,91 @@ def default_fields_for(template_key):
     if template_key == "daily":
         # daily uses ONLY the ESHS model (the legacy FIELD_SPECS duplicated the
         # weather and manpower sections)
-        # The covered period and the shift. These were two facts the printed
-        # report's header table needed and the form never asked for, so the
-        # renderer had to invent one of them - "يوم واحد – <date>" - and had
-        # nowhere to get the other. The approved document carries both:
-        # "يوم واحد – 1/10/2026 – وردية النهار". They are optional because a
-        # report with no shift is still a valid report; when the shift is left
-        # blank the header falls back to the date alone.
-        out.append(_spec_to_field("report_period_label", "الفترة المشمولة بالتقرير", "text", False,
-                                  [], None))
-        out.append(_spec_to_field("shift_name", "الوردية", "dropdown", False,
-                                  ["وردية النهار", "وردية مسائية", "وردية ليلية", "وردية كاملة"],
-                                  None))
-        # 8.1 / 8.2 descriptive fields (before tables, as in PDF)
-        out.append(_spec_to_field("eshs_desc_81", "8.1 وصف أنشطة البناء في الموقع", "textarea", False,
-                                  [], (_example(template_key, "eshs_desc_81") or None)))
-        out.append(_spec_to_field("eshs_location_82", "8.2 موقع تنفيذ الأنشطة", "textarea", False,
-                                  [], (_example(template_key, "eshs_location_82") or None)))
-        # The ESHS tables stay optional on purpose. Requiring them would make
-        # the form unfinishable — a compliance officer ticking 80 boxes to save
-        # is how a form gets abandoned — and it would break minimal valid
-        # submissions (see test_dyn_create_linked_syncs_name). What the
-        # standard demands instead is that a missing section be *noticed*, so
-        # the form warns and the printed report hides it. See
-        # missing_critical_fields() for that side.
-        for k, lb, cols in DAILY_TABLES:
-            out.append(_spec_to_field(k, lb, "table", False, [],
-                                      _cols_with_hints(template_key, cols)))
-        # attachments checkboxes (المرفقات) - 3 items
-        out.append(_spec_to_field("attach_attendance", "المرفقات: كشف الحضور اليومي للموقع", "checkbox", False))
-        out.append(_spec_to_field("attach_complaints", "المرفقات: سجل الشكاوى والحوادث", "checkbox", False))
-        out.append(_spec_to_field("attach_scaffolding", "المرفقات: قائمة فحص وتدقيق السقالات والمعدات", "checkbox", False))
+        #
+        # The order below is the approved daily-report sequence, and it is
+        # written out rather than left to DAILY_TABLES' order. It used to run
+        # "8.1 وصف أنشطة البناء" first, because the two descriptive fields were
+        # appended ahead of the tables - so the form opened with item 8.1 while
+        # the printed report, which numbers from document position, opened with
+        # item 1. The same list in two places, disagreeing.
+        #
+        # The site's own sections are kept, each beside the section it belongs
+        # with rather than gathered at the end:
+        #   mockup_approval_esha  after the progress section it certifies
+        #   cap_esha              after the incidents it answers
+        #   ncr_esha              before the signature block it has to be fixed in
+        #   report_period_label / shift_name  first: they are header facts
+        #
+        # Labels carry no leading number any more. The printed report numbers
+        # from position (see section_heading), so a number typed into the label
+        # could only ever disagree with it.
+        _order = [
+            ("field", "report_period_label", "الفترة المشمولة بالتقرير", "text", False, [], None),
+            ("field", "shift_name", "الوردية", "dropdown", False,
+             ["وردية النهار", "وردية مسائية", "وردية ليلية", "وردية كاملة"], None),
+            ("table", "weather_esha"),
+            ("table", "equipment_esha"),
+            ("table", "staff_esha"),
+            ("table", "work_progress_esha"),
+            ("table", "mockup_approval_esha"),
+            ("table", "materials_esha"),
+            ("table", "next_day_esha"),
+            ("table", "meetings_esha"),
+            ("field", "eshs_desc_81", "وصف أنشطة البناء في الموقع", "textarea", False, [],
+             (_example(template_key, "eshs_desc_81") or None)),
+            ("field", "eshs_location_82", "موقع تنفيذ الأنشطة", "textarea", False, [],
+             (_example(template_key, "eshs_location_82") or None)),
+            ("table", "waste_daily_esha"),
+            ("table", "waste_mgmt_esha"),
+            ("table", "eshs_air_esha"),
+            ("table", "eshs_utilities_esha"),
+            ("table", "eshs_ohs_esha"),
+            ("table", "eshs_workcond_esha"),
+            ("table", "eshs_community_esha"),
+            ("table", "eshs_land_heritage_esha"),
+            ("table", "eshs_biodiversity_esha"),
+            ("table", "announcements_esha"),
+            ("table", "incidents_esha"),
+            ("table", "cap_esha"),
+            ("table", "stakeholder_activities_esha"),
+            ("table", "complaints_esha"),
+            ("table", "safety_team_esha"),
+            ("table", "photos_esha"),
+            ("table", "ncr_esha"),
+            ("table", "signatures_esha"),
+            ("field", "attach_attendance", "المرفقات: كشف الحضور اليومي للموقع", "checkbox", False, [], None),
+            ("field", "attach_complaints", "المرفقات: سجل الشكاوى والحوادث", "checkbox", False, [], None),
+            ("field", "attach_scaffolding", "المرفقات: قائمة فحص وتدقيق السقالات والمعدات", "checkbox", False, [], None),
+        ]
+
+        # The table specs are looked up by key, so a key added to _order without
+        # a definition cannot silently vanish: it raises here rather than
+        # producing a shorter form.
+        tables = {k: (lb, cols) for k, lb, cols in DAILY_TABLES}
+        for item in _order:
+            if item[0] == "table":
+                key = item[1]
+                if key not in tables:
+                    raise KeyError(
+                        f"daily order references {key!r}, which DAILY_TABLES "
+                        f"does not define")
+                label, cols = tables[key]
+                out.append(_spec_to_field(key, _strip_leading_number(label),
+                                          "table", False, [],
+                                          _cols_with_hints(template_key, cols)))
+            else:
+                _, key, label, kind, required, opts, example = item
+                out.append(_spec_to_field(key, label, kind, required, opts,
+                                          [], example))
+        # A key defined in DAILY_TABLES but absent from _order would drop off
+        # the form with no error at all, which is how the sections went missing
+        # before.
+        ordered_tables = {i[1] for i in _order if i[0] == "table"}
+        missing = set(tables) - ordered_tables
+        if missing:
+            raise KeyError(
+                f"DAILY_TABLES defines sections the daily order omits: "
+                f"{sorted(missing)}")
     if template_key == "weekly":
         # weekly summary (12 items) + attachments + WP tables
         out.append(_spec_to_field("weekly_summary_12", "ملخص التقدم التنفيذي (12 بند)", "textarea", False,
@@ -898,6 +989,15 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                     row.placeholder = f["placeholder"]
                 if (f.get("rules") or {}) != (row.rules or {}):
                     row.rules = f.get("rules") or {}
+                # Position is part of the spec, like required and columns, and
+                # was not synced. So re-ordering a template in this file changed
+                # a fresh database and nothing else: the seeder added the new
+                # fields with their new positions and left every existing field
+                # where it was, and a live deployment kept the old order
+                # permanently. The order is what the printed report numbers
+                # from, so this is not cosmetic.
+                if row.position != pos:
+                    row.position = pos
                 if row.field_type != f["type"] and f["key"] in ("weekly_photos",):
                     # file-vs-text consistency fix (photo upload)
                     pass  # type migration handled below via sub_fields only
