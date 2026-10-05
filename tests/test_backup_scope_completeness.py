@@ -183,8 +183,8 @@ def test_an_unresolvable_attachment_is_counted_not_hidden(app, tenant):
     counts = backup_service.restore_backup(
         backup_service.build_backup(project_id=tenant.id), project_id=tenant.id,
         replace=True)
-    assert "attachments_skipped" not in counts or \
-        counts["attachments_skipped"] == 0, (
+    assert ("attachments_skipped" not in counts
+            or counts["attachments_skipped"] == 0), (
         "a clean archive should skip nothing")
     assert isinstance(row, dict)
 
