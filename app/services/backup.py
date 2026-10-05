@@ -33,6 +33,7 @@ Structure:
 """
 import io
 import json
+import logging
 import zipfile
 from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
@@ -59,7 +60,32 @@ OPS_MODELS = {
     "safety_reports": SafetyReport,
 }
 
+#: Attachment.record_kind -> the OPS_MODELS key whose id_map resolves it.
+#:
+#: The restore used to derive this by replacing "-" with "_" in the record_kind,
+#: which works for eight of the nine kinds by coincidence and fails on the ninth.
+#: The routes name a daily site report "daily-reports"; the model table is
+#: "daily_site_reports". So every attachment on a daily report looked up an
+#: id_map key that does not exist, hit the `continue` below, and was dropped -
+#: silently, and counted as if it had never been there.
+#:
+#: Written out rather than derived, because two independent naming conventions
+#: agreeing on eight of nine is not something to rely on for the ninth.
+ATTACHMENT_KIND_TO_TABLE = {
+    "site-inspections": "site_inspections",
+    "material-submittals": "material_submittals",
+    "rfis": "rfis",
+    "cost-variances": "cost_variances",
+    "progress-billings": "progress_billings",
+    "subcontractor-performances": "subcontractor_performances",
+    "daily-reports": "daily_site_reports",
+    "variation-orders": "variation_orders",
+    "safety-reports": "safety_reports",
+}
+
 BACKUP_VERSION = "1.0"
+
+log = logging.getLogger(__name__)
 
 
 def _json_default(value: Any) -> str:
@@ -87,16 +113,39 @@ def _dict_to_model(model_cls: Any, data: Dict[str, Any]) -> Any:
     return model_cls(**payload)
 
 
-def _query_all(model_cls: Any,
-               project_id: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Serialize all rows of a model, optionally scoped to a project."""
+def _query_all(model_cls: Any, project_id: Optional[int] = None,
+               project_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Serialize all rows of a model, optionally scoped to a project.
+
+    A project-scoped archive has to find the rows three different ways, because
+    the tables are not consistent about how they point at a project:
+
+    * most carry ``project_id``;
+    * some reach the project through a many-to-one relationship instead;
+    * the legacy ``reports`` table carries only ``project_name``, because it
+      predates projects being rows at all;
+    * anything else cannot be scoped and is skipped rather than leaked.
+
+    That middle case used to fall through to the final ``return []``, so every
+    project-scoped backup silently contained an empty ``legacy_reports.json``
+    while the restore half went on to implement ``project_name`` scoping for
+    it. A backup that quietly drops a table is the worst failure this service
+    can have, and nothing reported it: the archive validates, it restores, and
+    the reports are simply not in it.
+    """
     query = model_cls.query
     if project_id is not None:
         if hasattr(model_cls, "project_id"):
             query = query.filter_by(project_id=project_id)
         elif hasattr(model_cls, "project"):
+            # Reaches its project through a many-to-one rather than owning a
+            # project_id column.
             query = query.filter(model_cls.project.has(id=project_id))
+        elif project_name and hasattr(model_cls, "project_name"):
+            query = query.filter_by(project_name=project_name)
         else:
+            # Cannot be attributed to the project. Including it would leak
+            # another tenant's rows into this archive.
             return []
     return [_model_to_dict(row) for row in query.all()]
 
@@ -128,6 +177,13 @@ def build_backup(project_id: Optional[int] = None) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         scope = "platform" if project_id is None else "project"
+        # The legacy reports table is keyed by name, not by id, so a
+        # project-scoped export has to know the name it is exporting.
+        scope_name = ""
+        if project_id is not None:
+            target = db.session.get(Project, project_id)
+            if target is not None:
+                scope_name = target.name
         meta = {
             "version": BACKUP_VERSION,
             "scope": scope,
@@ -165,7 +221,7 @@ def build_backup(project_id: Optional[int] = None) -> bytes:
             _write_json(buf, archive, "report_submissions.json",
                         _query_all(ReportSubmission, project_id))
             _write_json(buf, archive, "legacy_reports.json",
-                        _query_all(Report, project_id))
+                        _query_all(Report, project_id, scope_name))
             for filename, model_cls in OPS_MODELS.items():
                 _write_json(buf, archive, f"ops_records/{filename}.json",
                             _query_all(model_cls, project_id))
@@ -283,6 +339,16 @@ def _scoped_rows(rows: Iterable[Dict[str, Any]], project_id: Optional[int],
 _NATURAL_KEYS = {
     ProjectMember: ("project_id", "user_id"),
     Attachment: ("record_kind", "record_id", "storage_key"),
+    # Neither of these carries a serial, so without an entry here they were
+    # re-inserted on every restore. ReportSubmission and Report both carry a
+    # unique constraint, so restoring the same project archive a second time
+    # without replace=True did not quietly duplicate anything - it raised
+    # IntegrityError and rolled the whole thing back, which is safe but means
+    # the restore was not idempotent as documented and only worked with
+    # replace. The constraint columns are used as the natural key, so a repeat
+    # restore maps onto the rows already there.
+    ReportSubmission: ("template_id", "project_name", "report_date"),
+    Report: ("project_name", "report_type", "report_date"),
 }
 
 
@@ -442,15 +508,31 @@ def restore_backup(data: bytes, project_id: Optional[int] = None,
             attachments = _scoped_rows(
                 _load_json(archive, "attachments.json"), project_id)
             restored = 0
+            unresolved = 0
             for row in attachments:
-                kind = str(row.get("record_kind", "")).replace("-", "_")
-                record_id = id_map.get(kind, {}).get(row.get("record_id"))
+                kind = str(row.get("record_kind", "")).strip()
+                table = ATTACHMENT_KIND_TO_TABLE.get(kind)
+                if table is None:
+                    # A kind this service does not know. Counted so the operator
+                    # sees that something was skipped, rather than it vanishing
+                    # into a total that looks complete.
+                    unresolved += 1
+                    log.warning(
+                        "backup restore: attachment references unknown "
+                        "record_kind %r; not restored", kind)
+                    continue
+                record_id = id_map.get(table, {}).get(row.get("record_id"))
                 if record_id is None:
+                    # The owning row is not in this archive, so there is nothing
+                    # for this attachment to point at.
+                    unresolved += 1
                     continue
                 row = dict(row, record_id=record_id)
                 _insert_row(Attachment, row, id_map, "attachments")
                 restored += 1
             counts["attachments"] = restored
+            if unresolved:
+                counts["attachments_skipped"] = unresolved
 
         db.session.commit()
     except Exception:
