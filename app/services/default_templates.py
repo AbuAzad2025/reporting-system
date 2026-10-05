@@ -1005,9 +1005,6 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                 # from, so this is not cosmetic.
                 if row.position != pos:
                     row.position = pos
-                if row.field_type != f["type"] and f["key"] in ("weekly_photos",):
-                    # file-vs-text consistency fix (photo upload)
-                    pass  # type migration handled below via sub_fields only
                 # weekly_photos.photo cell type fix (text -> file)
                 if f["key"] == "weekly_photos" and isinstance(row.sub_fields, list):
                     fixed = False

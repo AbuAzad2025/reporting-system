@@ -544,14 +544,6 @@ def build_dynamic_pdf(submission, template, generated_at: str = "",
     sig_body = ParagraphStyle("sig_b", parent=st["cell"], fontSize=9,
                               leading=13)
 
-    def _sig_row(date_label, entity_label):
-        return [
-            Paragraph(ar(date_label), sig_body),
-            "",  # the wet signature, deliberately blank
-            Paragraph(ar(entity_label), sig_body),
-            Paragraph(ar(""), sig_body),
-        ]
-
     header_row = [
         Paragraph(ar("التاريخ"), sig_head),
         Paragraph(ar("التوقيع"), sig_head),
