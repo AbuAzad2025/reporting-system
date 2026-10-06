@@ -18,6 +18,18 @@ from app.reports.routes import _collect_dynamic, _table_rows_map
 
 # --------------------------------------------------------------- helpers
 
+def _url(app, endpoint, **kw):
+    """url_for outside a request, the way the real code will be called.
+
+    Building a URL needs a request context. Some tests here also leaned on an
+    application context left over from an earlier test, which is why they passed
+    locally and failed in the CI coverage job where the whole suite shares one
+    process.
+    """
+    with app.test_request_context():
+        return url_for(endpoint, **kw)
+
+
 def _cols():
     return [
         {"key": "item", "label_ar": "البند", "type": "text",
@@ -64,7 +76,7 @@ def test_a_file_of_a_disallowed_type_is_not_served(client, app, monkeypatch,
     note.write_text("x", encoding="utf-8")
     monkeypatch.setattr(routes, "_abs_dyn_file", lambda k: str(note))
     with app.test_request_context("/reports/dyn/file/reports/note.txt"):
-        r = client.get(url_for("reports.dyn_file", key="reports/note.txt"))
+        r = client.get(_url(app, "reports.dyn_file", key="reports/note.txt"))
     assert r.status_code == 404, f"served a disallowed type as {r.status_code}"
 
 
@@ -82,7 +94,7 @@ def test_a_key_outside_the_reports_directory_is_refused_before_the_type_check(
         routes, "_abs_dyn_file",
         lambda k: asked.append(k) or str(tmp_path / "note.txt"))
     with app.test_request_context("/reports/dyn/file/note.txt"):
-        r = client.get(url_for("reports.dyn_file", key="note.txt"))
+        r = client.get(_url(app, "reports.dyn_file", key="note.txt"))
     assert r.status_code == 404
     assert not asked, (
         "a key outside reports/ must be refused before any filesystem work")
@@ -97,7 +109,7 @@ def test_table_rows_map_defaults_to_the_template_field_order(app):
     form was rendered from", not "no tables at all".
     """
     tpl_id = _template_with_checklist(app)
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         rows = _table_rows_map(tpl, {})
@@ -108,7 +120,7 @@ def test_table_rows_map_defaults_to_the_template_field_order(app):
 def test_an_explicit_field_list_overrides_the_template_order(app):
     """The same helper, told which fields to look at."""
     tpl_id = _template_with_checklist(app)
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         assert _table_rows_map(tpl, {}, fields=[]) == {}
@@ -126,7 +138,7 @@ def test_a_checklist_row_cannot_be_done_and_not_done_at_once(app):
     person entered - only the contradiction is reported.
     """
     tpl_id = _template_with_checklist(app)
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         payload, errors = _collect_dynamic(
@@ -141,7 +153,7 @@ def test_a_checklist_row_ticking_one_box_is_accepted(app):
     """The control: one box, no error. Without this, the test above would also
     pass if the check fired on every row."""
     tpl_id = _template_with_checklist(app)
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         _payload, errors = _collect_dynamic(
@@ -158,7 +170,7 @@ def test_the_contradiction_check_only_ever_sees_strings(app):
     raw values through, this fails and the branch has to come back.
     """
     tpl_id = _template_with_checklist(app, key="strat")
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         payload, _errors = _collect_dynamic(
@@ -176,7 +188,7 @@ def test_the_contradiction_check_understands_every_spelling_of_yes(app):
     """
     tpl_id = _template_with_checklist(app)
     yes_values = [True, "1", "true", "on", "checked", "نعم", "☒"]
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         for value in yes_values:
@@ -185,7 +197,7 @@ def test_the_contradiction_check_understands_every_spelling_of_yes(app):
                                "not_done": value}]})
             assert errors, f"{value!r} was not read as yes"
     # and the value that is not yes
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         _p, errors = _collect_dynamic(
@@ -226,7 +238,7 @@ def test_a_failing_geolocation_step_does_not_sink_the_submission(
     with app.test_request_context("/reports/dyn/new/" + key):
         with caplog.at_level("DEBUG"):
             resp = client.post(
-                url_for("reports.dyn_new", template_key=key),
+                _url(app, "reports.dyn_new", template_key=key),
                 data={"name_ar": "تقرير", "report_date": "2026-01-15",
                       "location": "بغداد", "contractor": "شركة",
                       "geo_lat": " 33.315 ", "geo_lng": " 44.366 "},
@@ -244,7 +256,7 @@ def test_a_submission_with_coordinates_keeps_them(app):
     """The control for the test above: with nothing broken, collection returns
     normally, so the previous test cannot pass for the wrong reason."""
     tpl_id = _template_with_checklist(app, key="coords")
-    with app.app_context():
+    with app.test_request_context():
         from app.models import ReportTemplate
         tpl = ReportTemplate.query.get(tpl_id)
         payload, errors = _collect_dynamic(tpl, {})

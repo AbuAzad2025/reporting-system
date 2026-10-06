@@ -41,20 +41,40 @@ def test_deleting_a_logo_whose_file_vanished_is_not_an_error(app, monkeypatch):
         delete_logo("race.png")
 
 
-def test_an_absolute_key_is_refused_before_any_delete(app, monkeypatch):
-    """logo_path rejects an absolute key, so there is nothing to delete.
+def test_an_absolute_key_that_points_at_nothing_is_refused(app, monkeypatch,
+                                                           tmp_path):
+    """logo_path honours absolute paths, but only ones that exist.
 
-    Worth pinning separately: if the guard at logo_path ever stops holding,
-    this turns into a delete outside the branding directory.
+    Absolute paths were written by earlier versions, so they cannot simply be
+    rejected outright - the check is that the file is really there. One that is
+    not resolves to nothing, and then there is nothing for delete_logo to do.
     """
     import os as real_os
     from app.services import branding
+    absent = str(tmp_path / "never-uploaded.png")
     removed = []
     with app.app_context():
-        assert branding.logo_path("/etc/passwd") is None
+        assert branding.logo_path(absent) is None, (
+            "an absolute path to a file that does not exist must resolve to "
+            "nothing")
         monkeypatch.setattr(real_os, "remove", lambda p: removed.append(p))
-        branding.delete_logo("/etc/passwd")
-    assert not removed, f"an absolute key reached the filesystem: {removed}"
+        branding.delete_logo(absent)
+    assert not removed, f"an unresolvable key reached the filesystem: {removed}"
+
+
+def test_an_absolute_path_to_a_real_file_is_still_honoured(app, tmp_path):
+    """The other half: absolute paths from earlier versions keep working.
+
+    This is why the check above is isfile rather than isabs - rejecting every
+    absolute path would blank the header of every project that had a logo
+    uploaded before the paths became relative.
+    """
+    from app.services import branding
+    real = tmp_path / "legacy.png"
+    real.write_bytes(b"x")
+    with app.app_context():
+        assert branding.logo_path(str(real)) == str(real), (
+            "an absolute path to a real file must still be served")
 
 
 # ================================== BrandView outside an application context

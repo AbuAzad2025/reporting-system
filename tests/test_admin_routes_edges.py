@@ -19,6 +19,13 @@ from flask import url_for
 from app.admin import routes as admin_routes
 
 
+def _url(app, endpoint, **kw):
+    """url_for needs a request context; relying on one left behind by another
+    test is what made these pass locally and fail in CI."""
+    with app.test_request_context():
+        return url_for(endpoint, **kw)
+
+
 def _login(client, who="t_owner"):
     from tests.conftest import login_as
     login_as(client, who)
@@ -50,7 +57,7 @@ def test_a_field_with_no_key_or_no_label_is_refused(client, app):
     _login(client)
     for payload in ({"field_key": "", "label_ar": "اسم"},
                     {"field_key": "k", "label_ar": "   "}):
-        client.post(url_for("admin.fields", template_id=tid), data=payload,
+        client.post(_url(app, "admin.fields", template_id=tid), data=payload,
                     follow_redirects=True)
     assert not _fields_named(app, "k"), "a blank label must not be stored"
 
@@ -63,7 +70,7 @@ def test_a_field_type_outside_the_catalog_is_refused(client, app):
     """
     tid = _template_id(app)
     _login(client)
-    client.post(url_for("admin.fields", template_id=tid), data={
+    client.post(_url(app, "admin.fields", template_id=tid), data={
         "field_key": "k_bad", "label_ar": "نوع غريب", "field_type": "nonsense"},
         follow_redirects=True)
     assert not _fields_named(app, "k_bad"), (
@@ -76,7 +83,7 @@ def test_a_duplicate_field_key_in_one_template_is_refused(client, app):
     tid = _template_id(app)
     _login(client)
     for _ in range(2):
-        client.post(url_for("admin.fields", template_id=tid), data={
+        client.post(_url(app, "admin.fields", template_id=tid), data={
             "field_key": "dup_probe", "label_ar": "م", "field_type": "text"},
             follow_redirects=True)
     assert len(_fields_named(app, "dup_probe")) == 1, (
@@ -90,7 +97,7 @@ def test_a_well_formed_field_is_accepted(client, app):
     """
     tid = _template_id(app)
     _login(client)
-    client.post(url_for("admin.fields", template_id=tid), data={
+    client.post(_url(app, "admin.fields", template_id=tid), data={
         "field_key": "ok_probe", "label_ar": "سليم", "field_type": "text"},
         follow_redirects=True)
     assert _fields_named(app, "ok_probe"), "a valid field must be stored"
@@ -149,7 +156,7 @@ def test_customising_another_companys_template_is_a_404_not_a_403(
     _login(client)
     monkeypatch.setattr(isolation, "is_platform_manager", lambda u: False)
     monkeypatch.setattr(isolation, "can_access_project", lambda u, p: False)
-    r = client.get(url_for("admin.company_templates", project_id=pid,
+    r = client.get(_url(app, "admin.company_templates", project_id=pid,
                            template_key="daily"))
     assert r.status_code == 404, (
         f"got {r.status_code}; 403 would confirm the project id exists")
@@ -163,7 +170,7 @@ def test_the_page_still_renders_for_a_permitted_caller(client, app,
     _login(client)
     monkeypatch.setattr(isolation, "is_platform_manager", lambda u: False)
     monkeypatch.setattr(isolation, "can_access_project", lambda u, p: True)
-    r = client.get(url_for("admin.company_templates", project_id=pid,
+    r = client.get(_url(app, "admin.company_templates", project_id=pid,
                            template_key="daily"))
     assert r.status_code == 200, f"got {r.status_code}"
 
@@ -174,7 +181,7 @@ def _company_post(client, app, data):
     pid = _project_id(app)
     _login(client)
     r = client.post(
-        url_for("admin.company_templates", project_id=pid,
+        _url(app, "admin.company_templates", project_id=pid,
                  template_key="daily"),
         data=data, follow_redirects=True)
     return r
@@ -292,7 +299,7 @@ def test_a_backup_that_fails_validation_is_not_offered_for_download(
     """
     uploaded = _patch_backup(monkeypatch, ok=False)
     _login(client)
-    r = client.post(url_for("admin.backup_export"), follow_redirects=True)
+    r = client.post(_url(app, "admin.backup_export"), follow_redirects=True)
     body = r.get_data(as_text=True)
     assert "فشل التحقق من النسخة" in body and "أرشيف غير صالح" in body
     assert not uploaded, (
@@ -303,7 +310,7 @@ def test_a_backup_that_passes_validation_is_stored(client, app, monkeypatch):
     """The control: the same path, with validation saying yes."""
     uploaded = _patch_backup(monkeypatch, ok=True)
     _login(client)
-    client.post(url_for("admin.backup_export"), follow_redirects=True)
+    client.post(_url(app, "admin.backup_export"), follow_redirects=True)
     assert uploaded == ["probe.zip"], (
         "a valid archive must reach storage")
 
@@ -322,7 +329,7 @@ def test_branding_without_any_active_project_sends_you_to_projects(client, app):
             p.is_active = False
         db.session.commit()
     _login(client)
-    r = client.get(url_for("admin.branding"), follow_redirects=True)
+    r = client.get(_url(app, "admin.branding"), follow_redirects=True)
     assert "أضف مشروعاً أولاً" in r.get_data(as_text=True), (
         "the operator has to be told what is missing first")
 
@@ -334,6 +341,6 @@ def test_branding_with_an_active_project_renders(client, app):
         Project.query.first().is_active = True
         db.session.commit()
     _login(client)
-    r = client.get(url_for("admin.branding"))
+    r = client.get(_url(app, "admin.branding"))
     assert r.status_code == 200, f"got {r.status_code}"
     assert "أضف مشروعاً أولاً" not in r.get_data(as_text=True)
