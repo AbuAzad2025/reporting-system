@@ -476,8 +476,10 @@ def _collect_dynamic(template, form, fields=None):
                 _col_keys = {c["key"] for c in cols}
                 if "done" in _col_keys and "not_done" in _col_keys:
                     def _is_yes(v):
-                        if v is True:
-                            return True
+                        # Cells reach here already stringified by
+                        # _extract_table_rows, so there is no bool case to
+                        # handle. A `v is True` branch existed here and could
+                        # never fire.
                         return str(v or "").strip().lower() in (
                             "1", "true", "yes", "on", "checked", "نعم", "☒")
                     if _is_yes(row.get("done")) and _is_yes(row.get("not_done")):
