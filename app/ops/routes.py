@@ -527,8 +527,6 @@ def enum_labels(kind: str) -> dict:
     out = {}
     for field in SCHEMAS.get(kind, {}).get("enums", {}):
         table_name = ENUM_LABEL_TABLES.get((kind, field))
-        if not table_name:
-            continue
         table = get_reference_table(table_name)
         if table:
             out[field] = dict(table.choices("ar"))
