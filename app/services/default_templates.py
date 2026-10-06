@@ -1005,14 +1005,11 @@ def ensure_default_templates(db, ReportTemplate, DynamicField, admin_id=None):
                 # from, so this is not cosmetic.
                 if row.position != pos:
                     row.position = pos
-                # weekly_photos.photo cell type fix (text -> file)
-                if f["key"] == "weekly_photos" and isinstance(row.sub_fields, list):
-                    fixed = False
-                    for c in row.sub_fields:
-                        if isinstance(c, dict) and c.get("key") == "photo" and c.get("type") == "text":
-                            c["type"] = "file"
-                            fixed = True
-                    if fixed:
-                        from sqlalchemy.orm.attributes import flag_modified
-                        flag_modified(row, "sub_fields")
+                # The old weekly_photos.photo text->file repair that used to
+                # live here was removed: the column sync above replaces the
+                # whole sub_fields list with the standard whenever they differ,
+                # and the standard already declares photo as a file column, so
+                # that special case could never run. Keeping it was a second
+                # place to change when a column type is corrected, and it was
+                # the one nobody exercised.
     db.session.commit()
