@@ -4,7 +4,10 @@ Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
 Flask-Migrate==4.1.0
 Flask-WTF==1.2.2
-Werkzeug==3.1.8
+# 3.1.9 for CVE-2026-102598 (CWE-400, uncontrolled resource consumption).
+# 3.1.8 was pinned before that advisory existed; pip-audit in CI caught it,
+# which is what that gate is for.
+Werkzeug==3.1.9
 reportlab==5.0.1
 pillow==12.3.0
 arabic-reshaper==3.0.0
