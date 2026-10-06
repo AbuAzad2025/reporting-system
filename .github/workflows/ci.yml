@@ -5,6 +5,10 @@ on:
     branches: [master, develop]
   pull_request:
     branches: [master, develop]
+  # Re-run the same commit without having to push an empty one. A deleted or
+  # timed-out run used to leave the only options as a throwaway commit or no
+  # verification at all.
+  workflow_dispatch:
 
 # Every job has explicit Install step with click verification — no confusion, exact failure location.
 jobs:
