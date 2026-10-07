@@ -64,7 +64,8 @@ def clean_bootstrap_app(tmp_path):
 class TestConfig(Config):
     TESTING = True
     SECRET_KEY = "pytest-secret"
-    # resolved per-test in the fixture (tmp file); placeholder only
+    WTF_CSRF_ENABLED = False
+    # resolved per-test in the fixture (placeholder only)
     SQLALCHEMY_DATABASE_URI = "sqlite://"
 
 
