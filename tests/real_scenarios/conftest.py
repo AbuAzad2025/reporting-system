@@ -46,7 +46,10 @@ def logged_in_client(client, role):
         "superadmin": "t_owner",
         "admin": "t_admin",
         "project_manager": "t_pm",
-        "project_director": "t_owner",
+        "project_director": "t_pd",
+        "qa_qc_inspector": "t_qc",
+        "senior_consultant": "t_consult",
+        "procurement_officer": "t_procure",
         "site_engineer": "t_eng",
         "safety_officer": "t_safety",
     }
@@ -150,6 +153,16 @@ def role_has_perm(role, perm):
     """True if the role grants this permission."""
     perms = ROLE_PERMISSIONS.get(role, [])
     return perm in perms
+
+
+#: The role list on /ops/<kind>/<id>/approve, read from
+#: @roles_required_json("admin", "superadmin", "project_manager") in
+#: app/ops/routes.py. roles_required_json widens "admin" to include
+#: superadmin and project_manager, so these three are the whole gate.
+#:
+#: It is narrower than the permission map: project_director and
+#: senior_consultant are granted approve_reports and are not in this list.
+APPROVE_ROLE_GATE = frozenset({"admin", "superadmin", "project_manager"})
 
 
 # ---------------------------------------------------------------------------

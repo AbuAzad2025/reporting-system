@@ -435,7 +435,11 @@ jobs:
   real-scenario-journeys:
     name: "Real Scenario Journeys"
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # Nine roles x nav, admin, ops kinds and approvals, plus the record
+    # lifecycle. Roughly 49 minutes on one worker; xdist brings it to single
+    # digits. The timeout is not the budget - it is the point at which a
+    # genuinely hung test stops blocking everything else.
+    timeout-minutes: 45
     steps:
       - name: "Checkout"
         uses: actions/checkout@v6
@@ -448,10 +452,11 @@ jobs:
           python -m pip install --force-reinstall --no-cache-dir click==8.5.0
           python -c "import click; ver = click.__version__; assert ver == '8.5.0', f'FAIL: click={ver}, expected 8.5.0'; print(f'PASS: click verified exactly 8.5.0')"
           pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov pytest-xdist
       - name: "Run Real Scenario Tests"
         run: |
-          python -m pytest tests/real_scenarios/ -v --tb=short -p no:warnings
+          python -m pytest tests/real_scenarios/ -n 4 --dist loadfile \
+            --tb=short -p no:warnings -q
 
   # ── Coverage Report ──
   coverage-report-combined:

@@ -32,6 +32,42 @@ class TestSiteEngineerJourney(RoleJourney):
     username = "t_eng"
 
 
+class TestProjectDirectorJourney(RoleJourney):
+    """Project Director: a platform manager, so every project is visible.
+
+    project_director is in MANAGER_ROLES, which means is_admin is True for it
+    - but can_manage_templates() is False, so the admin link is hidden and the
+    template screens still turn it away. Those two facts disagree and this
+    class is where that disagreement shows up.
+    """
+    role = "project_director"
+    username = "t_pd"
+
+
+class TestQaQcInspectorJourney(RoleJourney):
+    """QA/QC Inspector: same permission set as an engineer."""
+    role = "qa_qc_inspector"
+    username = "t_qc"
+
+
+class TestSeniorConsultantJourney(RoleJourney):
+    """Senior Consultant: holds approve_reports and share_reports.
+
+    This is the role that finds the disagreement between the permission map and
+    the route gate: approve_reports is granted here, but /ops approve also
+    carries roles_required_json, whose role list does not include
+    senior_consultant. Whoever holds the permission cannot spend it.
+    """
+    role = "senior_consultant"
+    username = "t_consult"
+
+
+class TestProcurementOfficerJourney(RoleJourney):
+    """Procurement Officer: same permission set as an engineer."""
+    role = "procurement_officer"
+    username = "t_procure"
+
+
 class TestSafetyOfficerJourney(RoleJourney):
     """Safety Officer: same perms as site_engineer in current model."""
     role = "safety_officer"
