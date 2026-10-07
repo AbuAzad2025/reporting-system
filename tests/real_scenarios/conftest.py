@@ -92,8 +92,7 @@ def assert_nav_access(client, endpoint, expect_ok=True):
 
     Returns the response so the caller can do form submission etc.
     """
-    with client.application.test_request_context():
-        url = url_for(endpoint)
+    url = _url(client.application, endpoint)
     resp = client.get(url)
     if expect_ok:
         assert resp.status_code == 200, (
@@ -106,8 +105,7 @@ def assert_nav_access(client, endpoint, expect_ok=True):
 
 def submit_form(client, endpoint, data, method="POST", follow_redirects=False):
     """POST a form and return the response."""
-    with client.application.test_request_context():
-        url = url_for(endpoint)
+    url = _url(client.application, endpoint)
     return client.open(url, method=method, data=data, follow_redirects=follow_redirects)
 
 

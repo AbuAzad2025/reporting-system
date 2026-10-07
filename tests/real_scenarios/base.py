@@ -81,7 +81,7 @@ class RoleJourney:
         The nav wraps the admin link in {%- if current_user.can_manage_templates() %}.
         """
         should_have = self.role in {"superadmin", "admin"}
-        resp = self.client.get(url_for("main.dashboard"))
+        resp = self._get("main.dashboard")
         has_admin_link = b"admin" in resp.data.lower() or b"admin" in resp.data
         if should_have:
             assert has_admin_link, "admin link missing for admin role"
@@ -161,7 +161,7 @@ class RoleJourney:
         """List page for each ops kind - API route, denied = 403."""
         from tests.real_scenarios.conftest import role_has_perm
         expected = 200 if role_has_perm(self.role, "view_reports") else 403
-        resp = self.client.get(url_for("ops.listing", kind=kind))
+        resp = self._get("ops.listing", kind=kind)
         assert resp.status_code == expected, f"ops.listing[{kind}] -> {resp.status_code} (expected {expected})"
 
     @pytest.mark.parametrize("kind", [
@@ -179,7 +179,7 @@ class RoleJourney:
         """UI new page for each ops kind - API route, denied = 403."""
         from tests.real_scenarios.conftest import role_has_perm
         expected = 200 if role_has_perm(self.role, "create_reports") else 403
-        resp = self.client.get(url_for("ops.ui_new", kind=kind))
+        resp = self._get("ops.ui_new", kind=kind)
         assert resp.status_code == expected, f"ops.ui_new[{kind}] -> {resp.status_code} (expected {expected})"
 
     @pytest.mark.parametrize("kind", [
@@ -197,28 +197,95 @@ class RoleJourney:
         """PDF export - API route, denied = 403."""
         from tests.real_scenarios.conftest import role_has_perm
         expected = 200 if role_has_perm(self.role, "export_pdf") else 403
-        resp = self.client.get(url_for("ops.pdf", kind=kind, obj_id=1))
+        resp = self._get("ops.pdf", kind=kind, obj_id=1)
         assert resp.status_code == expected, f"ops.pdf[{kind}] -> {resp.status_code} (expected {expected})"
+
+    # ------------------------------------------------------- the approval gate
+    def test_ops_approval_is_gated_on_the_permission_not_the_role_name(self):
+        """Approving is guarded twice, and the two guards are not the same set.
+
+        /ops/<kind>/<id>/approve carries @permission_required("approve_reports")
+        and then @roles_required_json("admin","superadmin","project_manager"),
+        and roles_required_json widens "admin" to also admit superadmin and
+        project_manager. So the effective gate is the permission map.
+
+        Measured against the running app rather than assumed: superadmin, admin
+        and project_manager get 200; site_engineer and safety_officer get 403,
+        even though the two roles differ in the map and not in the role gate.
+        """
+        from tests.real_scenarios.conftest import role_has_perm
+        expected = 200 if role_has_perm(self.role, "approve_reports") else 403
+        resp = self.client.post(
+            self._url("ops.approve", kind="rfis", obj_id=1),
+            json={"decision": "approve", "notes": "scenario"})
+        assert resp.status_code == expected, (
+            f"approve_reports={role_has_perm(self.role, 'approve_reports')} "
+            f"for {self.role}, but /ops approve answered {resp.status_code} "
+            f"(expected {expected})")
+
+    def test_the_ui_approval_route_redirects_where_the_api_answers_json(self):
+        """The two approval routes answer the same refusal in different shapes.
+
+        /ops/ui/.../approve is a page route, so passing it redirects; a denial
+        on it still answers 403 because the request is JSON. /ops/.../approve
+        answers 403 with a machine-readable body when refused, and 200 or 422
+        when it gets past the gates - 422 being the state machine declining a
+        transition that is not legal from where the record already is.
+
+        Both calls hit the same record, so they are not independent: whichever
+        runs first moves the record on and the second sees a different state.
+        That is why 422 is in the permitted set rather than treated as a bug.
+        """
+        ui = self.client.post(
+            self._url("ops.ui_approve", kind="rfis", obj_id=1),
+            json={"decision": "approve", "notes": "scenario"})
+        api = self.client.post(
+            self._url("ops.approve", kind="rfis", obj_id=1),
+            json={"decision": "approve", "notes": "scenario"})
+        assert api.status_code in (200, 403, 422), (
+            f"the API route answered {api.status_code}, which is neither a "
+            f"refusal nor a passed-the-gates outcome")
+        if api.status_code == 403:
+            assert ui.status_code == 403, (
+                f"the two routes disagree: ui={ui.status_code} api=403")
+        else:
+            assert ui.status_code in (302, 200, 403, 422), (
+                f"a permitted UI approval answered {ui.status_code}")
+
+    def test_ops_api_approval_denies_anonymous_callers_with_401(self):
+        """A machine caller gets 401, not a login redirect.
+
+        login_manager.unauthorized_handler answers 401 with a JSON body for
+        anything under the JSON prefix, which is the difference between an API
+        refusing politely and an API appearing to hang on a 302.
+        """
+        self.client.get(self._url("auth.logout"))
+        resp = self.client.post(
+            self._url("ops.approve", kind="rfis", obj_id=1),
+            json={"decision": "approve"})
+        assert resp.status_code == 401, (
+            f"anonymous API approval answered {resp.status_code}, not 401")
+        assert resp.get_json()["error"] == "authentication required"
 
     # ------------------------------------------------------------ reports
     def test_dynamic_reports_list(self):
         """Reports list - API route, denied = 403."""
         from tests.real_scenarios.conftest import role_has_perm
         expected = 200 if role_has_perm(self.role, "view_reports") else 403
-        resp = self.client.get(url_for("reports.dyn_list"))
+        resp = self._get("reports.dyn_list")
         assert resp.status_code == expected, f"reports.dyn_list -> {resp.status_code} (expected {expected})"
 
     def test_dynamic_report_new(self):
         """Dynamic report new - API route, denied = 403."""
         from tests.real_scenarios.conftest import role_has_perm
         expected = 200 if role_has_perm(self.role, "create_reports") else 403
-        resp = self.client.get(url_for("reports.dyn_new", template_key="daily"))
+        resp = self._get("reports.dyn_new", template_key="daily")
         assert resp.status_code == expected, f"reports.dyn_new -> {resp.status_code} (expected {expected})"
 
     # ------------------------------------------------------------ auth
     def test_logout(self):
-        resp = self.client.get(url_for("auth.logout"))
+        resp = self._get("auth.logout")
         assert resp.status_code in (200, 302)
         # After logout, next request should redirect
-        resp = self.client.get(url_for("main.dashboard"))
+        resp = self._get("main.dashboard")
         assert resp.status_code in (302, 401, 403)
