@@ -295,43 +295,7 @@ def remove_avatar():
     return redirect(url_for("main.profile"))
 
 
-# ---- platform-owner user management (also mirrored under /admin/users)
-@bp.route("/admin/users")
-@login_required
-@roles_required("admin", "superadmin", expand_admin=False)
-def users():
-    all_users = User.query.order_by(User.created_at.desc()).all()
-    return render_template("admin/users.html", users=all_users, ROLES=ROLES)
 
-
-@bp.route("/admin/users/<int:user_id>/toggle-role", methods=["POST"])
-@login_required
-@roles_required("admin", "superadmin", expand_admin=False)
-def toggle_role(user_id):
-    user = get_or_404(User, user_id)
-    if user.id == current_user.id:
-        flash("لا يمكنك تغيير دور حسابك الخاص.", "warning")
-    else:
-        # Cycle through roles:
-        # site_engineer -> safety_officer -> procurement_officer -> qa_qc_inspector
-        # -> senior_consultant -> project_manager -> project_director -> admin -> superadmin
-        # -> site_engineer
-        role_order = ["site_engineer", "safety_officer", "procurement_officer",
-                      "qa_qc_inspector", "senior_consultant", "project_manager",
-                      "project_director", "admin", "superadmin"]
-        try:
-            idx = role_order.index(user.role)
-            user.role = role_order[(idx + 1) % len(role_order)]
-        except ValueError:
-            user.role = "site_engineer"
-        if user.role == "superadmin" and not current_user.is_superadmin:
-            user.role = "admin"
-            flash("ترقية Superadmin مقصورة على مالك المنصة.", "danger")
-        else:
-            flash(f"تم تحديث دور {user.full_name} إلى ({user.role_ar}).",
-                  "success")
-        db.session.commit()
-    return redirect(url_for("main.users"))
 
 
 # ---------------------------------------------------------------- self-service projects

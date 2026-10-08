@@ -804,7 +804,7 @@ def history(kind, obj_id):
 @bp.route("/<kind>/<int:obj_id>/approve", methods=["POST"])
 @login_required
 @permission_required("approve_reports")
-@roles_required_json("admin", "superadmin", "project_manager")
+@roles_required_json("admin", "superadmin", "project_manager", "project_director", "senior_consultant")
 def approve(kind, obj_id):
     from app.ops.versioning import apply_decision
     model, err = _resolve_kind(kind)

@@ -196,7 +196,7 @@ class User(UserMixin, db.Model):
         return self.norm_role == "superadmin"
 
     def can_manage_templates(self) -> bool:
-        return self.norm_role in {"superadmin", "admin"}
+        return self.norm_role in {"superadmin", "admin", "project_manager", "project_director"}
 
     def can_manage_users(self) -> bool:
         return self.norm_role in {"superadmin", "admin"}

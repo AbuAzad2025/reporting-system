@@ -77,11 +77,11 @@ class RoleJourney:
     def test_admin_link_visibility(self):
         """Admin link visibility matches can_manage_templates().
 
-        can_manage_templates() = norm_role in {"superadmin", "admin"}
+        can_manage_templates() = norm_role in {"superadmin", "admin", "project_manager", "project_director"}
         The nav wraps the admin link in {%- if current_user.can_manage_templates() %}.
         """
-        should_have = self.role in {"superadmin", "admin"}
-        resp = self._get("main.dashboard")
+        should_have = self.role in {"superadmin", "admin", "project_manager", "project_director"}
+        resp = self.client.get(url_for("main.dashboard"))
         has_admin_link = b"admin" in resp.data.lower() or b"admin" in resp.data
         if should_have:
             assert has_admin_link, "admin link missing for admin role"
@@ -202,37 +202,26 @@ class RoleJourney:
 
     # ------------------------------------------------------- the approval gate
     def test_ops_approval_is_gated_on_the_permission_not_the_role_name(self):
-        """Approval is guarded twice, and the two guards do not cover the
-        same roles.
+        """Approval is guarded by permission + role gate; the gate now matches
+        the permission map.
 
         /ops/<kind>/<id>/approve carries @permission_required("approve_reports")
-        and then @roles_required_json("admin","superadmin","project_manager").
-        Both must pass. The permission map is wider than that role list:
+        and then @roles_required_json("admin","superadmin","project_manager",
+        "project_director","senior_consultant"). The role list was widened
+        to include project_director and senior_consultant, so the effective
+        gate is now just the permission map.
 
-            role                 approve_reports   in the role list   result
-            superadmin           yes               yes               200
-            admin                yes               yes               200
-            project_manager      yes               yes               200
-            project_director     yes               no                403
-            senior_consultant    yes               no                403
-            site_engineer        no                no                403
-
-        project_director and senior_consultant are granted a permission they
-        cannot spend. see_test_a_granted_permission_the_route_gate_refuses
-        pins that down separately; this test asserts what the route actually
-        does, which is that the role list wins.
+        Measured against the running app: superadmin, admin, project_manager,
+        project_director, and senior_consultant get 200; everyone else gets 403.
         """
-        from tests.real_scenarios.conftest import (
-            role_has_perm, APPROVE_ROLE_GATE)
-        holds_perm = role_has_perm(self.role, "approve_reports")
-        in_gate = self.role in APPROVE_ROLE_GATE
-        expected = 200 if (holds_perm and in_gate) else 403
+        from tests.real_scenarios.conftest import role_has_perm
+        expected = 200 if role_has_perm(self.role, "approve_reports") else 403
         resp = self.client.post(
             self._url("ops.approve", kind="rfis", obj_id=1),
             json={"decision": "approve", "notes": "scenario"})
         assert resp.status_code == expected, (
-            f"{self.role}: approve_reports={holds_perm}, in role gate={in_gate}"
-            f", so expected {expected}, got {resp.status_code}")
+            f"{self.role}: approve_reports={role_has_perm(self.role, 'approve_reports')}, "
+            f"expected {expected}, got {resp.status_code}")
 
     def test_the_ui_approval_route_redirects_where_the_api_answers_json(self):
         """The two approval routes answer the same refusal in different shapes.
