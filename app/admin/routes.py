@@ -576,6 +576,36 @@ def user_role(user_id):
     return redirect(url_for("admin.users"))
 
 
+@bp.route("/users/<int:user_id>/toggle-role", methods=["POST"])
+@login_required
+@template_manager_required
+def toggle_role(user_id):
+    """Cycle a user's role through the hierarchy.
+
+    Mirrors the legacy /admin/users/<id>/toggle-role from main blueprint,
+    but guarded by template_manager_required (admin + superadmin).
+    """
+    u = get_or_404(User, user_id)
+    if u.id == current_user.id:
+        flash("لا يمكنك تغيير دور حسابك الخاص.", "warning")
+    else:
+        role_order = ["site_engineer", "safety_officer", "procurement_officer",
+                      "qa_qc_inspector", "senior_consultant", "project_manager",
+                      "project_director", "admin", "superadmin"]
+        try:
+            idx = role_order.index(u.role)
+            u.role = role_order[(idx + 1) % len(role_order)]
+        except ValueError:
+            u.role = "site_engineer"
+        if u.role == "superadmin" and not current_user.is_superadmin:
+            u.role = "admin"
+            flash("ترقية Superadmin مقصورة على مالك المنصة.", "danger")
+        else:
+            flash(f"تم تحديث دور {u.full_name} إلى ({u.role_ar}).", "success")
+        db.session.commit()
+    return redirect(url_for("admin.users"))
+
+
 @bp.route("/users/<int:user_id>/suspend", methods=["POST"])
 @login_required
 @template_manager_required
