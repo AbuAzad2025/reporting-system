@@ -81,7 +81,7 @@ class RoleJourney:
         The nav wraps the admin link in {%- if current_user.can_manage_templates() %}.
         """
         should_have = self.role in {"superadmin", "admin", "project_manager", "project_director"}
-        resp = self.client.get(url_for("main.dashboard"))
+        resp = self.client.get(self._url("main.dashboard"))
         has_admin_link = b"admin" in resp.data.lower() or b"admin" in resp.data
         if should_have:
             assert has_admin_link, "admin link missing for admin role"
