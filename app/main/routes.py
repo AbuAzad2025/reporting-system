@@ -295,9 +295,6 @@ def remove_avatar():
     return redirect(url_for("main.profile"))
 
 
-
-
-
 # ---------------------------------------------------------------- self-service projects
 # Domain rule: a real-world project is created ONCE by its project manager
 # (manage_projects); everyone else joins by invitation with role permissions.
