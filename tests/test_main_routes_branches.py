@@ -36,6 +36,11 @@ import zipfile
 import pytest
 
 from tests.conftest import login_as
+#: Alpha Tower's seeded roster. Counted rather than hard-coded, for the same
+#: reason as everywhere else the fixture's shape appears: adding a role turns
+#: every literal into a failure that reads like a product bug.
+ALPHA_MEMBERS = {"t_eng", "t_safety", "t_pm", "t_pd", "t_qc", "t_consult",
+                 "t_procure"}
 
 
 # =============================================================== helpers
@@ -563,7 +568,8 @@ def test_backup_import_of_an_incompatible_version_fails_closed(
     assert "Backup version mismatch" in text
     assert "فشل الاستعادة" not in text
     with app.app_context():
-        assert ProjectMember.query.filter_by(project_id=pid).count() == 3
+        assert (ProjectMember.query.filter_by(project_id=pid).count()
+                == len(ALPHA_MEMBERS))
         assert SiteInspection.query.filter_by(
             project_id=pid, serial="SIR-000001").count() == 1
         assert Project.query.filter_by(name="Alpha Tower").one().location \
@@ -601,7 +607,8 @@ def test_backup_import_that_fails_mid_restore_rolls_everything_back(
     assert "فشل الاستعادة. تأكد من سلامة الملف وأعد المحاولة." in text
     assert "تم استعادة المشروع" not in text
     with app.app_context():
-        assert ProjectMember.query.filter_by(project_id=pid).count() == 3
+        assert (ProjectMember.query.filter_by(project_id=pid).count()
+                == len(ALPHA_MEMBERS))
         inspection = SiteInspection.query.filter_by(
             project_id=pid, serial="SIR-000001").one()
         assert inspection.test_type == "cube 7d"      # the purged row is back
