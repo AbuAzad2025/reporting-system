@@ -48,6 +48,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import inspect
 
+from tests.conftest import _SEEDED_USERNAMES
+
 
 #: The default dynamic-template catalogue `flask seed` must materialise.
 EXPECTED_TEMPLATE_KEYS = [
@@ -277,7 +279,7 @@ class TestSeedCommand:
         from app.models import User
         runner = app.test_cli_runner()
         with app.app_context():
-            assert User.query.count() == 6      # conftest tiered users only
+            assert User.query.count() == len(_SEEDED_USERNAMES)  # fixture tier
             for username in SEED_ACCOUNTS:
                 assert User.query.filter_by(username=username).first() is None
 
@@ -288,7 +290,8 @@ class TestSeedCommand:
             "Seeded: owner/owner123, admin/admin123, "
             "engineer/site123, safety/safe123")
         with app.app_context():
-            assert User.query.count() == 10                 # 6 + 4 seeded
+            assert (User.query.count()
+                    == len(_SEEDED_USERNAMES) + len(SEED_ACCOUNTS))
             for username, (email, full, role, _pw) in SEED_ACCOUNTS.items():
                 user = User.query.filter_by(username=username).one()
                 assert user.email == email

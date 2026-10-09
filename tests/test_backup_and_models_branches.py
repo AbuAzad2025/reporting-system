@@ -53,11 +53,22 @@ from app.services.backup import (BACKUP_VERSION, OPS_MODELS, _json_default,
                                   backup_size, build_backup, export_to_file,
                                   export_to_stream, import_from_file,
                                   restore_backup, validate_backup)
-from tests.conftest import login_as
+from tests.conftest import login_as, _SEEDED_USERNAMES
 
 ALPHA = "Alpha Tower"
 BETA = "Beta Hospital"
-SEEDED_USERS = {"t_owner", "t_admin", "t_pm", "t_eng", "t_eng2", "t_safety"}
+#: The seeded accounts. Read from the fixture's own table rather than
+#: restated here: when a role is seeded this list has to follow, and a
+#: hand-copied set is how four new roles turned six count assertions red
+#: without anybody noticing which number was the stale one.
+SEEDED_USERS = set(_SEEDED_USERNAMES)
+
+#: Accounts seeded as members of Alpha Tower, by name. Same reasoning.
+ALPHA_MEMBERS = {"t_eng", "t_safety", "t_pm", "t_pd", "t_qc", "t_consult",
+                 "t_procure"}
+
+#: Every seeded ProjectMember row across both projects.
+PLATFORM_MEMBERS = len(ALPHA_MEMBERS) + 1  # + the Beta engineer
 
 
 # --------------------------------------------------------------------- utils
@@ -140,14 +151,14 @@ def test_model_to_dict_reads_a_live_row_and_keeps_nulls(app):
 def test_query_all_without_a_project_filter_returns_every_row(app):
     with app.app_context():
         users = _query_all(User)
-        assert len(users) == 6
+        assert len(users) == len(SEEDED_USERS)
         assert {u["username"] for u in users} == SEEDED_USERS
 
         alpha = _project(ALPHA)
         members = _query_all(ProjectMember, project_id=alpha.id)
-        assert len(members) == 3
+        assert len(members) == len(ALPHA_MEMBERS)
         assert {m["user_id"] for m in members} == {
-            _user("t_eng").id, _user("t_safety").id, _user("t_pm").id}
+            _user(name).id for name in ALPHA_MEMBERS}
         assert {m["project_id"] for m in members} == {alpha.id}
         assert {m["role_in_project"] for m in members} == {"member", "owner"}
         assert {m["id"] for m in members} == {
@@ -188,7 +199,7 @@ def test_query_all_scopes_a_model_that_only_has_a_project_relationship(app):
 
 def test_query_all_skips_a_model_outside_the_tenant_schema(app):
     with app.app_context():
-        assert len(_query_all(User)) == 6
+        assert len(_query_all(User)) == len(SEEDED_USERS)
         # User is platform-scoped: it has neither project_id nor project, so a
         # project filter can never match and yields no rows at all.
         assert _query_all(User, project_id=_project(ALPHA).id) == []
@@ -267,8 +278,8 @@ def test_platform_restore_remaps_user_foreign_keys_onto_restored_ids(app):
 
         restored = _user("t_eng")
         assert restored.id != old_eng_id, "ids must differ to prove the remap"
-        assert counts["users"] == 6
-        assert User.query.count() == 6
+        assert counts["users"] == len(SEEDED_USERS)
+        assert User.query.count() == len(SEEDED_USERS)
         assert restored.check_password("pw12345") is True
 
         # No restored row still points at the pre-restore user id.
@@ -316,7 +327,7 @@ def test_project_scope_restore_reinserts_submissions_and_attachments(app):
         assert counts["report_submissions"] == 1
         assert counts["attachments"] == 1
         assert counts["site_inspections"] == 1
-        assert counts["project_members"] == 3
+        assert counts["project_members"] == len(ALPHA_MEMBERS)
 
         back = ReportSubmission.query.one()
         assert back.project_id == alpha.id
@@ -506,14 +517,14 @@ def test_export_to_stream_round_trips_through_restore(app):
 
         counts = restore_backup(data)
 
-        assert counts["users"] == 6
+        assert counts["users"] == len(SEEDED_USERS)
         assert counts["projects"] == 2
-        assert counts["project_members"] == 4
+        assert counts["project_members"] == PLATFORM_MEMBERS
         assert counts["report_submissions"] == 1
         assert counts["site_inspections"] == 1
         assert counts["cost_variances"] == 2
         assert counts["attachments"] == 0
-        assert User.query.count() == 6
+        assert User.query.count() == len(SEEDED_USERS)
         assert Project.query.count() == 2
         back = ReportSubmission.query.one()
         assert back.data == answers
@@ -552,7 +563,7 @@ def test_export_to_file_and_import_from_file_round_trip(app, tmp_path):
         assert ReportSubmission.query.count() == 0
 
         counts = import_from_file(path)
-        assert counts["users"] == 6
+        assert counts["users"] == len(SEEDED_USERS)
         assert counts["report_submissions"] == 1
         assert ReportSubmission.query.one().data == answers
 
@@ -568,7 +579,7 @@ def test_export_to_file_and_import_from_file_round_trip(app, tmp_path):
 
         scoped_counts = import_from_file(alpha_path, project_id=alpha.id)
         assert scoped_counts["site_inspections"] == 1
-        assert scoped_counts["project_members"] == 3
+        assert scoped_counts["project_members"] == len(ALPHA_MEMBERS)
         assert scoped_counts["report_submissions"] == 1
         restored = SiteInspection.query.filter_by(serial="SIR-000001").one()
         assert restored.project_id == alpha.id

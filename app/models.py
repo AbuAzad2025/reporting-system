@@ -196,7 +196,18 @@ class User(UserMixin, db.Model):
         return self.norm_role == "superadmin"
 
     def can_manage_templates(self) -> bool:
-        return self.norm_role in {"superadmin", "admin", "project_manager", "project_director"}
+        return self.norm_role in {"superadmin", "admin"}
+
+    def can_customise_templates(self) -> bool:
+        """May this user reach a company's report-form customisation?
+
+        ``admin_required`` on /admin/companies/<id>/templates/<key> is
+        roles_required("admin", "superadmin", "project_manager"), so a project
+        manager has exactly one admin page and it is this one. They were locked
+        out of it in practice: the nav link is gated on can_manage_templates(),
+        which is narrower, so the page existed and was unreachable.
+        """
+        return self.norm_role in {"superadmin", "admin", "project_manager"}
 
     def can_manage_users(self) -> bool:
         return self.norm_role in {"superadmin", "admin"}

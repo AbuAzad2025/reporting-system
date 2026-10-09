@@ -48,6 +48,13 @@ import pytest
 
 from tests.conftest import login_as
 
+#: Alpha Tower's seeded roster. Read rather than counted, because the count
+#: describes the fixture and the fixture grows: four roles were added to
+#: conftest and every hard-coded 3 here went red without saying why.
+from tests.conftest import _SEEDED_USERNAMES
+ALPHA_MEMBERS = {"t_eng", "t_safety", "t_pm", "t_pd", "t_qc", "t_consult",
+                 "t_procure"}
+
 #: Secret planted in the isolated app config AND in a raised exception; the
 #: branded error pages must never echo it back to the client.
 SECRET_CANARY = "isolated-secret-canary-4f2b91"
@@ -1216,10 +1223,13 @@ class TestMainProjectBackup:
             assert meta["project_id"] == pid
             assert meta["version"] == "1.0"
             members = json.loads(z.read("project_members.json"))
-            assert len(members) == 3               # Alpha Tower roster
-            assert sorted(m["project_id"] for m in members) == [pid] * 3
-            assert sorted(m["role_in_project"] for m in members) == [
-                "member", "member", "owner"]
+            assert len(members) == len(ALPHA_MEMBERS)
+            assert (sorted(m["project_id"] for m in members)
+                    == [pid] * len(ALPHA_MEMBERS))
+            # one owner (the project manager), the rest members. Sorted, so
+            # "member" precedes "owner" alphabetically.
+            assert sorted(m["role_in_project"] for m in members) == (
+                ["member"] * (len(ALPHA_MEMBERS) - 1) + ["owner"])
             inspections = json.loads(
                 z.read("ops_records/site_inspections.json"))
             assert [row["serial"] for row in inspections] == ["SIR-000001"]
@@ -1314,7 +1324,7 @@ class TestMainProjectBackup:
                 "variances": CostVariance.query.filter_by(
                     project_id=pid).count(),
             }
-        assert before["members"] == 3
+        assert before["members"] == len(ALPHA_MEMBERS)
         assert before["inspections"] == 1
 
         r = backup_client.post(f"/projects/{pid}/backup/import", data={
@@ -1325,7 +1335,8 @@ class TestMainProjectBackup:
         assert "فشل الاستعادة" not in page
 
         with app.app_context():
-            assert ProjectMember.query.filter_by(project_id=pid).count() == 3
+            assert (ProjectMember.query.filter_by(project_id=pid).count()
+                    == len(ALPHA_MEMBERS))
             inspection = SiteInspection.query.filter_by(
                 project_id=pid, serial="SIR-000001").one()
             assert isinstance(inspection.created_at, date)
@@ -1359,7 +1370,8 @@ class TestMainProjectBackup:
         page = backup_client.get(f"/projects/{pid}").get_data(as_text=True)
         assert "تم استعادة المشروع «Alpha Tower»" in page
         with app.app_context():
-            assert ProjectMember.query.filter_by(project_id=pid).count() == 3
+            assert (ProjectMember.query.filter_by(project_id=pid).count()
+                    == len(ALPHA_MEMBERS))
             assert RFI.query.filter_by(project_id=pid).count() == 1
             assert RFI.query.filter_by(serial="RFI-STALE-0001").count() == 0
 

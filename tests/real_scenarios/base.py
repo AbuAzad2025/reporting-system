@@ -77,10 +77,10 @@ class RoleJourney:
     def test_admin_link_visibility(self):
         """Admin link visibility matches can_manage_templates().
 
-        can_manage_templates() = norm_role in {"superadmin", "admin", "project_manager", "project_director"}
-        The nav wraps the admin link in {%- if current_user.can_manage_templates() %}.
+        can_customise_templates() = norm_role in {"superadmin", "admin", "project_manager"}
+        The nav wraps the admin link in can_customise_templates().
         """
-        should_have = self.role in {"superadmin", "admin", "project_manager", "project_director"}
+        should_have = self.role in {"superadmin", "admin", "project_manager"}
         resp = self.client.get(self._url("main.dashboard"))
         has_admin_link = b"admin" in resp.data.lower() or b"admin" in resp.data
         if should_have:

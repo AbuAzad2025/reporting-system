@@ -20,7 +20,7 @@
       {% with icon = item.icon %}{% include "_icon.html" %}{% endwith %}<span>{{ item.label }}</span>
     </a>
   {%- endfor %}
-  {%- if current_user.can_manage_templates() %}
+  {%- if current_user.can_customise_templates() %}
     <a href="{{ url_for('admin.dashboard') }}" class="app-nav-link app-nav-link-admin">إدارة النظام</a>
   {%- endif %}
 {%- endmacro %}

@@ -74,6 +74,12 @@ class TestConfig(Config):
 #:   python -m pytest -n0
 #: Default (unset) stays on isolated per-test SQLite files. PG mode rebuilds
 #: the shared test schema per test, so it must run single-worker (-n0).
+#: Every account the app fixture seeds, in creation order. Tests that assert on
+#: the seeded set read this instead of copying the names, so adding a role
+#: updates one place and the count assertions keep their meaning.
+_SEEDED_USERNAMES = ("t_owner", "t_admin", "t_pm", "t_pd", "t_qc", "t_consult",
+                     "t_procure", "t_eng", "t_eng2", "t_safety")
+
 PG_TEST_URL = os.environ.get("TEST_DATABASE_URL", "").strip()
 
 

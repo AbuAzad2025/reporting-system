@@ -22,7 +22,7 @@ from app.extensions import db
 from app.models import Project, User
 from app.services import storage
 from app.services.backup import BACKUP_VERSION, validate_backup
-from tests.conftest import login_as
+from tests.conftest import login_as, _SEEDED_USERNAMES
 
 BACKUP_INDEX = "/admin/backup"
 
@@ -357,7 +357,7 @@ class TestBackupImport:
         assert flashes == [("danger", "فشل الاستعادة. تأكد من سلامة الملف "
                                      "وأعد المحاولة.")]
         with app.app_context():
-            assert User.query.count() == len(FULL_NAMES)
+            assert User.query.count() == len(_SEEDED_USERNAMES)
             assert Project.query.count() == 2
 
 
@@ -682,26 +682,37 @@ class TestUserManagement:
         assert "مفتش جودة / QC" in body          # ROLES labels are rendered
         assert body.count("(حسابك)") == 1          # t_admin is the signed-in user
 
-    def test_shadowed_admin_user_index_view_renders(self, app):
-        """`admin.users` is unreachable over HTTP: `main.users` registers the
-        same /admin/users rule first, so the admin view is called directly."""
-        from flask_login import login_user
-        from app.admin import routes as admin_routes
+    def test_the_user_index_has_one_route_and_really_serves_it(self, app, client):
+        """The user index is registered once and is the view that answers.
 
+        It used to be registered twice: app/main/routes.py declared
+        /admin/users with roles_required("admin", "superadmin") and, being
+        imported first, won the match - so admin.users was dead code that
+        looked reachable in the codebase and was not reachable over HTTP. The
+        duplicate is gone; this asserts the single route is the one that serves,
+        rather than that a shadow exists.
+
+        It also asserts the page is reached over HTTP, not by calling the view
+        function directly, which is the step the old test skipped and the
+        reason the shadowing went unnoticed."""
         endpoints = {rule.endpoint for rule in app.url_map.iter_rules()
                      if rule.rule == "/admin/users"}
-        assert endpoints == {"main.users", "admin.users"}
-        assert app.url_map.bind("localhost").match(
-            "/admin/users", method="GET")[0] == "main.users"
+        assert endpoints == {"admin.users"}, (
+            f"/admin/users is registered {len(endpoints)} times: "
+            f"{sorted(endpoints)}. A second registration shadows the first "
+            f"and whichever loses is unreachable over HTTP.")
 
-        with app.test_request_context("/admin/users"):
-            admin_user = User.query.filter_by(username="t_admin").one()
-            login_user(admin_user)
-            body = admin_routes.users()
-        for username, full in FULL_NAMES.items():
-            assert username in body
-            assert full in body
-        assert "مفتش جودة / QC" in body
+        assert app.url_map.bind("localhost").match(
+            "/admin/users", method="GET")[0] == "admin.users"
+
+        login_as(client, "t_admin")
+        resp = client.get("/admin/users")
+        assert resp.status_code == 200, f"got {resp.status_code}"
+        body = resp.get_data(as_text=True)
+        for username in FULL_NAMES:
+            assert username in body, f"{username} is missing from the user index"
+        assert "مفتش جودة / QC" in body, (
+            "the page must render from the ROLES table, not a stale copy")
         assert body.count("(حسابك)") == 1
 
     def test_invalid_role_flashes_danger(self, client, app):

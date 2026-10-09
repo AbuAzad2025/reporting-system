@@ -14,6 +14,11 @@ from app.services import backup as backup_service
 from app.services.backup import (BACKUP_VERSION, build_backup,
                                   restore_backup, validate_backup)
 
+#: Alpha Tower's seeded roster. Counted rather than hard-coded: four roles were
+#: added to the fixture and this assertion described the old fixture.
+ALPHA_MEMBERS = {"t_eng", "t_safety", "t_pm", "t_pd", "t_qc", "t_consult",
+                 "t_procure"}
+
 
 def _archive(payloads, version=BACKUP_VERSION, scope="project",
              project_id=1):
@@ -278,4 +283,4 @@ class TestValidation:
             assert report["ok"] is True
             counts = restore_backup(data, project_id=alpha.id, replace=True)
             assert counts["site_inspections"] == 1
-            assert counts["project_members"] == 3
+            assert counts["project_members"] == len(ALPHA_MEMBERS)
